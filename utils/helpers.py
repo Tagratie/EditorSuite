@@ -86,7 +86,7 @@ def back_to_menu() -> None:
     print()
     print(f"  {D}{'─' * 52}{r}")
     print(f"  {G}Enter{r}  {D}→{r}  back to category    "
-          f"{C}b{r}  {D}→{r}  Home    "
+          f"{C}Esc{r}  {D}→{r}  Home    "
           f"{C}q{r}  {D}→{r}  quit")
     print()
     try:
@@ -96,7 +96,7 @@ def back_to_menu() -> None:
 
     if choice == "q":
         raise Quit()
-    elif choice in ("b", "back"):
+    elif choice in ("b", "back", "esc", "escape", "\x1b"):
         raise BackToMain()
     else:
         raise BackToCategory()

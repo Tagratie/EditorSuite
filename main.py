@@ -2,12 +2,15 @@
 main.py — EditorSuite entry point
 Run with:  python main.py
 
-Navigation:  Main → category (1-6) → tool (1-5)
-             Enter = stay in category  |  b = Home  |  q = quit
+Navigation:
+  Main screen  →  1-4 to pick category  |  S = Settings  |  Esc = quit
+  Submenu      →  1-N to pick tool       |  Esc = back to Home
+  After tool   →  Enter = stay in category  |  b/Esc = Home  |  q = quit
 """
 
 import sys
 import os
+import subprocess
 import traceback
 import time
 
@@ -21,7 +24,7 @@ except Exception:
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 try:
-    from utils.config import load_config, get_my_username, set_my_username
+    from utils.config import load_config, save_config, get_my_username, set_my_username
     from utils.dirs   import _init_dirs
     from ui.theme     import _apply_theme, CYAN, BOLD, DIM, YELLOW, RED, GREEN, R
 
@@ -39,7 +42,37 @@ try:
     from utils.updater import check_and_update
     check_and_update()
 except Exception:
-    pass   # updater errors never crash the app
+    pass
+
+# ── First-run: install Playwright Chromium if missing ─────────────────────────
+def _ensure_playwright() -> None:
+    cfg = load_config()
+    if cfg.get("playwright_ready"):
+        return
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            b.close()
+        cfg["playwright_ready"] = True
+        save_config(cfg)
+        return
+    except Exception:
+        pass
+    os.system("cls" if os.name == "nt" else "clear")
+    print(f"\n  {CYAN}{BOLD}First-time setup{R}")
+    print(f"  {DIM}Installing Chromium (~170 MB) — only happens once.{R}\n")
+    ret = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+    if ret.returncode == 0:
+        print(f"\n  {GREEN}[+]{R} Chromium ready.\n")
+        cfg["playwright_ready"] = True
+        save_config(cfg)
+        time.sleep(1)
+    else:
+        print(f"\n  {YELLOW}[!]{R} Chromium install failed — scraper tools won't work.\n")
+        time.sleep(3)
+
+_ensure_playwright()
 
 # ── Tool imports ──────────────────────────────────────────────────────────────
 try:
@@ -49,21 +82,16 @@ try:
     from tools.best_posting_time import tool_bptf
     from tools.spotify           import tool_ets
     from tools.compressor        import tool_compress, tool_bulkcompress
-    from tools.downloader        import tool_dlvideo, tool_downloader
+    from tools.downloader        import tool_dlvideo, tool_profile_playlist
     from tools.cross_hashtag     import tool_crosshash
     from tools.viral_finder      import tool_viral
     from tools.calendar          import tool_calendar
-    from tools.audio_tools       import tool_audioextract, tool_speed
-    from tools.hashtag_suggester import tool_hashsugg
+    from tools.audio_tools       import tool_audioextract
     from tools.engagement        import tool_engagerate
     from tools.niche_report      import tool_nichereport
     from tools.bg_remover        import tool_bgremove
     from tools.growth_tracker    import tool_growthtrack
-    from tools.content_planner   import tool_caption_writer, tool_content_ideas
-    from tools.music_downloader  import tool_music_dl, tool_playlist_dl
-    from tools.video_trimmer     import tool_trimmer
-    from tools.captions          import tool_captions
-    from tools.creator_tools     import tool_merge, tool_thumbnail, tool_bulkrename
+    from tools.music_downloader  import tool_music_dl
     from tools.trending          import tool_trending
     from ui.settings             import tool_settings
 except Exception as e:
@@ -75,61 +103,69 @@ except Exception as e:
 from utils.helpers import show_banner, BackToCategory, BackToMain, Quit, clear_screen
 from ui.menu       import build_menu, build_category, CATEGORIES
 
+_ESC = "__esc__"   # sentinel returned by _input() when Escape is pressed
+
 # ── Tool registry ─────────────────────────────────────────────────────────────
 TOOLS = {
-    # 1 — SCRAPERS
+    # 1 — SCRAPERS (6)
     (1, 1): tool_scraper,
     (1, 2): tool_caption,       # Hashtag Frequency
     (1, 3): tool_crosshash,
     (1, 4): tool_viral,
-    (1, 5): tool_hashsugg,
+    (1, 5): tool_trending,
+    (1, 6): tool_ets,
 
-    # 2 — ANALYZERS
+    # 2 — ANALYTICS (6)
     (2, 1): tool_hpa,
     (2, 2): tool_ct,
     (2, 3): tool_bptf,
     (2, 4): tool_engagerate,
     (2, 5): tool_nichereport,
+    (2, 6): tool_growthtrack,
 
-    # 3 — PLANNERS
-    (3, 1): tool_ets,
-    (3, 2): tool_calendar,
-    (3, 3): tool_growthtrack,
-    (3, 4): tool_caption_writer,
-    (3, 5): tool_content_ideas,
+    # 3 — DOWNLOADERS (4)
+    (3, 1): tool_dlvideo,
+    (3, 2): tool_profile_playlist,
+    (3, 3): tool_music_dl,
+    (3, 4): tool_audioextract,
 
-    # 4 — DOWNLOADERS
-    (4, 1): tool_dlvideo,
-    (4, 2): tool_downloader,
-    (4, 3): tool_playlist_dl,
-    (4, 4): tool_music_dl,
-    (4, 5): tool_audioextract,
-
-    # 5 — VIDEO TOOLS
-    (5, 1): tool_compress,
-    (5, 2): tool_speed,
-    (5, 3): tool_bgremove,
-    (5, 4): tool_bulkcompress,
-    (5, 5): tool_trimmer,
-
-    # 6 — CREATOR TOOLS
-    (6, 1): tool_captions,
-    (6, 2): tool_merge,
-    (6, 3): tool_thumbnail,
-    (6, 4): tool_bulkrename,
-    (6, 5): tool_trending,
+    # 4 — STUDIO (4)
+    (4, 1): tool_compress,
+    (4, 2): tool_bulkcompress,
+    (4, 3): tool_bgremove,
+    (4, 4): tool_calendar,
 }
 
-_N_CATS = len(CATEGORIES)   # 6
+_N_CATS = len(CATEGORIES)   # 4
 
 
-# ── Input ─────────────────────────────────────────────────────────────────────
+# ── Input — Escape-aware ──────────────────────────────────────────────────────
 def _input(prompt_str: str = "  > ") -> str:
+    """
+    Returns the stripped lowercase input, or __esc__ if Escape was pressed.
+    Uses prompt_toolkit when available for Escape detection.
+    Falls back to plain input() — Escape won't be caught but app still works.
+    """
     try:
         from prompt_toolkit import prompt as pt_prompt
+        from prompt_toolkit.keys import Keys
+        from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.styles import Style
+
+        kb = KeyBindings()
+        _escaped = [False]
+
+        @kb.add(Keys.Escape)
+        def _esc(event):
+            _escaped[0] = True
+            event.app.current_buffer.text = _ESC
+            event.app.exit(result=_ESC)
+
         style = Style.from_dict({"": "#ffffff"})
-        return pt_prompt(prompt_str, style=style).strip().lower()
+        result = pt_prompt(prompt_str, key_bindings=kb, style=style)
+        if _escaped[0] or result == _ESC:
+            return _ESC
+        return result.strip().lower()
     except Exception:
         return input(prompt_str).strip().lower()
 
@@ -170,46 +206,52 @@ def main():
         u = input(f"  {CYAN}>{R} TikTok username (no @): ").strip().lstrip("@")
         if u:
             set_my_username(u)
-            print(f"\n  {GREEN}[v]{R} Saved as @{u}")
+            print(f"\n  {GREEN}[+]{R} Saved as @{u}")
             time.sleep(0.8)
 
     while True:
-        # ── Step 1: pick a category ───────────────────────────────────────────
+        # ── Main screen ───────────────────────────────────────────────────────
         show_banner()
         print(build_menu())
         cat_raw = _input()
         print()
 
-        if cat_raw in ("q", "quit", "exit"):
+        if cat_raw == _ESC:
+            # Esc on home screen = quit
             if load_config().get("confirm_on_exit"):
                 if input(f"  Quit? [y/N]: ").strip().lower() != "y":
                     continue
             print(f"  {DIM}Goodbye.{R}\n")
             break
 
+        if cat_raw in ("q", "quit", "exit"):
+            print(f"  {DIM}Goodbye.{R}\n")
+            break
+
         if cat_raw == "s":
             try:
                 tool_settings()
-            except (BackToCategory, BackToMain):
+            except (BackToCategory, BackToMain, Quit):
                 pass
-            except Quit:
-                break
             except KeyboardInterrupt:
                 pass
             continue
 
         if not (cat_raw.isdigit() and 1 <= int(cat_raw) <= _N_CATS):
-            print(f"  {RED}Pick a category 1-{_N_CATS}, S for Settings, or q to quit.{R}")
+            print(f"  {RED}Pick 1-{_N_CATS}, S for Settings, or Esc to quit.{R}")
             time.sleep(1.2)
             continue
 
         cat_idx = int(cat_raw)
 
-        # ── Step 2: pick a tool ───────────────────────────────────────────────
+        # ── Submenu ───────────────────────────────────────────────────────────
         while True:
             _show_submenu(cat_idx)
             tool_raw = _input()
             print()
+
+            if tool_raw == _ESC:
+                break   # Esc = back to home
 
             if tool_raw in ("b", "back"):
                 break
@@ -218,8 +260,9 @@ def main():
                 print(f"  {DIM}Goodbye.{R}\n")
                 return
 
-            if not (tool_raw.isdigit() and 1 <= int(tool_raw) <= 5):
-                print(f"  {RED}Pick 1-5, or b for Home.{R}")
+            cat_size = len(CATEGORIES[cat_idx - 1][1])
+            if not (tool_raw.isdigit() and 1 <= int(tool_raw) <= cat_size):
+                print(f"  {RED}Pick 1-{cat_size}, or Esc for Home.{R}")
                 time.sleep(1.0)
                 continue
 
@@ -227,9 +270,9 @@ def main():
             try:
                 _run_tool(cat_idx, tool_idx)
             except BackToCategory:
-                pass        # redraw submenu
+                pass
             except BackToMain:
-                break       # back to category screen
+                break
             except Quit:
                 print(f"  {DIM}Goodbye.{R}\n")
                 return
