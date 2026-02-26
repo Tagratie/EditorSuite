@@ -13,6 +13,7 @@ Public API:
 """
 from __future__ import annotations
 import os
+import sys
 from datetime import datetime
 
 
@@ -90,8 +91,9 @@ def _base(title: str, meta: list[str], body: str) -> str:
 
 
 def _bar_chart(canvas_id: str, labels: list, values: list, color: str = "#00fff5") -> str:
-    lbl_js  = str(labels[:20])
-    val_js  = str(values[:20])
+    import json
+    lbl_js  = json.dumps([str(l) for l in labels[:20]])
+    val_js  = json.dumps([v for v in values[:20]])
     return f"""
 <div class="chart-wrap">
 <canvas id="{canvas_id}"></canvas>
@@ -118,7 +120,7 @@ new Chart(document.getElementById('{canvas_id}'), {{
 
 
 def _rank_icon(i: int) -> str:
-    return ["", "🥇", "🥈", "🥉"].get(i, "") if i <= 3 else ""
+    return {1: "&#x1F947;", 2: "&#x1F948;", 3: "&#x1F949;"}.get(i, "") if i <= 3 else ""
 
 
 # ── Public report builders ────────────────────────────────────────────────────
@@ -292,14 +294,94 @@ def _ts() -> str:
 
 
 def _write(folder: str, filename: str, html: str) -> str:
-    os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, filename)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(html)
-    return path
+    """Write HTML to disk. Falls back to Desktop if primary path fails."""
+    # Try primary path
+    for attempt_dir in [folder, os.path.join(os.path.expanduser("~"), "Desktop")]:
+        try:
+            os.makedirs(attempt_dir, exist_ok=True)
+            path = os.path.join(attempt_dir, filename)
+            with open(path, "w", encoding="utf-8", errors="replace") as f:
+                f.write(html)
+            if attempt_dir != folder:
+                print(f"  [!] Primary save path failed — saved to Desktop instead")
+            return path
+        except Exception as e:
+            print(f"  [!] Could not save to {attempt_dir}: {e}")
+    return ""
 
 
 def open_report(path: str) -> None:
-    """Open the HTML report in the default browser."""
-    import webbrowser
-    webbrowser.open(f"file:///{path.replace(os.sep, '/')}")
+    """Open HTML report in default browser. Uses os.startfile on Windows (most reliable)."""
+    if not path:
+        return
+    if not os.path.exists(path):
+        print(f"  [!] Report file not found: {path}")
+        return
+    print(f"  [i] Report saved: {path}")
+    try:
+        if os.name == "nt":
+            # os.startfile is the correct Windows API — webbrowser is unreliable
+            os.startfile(path)
+        elif sys.platform == "darwin":
+            import subprocess
+            subprocess.Popen(["open", path])
+        else:
+            import subprocess
+            subprocess.Popen(["xdg-open", path])
+    except Exception as e:
+        print(f"  [!] Could not auto-open browser: {e}")
+        print(f"  [i] Open manually: {path}")
+
+
+def _save_and_open(save_fn, *args, label: str = "Report") -> None:
+    """
+    Call save_fn(*args), print the path, and open in browser.
+    Shows full traceback if save fails instead of silently doing nothing.
+    Tries multiple open methods on Windows for maximum compatibility.
+    """
+    import traceback
+    import subprocess
+
+    # Save
+    try:
+        path = save_fn(*args)
+    except Exception:
+        print("\n  [!] HTML report generation failed:")
+        traceback.print_exc()
+        return
+
+    if not path or not os.path.exists(path):
+        print("  [!] HTML file was not written — check disk permissions.")
+        return
+
+    sz = os.path.getsize(path) / 1024
+    print(f"  [+] {label} saved ({sz:.0f} KB):")
+    print(f"      {path}")
+
+    # Open — try every method until one works
+    if os.name == "nt":
+        methods = [
+            ("os.startfile",   lambda: os.startfile(path)),
+            ("explorer",       lambda: subprocess.Popen(["explorer", path])),
+            ("cmd start",      lambda: subprocess.Popen(
+                                   f'start "" "{path}"', shell=True)),
+        ]
+        for name, fn in methods:
+            try:
+                fn()
+                return   # success
+            except Exception as e:
+                pass
+        # All failed — just show the path
+        print(f"  [!] Could not auto-open. Open the file above manually.")
+    else:
+        try:
+            from pathlib import Path
+            import webbrowser
+            webbrowser.open(Path(path).resolve().as_uri())
+        except Exception:
+            try:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.Popen([opener, path])
+            except Exception as e:
+                print(f"  [!] Could not open: {e}\n  Open manually: {path}")

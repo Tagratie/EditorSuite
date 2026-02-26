@@ -7,7 +7,9 @@ import asyncio
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, err, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.validator import validate_videos
+from utils.html_report import save_viral_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 
@@ -71,6 +73,9 @@ def tool_viral():
     top_n   = int(prompt("Show top N videos", "20") or "20")
     print()
     videos = asyncio.run(_scrape_viral(hashtag, target))
+    valid, msg = validate_videos(len(videos), videos)
+    if not valid:
+        warn(msg)
     if not videos:
         err("No videos found."); back_to_menu(); return
 
@@ -101,4 +106,6 @@ def tool_viral():
         lines.append("")
     save(_dirs.DIR_VIRAL, f"viral_{hashtag}_{date}.txt", lines)
     print(); saved_in(_dirs.DIR_VIRAL)
+    _save_and_open(save_viral_report, hashtag, videos, _dirs.DIR_VIRAL,
+                   label="Viral Report")
     back_to_menu()

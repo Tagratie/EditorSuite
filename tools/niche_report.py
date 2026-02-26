@@ -9,7 +9,9 @@ from collections import Counter
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, divider, prompt, save, saved_in, back_to_menu
+from utils.helpers import ok, info, warn, divider, prompt, save, saved_in, back_to_menu
+from utils.validator import validate_sounds, validate_videos
+from utils.html_report import save_niche_report, _save_and_open
 from utils import dirs as _dirs
 from tools.audio_scraper import scrape_sounds
 from tools.viral_finder import _scrape_viral
@@ -41,6 +43,12 @@ def tool_nichereport():
         for tag in re.findall(r"#(\w+)", cap.lower()):
             tag_count[tag] += 1
     ok(f"Analyzed {len(captions)} captions")
+
+    # Validate results
+    v_ok, v_msg = validate_sounds(scanned, kept)
+    if not v_ok: warn(v_msg)
+    vv_ok, vv_msg = validate_videos(scanned, viral)
+    if not vv_ok: warn(vv_msg)
     print()
 
     avg_views = sum(v["views"] for v in viral) // max(len(viral), 1)
@@ -78,4 +86,7 @@ def tool_nichereport():
 
     save(_dirs.DIR_ANALYSIS, f"niche_{hashtag}_{date}.txt", lines)
     print(); saved_in(_dirs.DIR_ANALYSIS)
+    _save_and_open(save_niche_report,
+                   hashtag, kept, tag_count.most_common(25), viral, scanned,
+                   _dirs.DIR_ANALYSIS, label="Niche Report")
     back_to_menu()

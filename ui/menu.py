@@ -24,6 +24,7 @@ CATEGORIES = [
         ("Engagement Calculator",    "ER rate benchmarked against TikTok averages"),
         ("Niche Report",             "Full audit: sounds + hashtags + viral"),
         ("Growth Tracker",           "Snapshot & chart follower growth over time"),
+        ("Account Health",           "Full dashboard: views trend, ER, posting habits"),
     ]),
     ("DOWNLOADERS", [
         ("TikTok / YouTube DL",             "Single video — best quality, MP4 output"),

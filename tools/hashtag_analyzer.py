@@ -9,7 +9,8 @@ from collections import Counter, defaultdict
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.html_report import save_hashtag_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 
@@ -177,4 +178,6 @@ def tool_hpa():
                      f"top3avg:{d['top3avg']:>10,}  videos:{d['videos']}")
     save(_dirs.DIR_ANALYSIS, f"hpa_{date}.txt", lines)
     print(); saved_in(_dirs.DIR_ANALYSIS)
+    _save_and_open(save_hashtag_report, tags, results, _dirs.DIR_ANALYSIS,
+                   label="Hashtag Report")
     back_to_menu()

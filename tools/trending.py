@@ -14,6 +14,7 @@ from utils.helpers import ok, info, err, warn, divider, save, saved_in, prompt, 
 from utils import dirs as _dirs
 from utils.validator import validate_sounds, validate_videos
 from core.browser import new_browser
+from core.filters import check_garbage, is_funk
 
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
@@ -94,18 +95,22 @@ async def _scrape_trending(target: int) -> tuple[list, list]:
 
     clear_line()
 
-    # Build sorted sound list
+    # Build sorted sound list — apply same garbage filter as audio_scraper
     top_sounds = []
+    removed_sounds = []
     for mid, count in sounds_counter.most_common():
-        meta = sound_meta.get(mid, {})
-        top_sounds.append({
-            "title":  meta.get("title", "Unknown"),
-            "author": meta.get("author", ""),
-            "count":  count,
-        })
+        meta   = sound_meta.get(mid, {})
+        title  = meta.get("title", "Unknown")
+        author = meta.get("author", "")
+        reason = check_garbage(title, author)
+        entry  = {"title": title, "author": author, "count": count, "funk": is_funk(title)}
+        if reason:
+            removed_sounds.append(entry)
+        else:
+            top_sounds.append(entry)
 
     videos.sort(key=lambda x: x["views"], reverse=True)
-    return top_sounds, videos
+    return top_sounds, removed_sounds, videos
 
 
 # ── Tool ──────────────────────────────────────────────────────────────────────
@@ -121,7 +126,7 @@ def tool_trending():
     info("Opening TikTok Explore page...")
     info("Capturing trending content — this takes 30-60 seconds...\n")
 
-    sounds, videos = asyncio.run(_scrape_trending(target))
+    sounds, removed_sounds, videos = asyncio.run(_scrape_trending(target))
 
     # Validate
     ok_s, msg_s = validate_sounds(len(videos), sounds)
@@ -131,12 +136,12 @@ def tool_trending():
     if not ok_v:
         warn(msg_v)
 
-    if not sounds and not videos:
+    if not sounds and not removed_sounds and not videos:
         err("Nothing captured — TikTok may have blocked the request or changed their page.")
         info("Try again in a few minutes.")
         back_to_menu(); return
 
-    ok(f"Captured {len(videos)} videos | {len(sounds)} unique sounds\n")
+    ok(f"Captured {len(videos)} videos | {len(sounds)} sounds kept | {len(removed_sounds)} filtered\n")
 
     # ── Display ───────────────────────────────────────────────────────────────
     if sounds:
@@ -181,12 +186,10 @@ def tool_trending():
 
     save(_dirs.DIR_SOUNDS, f"trending_{date}.txt", lines)
 
-    from utils.html_report import save_viral_report, open_report
-    html_path = save_viral_report("trending", videos, _dirs.DIR_SOUNDS)
-
+    from utils.html_report import save_viral_report, _save_and_open
     print()
     saved_in(_dirs.DIR_SOUNDS)
-    ok(f"HTML report → {html_path}")
-    open_report(html_path)
+    _save_and_open(save_viral_report, "trending", videos, _dirs.DIR_SOUNDS,
+                   label="Trending Report")
 
     back_to_menu()

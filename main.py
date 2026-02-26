@@ -93,6 +93,7 @@ try:
     from tools.growth_tracker    import tool_growthtrack
     from tools.music_downloader  import tool_music_dl
     from tools.trending          import tool_trending
+    from tools.account_health    import tool_account_health
     from ui.settings             import tool_settings
 except Exception as e:
     print(f"\n  [ERROR] Failed to import a tool:\n  {e}\n")
@@ -123,6 +124,8 @@ TOOLS = {
     (2, 5): tool_nichereport,
     (2, 6): tool_growthtrack,
 
+    (2, 7): tool_account_health,
+
     # 3 — DOWNLOADERS (4)
     (3, 1): tool_dlvideo,
     (3, 2): tool_profile_playlist,
@@ -148,24 +151,37 @@ def _input(prompt_str: str = "  > ") -> str:
     """
     try:
         from prompt_toolkit import prompt as pt_prompt
+        from prompt_toolkit.input import create_input
         from prompt_toolkit.keys import Keys
         from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.styles import Style
+        from prompt_toolkit.application import create_app_session
 
         kb = KeyBindings()
         _escaped = [False]
 
-        @kb.add(Keys.Escape)
+        @kb.add("escape")
         def _esc(event):
             _escaped[0] = True
-            event.app.current_buffer.text = _ESC
+            event.app.exit(result=_ESC)
+
+        @kb.add("escape", eager=True)
+        def _esc_eager(event):
+            _escaped[0] = True
             event.app.exit(result=_ESC)
 
         style = Style.from_dict({"": "#ffffff"})
-        result = pt_prompt(prompt_str, key_bindings=kb, style=style)
+        try:
+            # prompt_toolkit >= 3.0.28 supports escape_time directly
+            result = pt_prompt(prompt_str, key_bindings=kb, style=style,
+                               escape_time=0)
+        except TypeError:
+            # Older version — fall back without the param
+            result = pt_prompt(prompt_str, key_bindings=kb, style=style)
+
         if _escaped[0] or result == _ESC:
             return _ESC
-        return result.strip().lower()
+        return (result or "").strip().lower()
     except Exception:
         return input(prompt_str).strip().lower()
 

@@ -8,7 +8,9 @@ import os
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.validator import validate_sounds
+from utils.html_report import save_sounds_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 from core.filters import check_garbage, is_funk
@@ -28,6 +30,61 @@ async def scrape_sounds(hashtag: str, target: int) -> tuple[int, dict]:
     new_sounds = []
     printed    = 0
 
+    def _parse_desc_sound(desc: str) -> tuple[str, str]:
+        """
+        Many creators write the sound in their caption when it shows as
+        'original sound' or a generic title.  Common patterns:
+          🎵 Song Name - Artist
+          ♬ Song Name by Artist
+          sound: Song Name - Artist
+          using: Song Name
+          audio: Song Name
+        Returns (title, author) or ("", "").
+        """
+        import re
+        desc = desc or ""
+
+        def _clean(s: str) -> str:
+            """Strip hashtags, trailing punctuation, excess whitespace."""
+            s = re.sub(r"#\w+", "", s)
+            return s.strip().rstrip("-–— ,")
+
+        # Pattern 1: emoji + title + dash/by + artist
+        m = re.search(
+            r"[🎵♬🎶]\s*(.{3,50}?)\s*(?:[-–—]|\bby\b)\s*(.{2,40}?)(?:\s*[#\n]|$)",
+            desc, re.IGNORECASE
+        )
+        if m:
+            t, a = _clean(m.group(1)), _clean(m.group(2))
+            if len(t) >= 3 and len(a) >= 2:
+                return t, a
+
+        # Pattern 2: emoji + title only (stop at hashtag, newline, or pipe)
+        m = re.search(r"[🎵♬🎶]\s*([^#\n|]{3,60})", desc)
+        if m:
+            t = _clean(m.group(1))
+            if len(t) >= 3:
+                # Try to split on dash within the title capture
+                parts = re.split(r"\s*[-–—]\s*", t, maxsplit=1)
+                if len(parts) == 2 and len(parts[1]) >= 2:
+                    return parts[0].strip(), parts[1].strip()
+                return t, ""
+
+        # Pattern 3: keyword: title [- artist]   (colon required to avoid false positives)
+        m = re.search(
+            r"(?:sound|audio|song|using|ft\.?|feat\.?):\s*([^#\n|]{3,60})",
+            desc, re.IGNORECASE
+        )
+        if m:
+            raw = _clean(m.group(1))
+            parts = re.split(r"\s*[-–—]\s*", raw, maxsplit=1)
+            if len(parts) == 2 and len(parts[1]) >= 2:
+                return parts[0].strip(), parts[1].strip()
+            if len(raw) >= 3:
+                return raw, ""
+
+        return "", ""
+
     def _ingest(items):
         for item in items:
             if isinstance(item, dict) and "item" in item:
@@ -40,6 +97,18 @@ async def scrape_sounds(hashtag: str, target: int) -> tuple[int, dict]:
             t   = (m.get("title") or "").strip()
             a   = (m.get("authorName") or m.get("author") or "").strip()
             mid = str(m.get("id") or t or "unknown")
+
+            # If the music metadata is generic, try scraping the description
+            _generic = {"original sound", "оригинальный звук", "son original",
+                        "sonido original", "suono originale", "originalton"}
+            if (not t or t.lower() in _generic or
+                    t.lower().startswith("original sound")):
+                desc_t, desc_a = _parse_desc_sound(item.get("desc") or "")
+                if desc_t:
+                    t   = desc_t
+                    a   = desc_a or a
+                    mid = f"desc_{vid}"   # unique key so it doesn't collide
+
             is_new = mid not in sounds
             if is_new:
                 sounds[mid] = {
@@ -243,8 +312,12 @@ def tool_scraper():
     all_s   = sorted(sounds.values(), key=lambda x: x["count"], reverse=True)
     kept    = [s for s in all_s if not s["reason"]]
     removed = [s for s in all_s if s["reason"]]
-    ok(f"Done — {scanned} videos | {len(kept)} songs | {len(removed)} filtered\n")
 
+    valid, msg = validate_sounds(scanned, kept)
+    if not valid:
+        warn(msg)
+
+    ok(f"Done — {scanned} videos | {len(kept)} songs | {len(removed)} filtered\n")
     show_chart_and_download(hashtag, top_n, scanned, kept, len(removed))
 
     date   = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -273,4 +346,6 @@ def tool_scraper():
 
     save(_dirs.DIR_SOUNDS, f"sounds_{hashtag}_{date}.txt", lines)
     print(); saved_in(_dirs.DIR_SOUNDS)
+    _save_and_open(save_sounds_report, hashtag, scanned, kept, removed, _dirs.DIR_SOUNDS,
+                   label="Sounds Report")
     back_to_menu()
