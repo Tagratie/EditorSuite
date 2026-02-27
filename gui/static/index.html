@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EditorSuite</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070709;--bg2:#0d0d10;--bg3:#131317;--bg4:#19191e;--bg5:#1f1f26;
+  --border:#1c1c24;--border2:#26262f;--border3:#303040;
+  --cyan:#00dfc0;--pink:#ff3b7a;--purple:#a855f7;
+  --amber:#f59e0b;--green:#22d3a0;--red:#f43f5e;--blue:#38bdf8;
+  --text:#f0f0f4;--text2:#a0a0b0;--text3:#606070;
+  --sidebar:260px;
+  --fh:'Space Grotesk',sans-serif;--fm:'JetBrains Mono',monospace;
+  --cat-scraper:#ff3b7a;--cat-analytics:#a855f7;--cat-dl:#00dfc0;--cat-studio:#f59e0b;
+}
+
+body{background:var(--bg);color:var(--text);font-family:var(--fh);height:100vh;overflow:hidden;display:flex}
+
+/* subtle noise overlay */
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat:repeat;background-size:128px}
+
+/* ── SIDEBAR ── */
+#sb{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);
+  border-right:1px solid var(--border);height:100vh;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;position:relative;z-index:10;flex-shrink:0}
+#sb::-webkit-scrollbar{width:3px}
+#sb::-webkit-scrollbar-thumb{background:var(--border3)}
+
+.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-logo-text{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
+.sb-logo-text span{color:var(--cyan)}
+.sb-logo-tag{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:3px;letter-spacing:.04em}
+
+.sb-home{margin:12px 12px 6px;padding:12px 14px;
+  background:linear-gradient(135deg,rgba(0,223,192,.1),rgba(255,59,122,.06));
+  border:1px solid var(--border2);border-radius:10px;cursor:pointer;transition:all .2s}
+.sb-home:hover,.sb-home.on{border-color:rgba(0,223,192,.4);background:linear-gradient(135deg,rgba(0,223,192,.15),rgba(255,59,122,.08))}
+.sb-home-title{font-size:.88rem;font-weight:600;
+  background:linear-gradient(90deg,var(--cyan),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-home-sub{font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-top:3px}
+
+.sb-sep{height:1px;background:var(--border);margin:8px 0}
+
+.sb-cat{padding:14px 20px 6px}
+.sb-cat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;
+  display:flex;align-items:center;gap:8px}
+.sb-cat-lbl::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sb-cat.scrapers .sb-cat-lbl{color:var(--cat-scraper)}
+.sb-cat.analytics .sb-cat-lbl{color:var(--cat-analytics)}
+.sb-cat.downloaders .sb-cat-lbl{color:var(--cat-dl)}
+.sb-cat.studio .sb-cat-lbl{color:var(--cat-studio)}
+
+.sb-tool{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 20px;
+  cursor:pointer;transition:all .15s;border-radius:6px;margin:2px 8px;
+  border:1px solid transparent}
+.sb-tool:hover{background:var(--bg3);border-color:var(--border)}
+.sb-tool.on{background:var(--bg3);border-color:var(--border2)}
+.sb-cat.scrapers   .sb-tool.on{border-left:2px solid var(--cat-scraper)}
+.sb-cat.analytics  .sb-tool.on{border-left:2px solid var(--cat-analytics)}
+.sb-cat.downloaders.sb-tool.on,.sb-cat.downloaders .sb-tool.on{border-left:2px solid var(--cat-dl)}
+.sb-cat.studio     .sb-tool.on{border-left:2px solid var(--cat-studio)}
+.sb-tool-icon{font-size:.9rem;width:20px;text-align:center;flex-shrink:0}
+.sb-tool-name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-cat.scrapers   .sb-tool.on .sb-tool-name{color:var(--cat-scraper)}
+.sb-cat.analytics  .sb-tool.on .sb-tool-name{color:var(--cat-analytics)}
+.sb-cat.downloaders .sb-tool.on .sb-tool-name{color:var(--cat-dl)}
+.sb-cat.studio     .sb-tool.on .sb-tool-name{color:var(--cat-studio)}
+
+/* ── MAIN ── */
+#main{flex:1;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1}
+#main::-webkit-scrollbar{width:5px}
+#main::-webkit-scrollbar-thumb{background:var(--border3)}
+.panel{display:none;min-height:100%}
+.panel.on{display:block}
+
+/* ── HOME PANEL ── */
+#ph{padding:0}
+
+.home-hero{padding:40px 40px 32px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--bg2) 0%,transparent 100%)}
+.home-hero-label{font-family:var(--fm);font-size:.72rem;color:var(--cyan);
+  letter-spacing:.18em;text-transform:uppercase;opacity:.8;margin-bottom:12px}
+.home-hero-h1{font-size:clamp(1.6rem,2.8vw,2.4rem);font-weight:700;
+  letter-spacing:-.03em;line-height:1.1;margin-bottom:8px}
+.home-hero-h1 em{font-style:normal;
+  background:linear-gradient(90deg,var(--cyan),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.home-hero-sub{font-size:.9rem;color:var(--text2);font-weight:300;margin-bottom:28px;max-width:520px}
+
+/* paste input */
+.paste-wrap{max-width:640px}
+.paste-card{background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:5px;
+  transition:border-color .25s,box-shadow .2s}
+.paste-card:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,223,192,.08)}
+.paste-row{display:flex;align-items:center;gap:10px;padding:8px 14px}
+.paste-icon{color:var(--text3);font-size:1rem;flex-shrink:0;transition:color .2s}
+.paste-card:focus-within .paste-icon{color:var(--cyan)}
+#mi{flex:1;background:none;border:none;outline:none;font-family:var(--fh);
+  font-size:.95rem;color:var(--text);padding:8px 0;caret-color:var(--cyan)}
+#mi::placeholder{color:var(--text3)}
+.paste-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:7px;
+  color:var(--text2);font-family:var(--fm);font-size:.72rem;letter-spacing:.06em;
+  padding:8px 14px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.paste-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.paste-meta{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 14px 8px;min-height:38px}
+.det-chip{display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--fm);font-size:.72rem;letter-spacing:.04em;
+  border-radius:20px;padding:4px 12px;opacity:0;transform:translateY(3px);transition:all .22s}
+.det-chip.show{opacity:1;transform:none}
+.det-chip.dl{background:rgba(0,223,192,.1);color:var(--cyan)}
+.det-chip.mu{background:rgba(168,85,247,.12);color:var(--purple)}
+.det-chip.sc{background:rgba(255,59,122,.1);color:var(--pink)}
+.det-chip.un{background:rgba(255,255,255,.05);color:var(--text3)}
+.det-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.go-btn{background:var(--cyan);color:#000;border:none;border-radius:7px;
+  font-family:var(--fh);font-weight:600;font-size:.82rem;letter-spacing:.02em;
+  padding:8px 22px;cursor:pointer;transition:all .2s;opacity:0;pointer-events:none;white-space:nowrap}
+.go-btn.show{opacity:1;pointer-events:all}
+.go-btn:hover{background:#00f5d4;box-shadow:0 0 20px rgba(0,223,192,.25)}
+.go-btn.busy{background:var(--bg4);color:var(--text3);border:1px solid var(--border);cursor:not-allowed;box-shadow:none}
+.paste-opts{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 6px;max-width:640px}
+.p-opt{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;
+  padding:7px 12px;display:flex;align-items:center;gap:8px}
+.p-opt-lbl{font-family:var(--fm);font-size:.7rem;color:var(--text3);letter-spacing:.05em}
+.p-opt-sel{background:var(--bg4);border:1px solid var(--border2);border-radius:5px;
+  color:var(--text);font-family:var(--fm);font-size:.76rem;padding:4px 8px;outline:none;cursor:pointer}
+.p-opt-sel:focus{border-color:var(--cyan)}
+.ex-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ex-chip{background:transparent;border:1px solid var(--border2);border-radius:20px;
+  font-family:var(--fm);font-size:.72rem;color:var(--text3);
+  padding:5px 13px;cursor:pointer;transition:all .18s}
+.ex-chip:hover{border-color:var(--border3);color:var(--text2)}
+
+/* home progress */
+.home-progress{padding:24px 40px 0;max-width:720px;display:none}
+.home-progress.show{display:block}
+.prog-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.prog-lbl{font-family:var(--fm);font-size:.7rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
+.prog-pct{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
+.prog-track{height:2px;background:var(--bg4);border-radius:2px;margin-bottom:14px;overflow:hidden}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:2px;width:0%;transition:width .35s}
+.prog-bar.ind{width:35%;animation:ind 1.3s ease-in-out infinite}
+@keyframes ind{0%{transform:translateX(-250%)}100%{transform:translateX(500%)}}
+.log-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;height:170px;overflow-y:auto;
+  font-family:var(--fm);font-size:.76rem;line-height:1.8;color:var(--text2)}
+.log-box::-webkit-scrollbar{width:3px}
+.log-box::-webkit-scrollbar-thumb{background:var(--border3)}
+.ll{display:block}
+.ll.ok{color:var(--green)}.ll.warn{color:var(--amber)}.ll.err{color:var(--red)}
+.ll.info{color:var(--cyan)}.ll.done{color:var(--green);font-weight:600}
+.home-result{padding:20px 40px;max-width:760px}
+
+/* ── TOOL GRID ── */
+.tools-area{padding:32px 40px 60px}
+.section-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;margin-top:36px}
+.section-hdr:first-child{margin-top:0}
+.section-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
+.section-count{font-family:var(--fm);font-size:.72rem;color:var(--text3)}
+.section-line{flex:1;height:1px;background:var(--border);margin-left:8px}
+
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:8px}
+
+.tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:18px 18px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.tool-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;border-radius:12px;pointer-events:none}
+.tool-card:hover{border-color:var(--border3);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.tool-card:hover::before{opacity:1}
+/* category glow on hover */
+.scrapers .tool-card::before{background:linear-gradient(135deg,rgba(255,59,122,.05),transparent)}
+.analytics .tool-card::before{background:linear-gradient(135deg,rgba(168,85,247,.05),transparent)}
+.downloaders .tool-card::before{background:linear-gradient(135deg,rgba(0,223,192,.05),transparent)}
+.studio .tool-card::before{background:linear-gradient(135deg,rgba(245,158,11,.05),transparent)}
+
+.tool-card-icon{font-size:1.35rem;margin-bottom:12px;display:block}
+.tool-card-name{font-size:.92rem;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
+.tool-card-desc{font-size:.8rem;color:var(--text2);line-height:1.5;font-weight:400}
+.tool-card-tag{position:absolute;top:12px;right:12px;
+  font-family:var(--fm);font-size:.62rem;letter-spacing:.06em;
+  border-radius:4px;padding:2px 7px;opacity:.6}
+.scrapers .tool-card-tag{background:rgba(255,59,122,.15);color:var(--cat-scraper)}
+.analytics .tool-card-tag{background:rgba(168,85,247,.15);color:var(--cat-analytics)}
+.downloaders .tool-card-tag{background:rgba(0,223,192,.15);color:var(--cat-dl)}
+.studio .tool-card-tag{background:rgba(245,158,11,.15);color:var(--cat-studio)}
+
+/* ── TOOL PANEL ── */
+#pt2{padding:0}
+.tool-panel-inner{padding:40px;max-width:760px}
+.t-back{display:inline-flex;align-items:center;gap:7px;font-family:var(--fm);font-size:.74rem;
+  color:var(--text3);cursor:pointer;margin-bottom:28px;transition:color .2s;
+  border:1px solid transparent;padding:6px 12px;border-radius:6px;background:var(--bg2);border-color:var(--border)}
+.t-back:hover{color:var(--text2);border-color:var(--border2)}
+.t-cat-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:.72rem;
+  letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:4px 10px;margin-bottom:14px}
+.scrapers .t-cat-badge{background:rgba(255,59,122,.12);color:var(--cat-scraper)}
+.analytics .t-cat-badge{background:rgba(168,85,247,.12);color:var(--cat-analytics)}
+.downloaders .t-cat-badge{background:rgba(0,223,192,.12);color:var(--cat-dl)}
+.studio .t-cat-badge{background:rgba(245,158,11,.12);color:var(--cat-studio)}
+.t-icon-big{font-size:2rem;margin-bottom:10px;display:block}
+.t-title{font-size:1.8rem;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
+.t-sub{font-size:.92rem;color:var(--text2);font-weight:400;margin-bottom:32px;max-width:480px;line-height:1.6}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;max-width:580px}
+.form-row.single{grid-template-columns:1fr}
+.form-field{display:flex;flex-direction:column;gap:6px}
+.form-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.06em}
+.form-in{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
+  color:var(--text);font-family:var(--fh);font-size:.9rem;
+  padding:11px 14px;outline:none;transition:border-color .2s;width:100%}
+.form-in:focus{border-color:var(--cyan)}.form-in::placeholder{color:var(--text3)}
+.form-sel{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
+  color:var(--text);font-family:var(--fh);font-size:.9rem;
+  padding:11px 14px;outline:none;cursor:pointer;transition:border-color .2s;width:100%}
+.form-sel:focus{border-color:var(--cyan)}
+
+.run-btn{display:inline-flex;align-items:center;gap:10px;
+  border:none;border-radius:9px;font-family:var(--fh);font-weight:600;
+  font-size:.9rem;padding:13px 28px;cursor:pointer;transition:all .2s;margin-bottom:28px}
+.run-btn svg{width:16px;height:16px;flex-shrink:0}
+.run-btn.busy{background:var(--bg3)!important;color:var(--text3)!important;cursor:not-allowed;box-shadow:none!important}
+.scrapers .run-btn{background:var(--cat-scraper);color:#fff}
+.scrapers .run-btn:hover:not(.busy){background:#ff5590;box-shadow:0 0 24px rgba(255,59,122,.3)}
+.analytics .run-btn{background:var(--cat-analytics);color:#fff}
+.analytics .run-btn:hover:not(.busy){background:#b97af9;box-shadow:0 0 24px rgba(168,85,247,.3)}
+.downloaders .run-btn{background:var(--cat-dl);color:#000}
+.downloaders .run-btn:hover:not(.busy){background:#00f5d4;box-shadow:0 0 24px rgba(0,223,192,.3)}
+.studio .run-btn{background:var(--cat-studio);color:#000}
+.studio .run-btn:hover:not(.busy){background:#fbbf24;box-shadow:0 0 24px rgba(245,158,11,.3)}
+
+#tp{display:none;max-width:580px}.#tp.show{display:block}
+#tp.show{display:block}
+#tl{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;height:200px;overflow-y:auto;margin-top:12px;
+  font-family:var(--fm);font-size:.76rem;line-height:1.8;color:var(--text2)}
+#tl::-webkit-scrollbar{width:3px}
+#tl::-webkit-scrollbar-thumb{background:var(--border3)}
+.tool-result{margin-top:20px;max-width:580px}
+
+/* result cards */
+.rc{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;animation:fadeup .3s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rc-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.rc-title{font-size:.95rem;font-weight:600}
+.rc-meta{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border)}
+.stat-cell{padding:18px;text-align:center;border-right:1px solid var(--border)}.stat-cell:last-child{border-right:none}
+.stat-n{font-size:1.9rem;font-weight:700;color:var(--cyan);line-height:1;margin-bottom:4px}
+.stat-l{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+.sounds-list{padding:4px 0}
+.s-row{display:flex;align-items:center;gap:12px;padding:10px 18px;transition:background .15s}
+.s-row:hover{background:var(--bg3)}
+.s-rank{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:24px;text-align:right;flex-shrink:0}
+.s-rank.t{color:var(--cyan)}
+.s-info{flex:1;min-width:0}
+.s-name{font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-auth{font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-top:2px}
+.s-bar-wrap{width:80px;height:2px;background:var(--bg4);border-radius:2px;flex-shrink:0}
+.s-bar{height:100%;background:var(--cyan);border-radius:2px}
+.s-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:38px;text-align:right;flex-shrink:0}
+.done-row{display:flex;align-items:center;gap:10px;padding:12px 18px;
+  background:rgba(34,211,160,.06);border-top:1px solid rgba(34,211,160,.15)}
+.done-ico{width:22px;height:22px;border-radius:50%;background:rgba(34,211,160,.15);
+  display:flex;align-items:center;justify-content:center;color:var(--green);font-size:.8rem;flex-shrink:0}
+.done-txt{font-family:var(--fm);font-size:.76rem;color:var(--green)}
+.open-rep-btn{margin-left:auto;background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.25);
+  border-radius:6px;color:var(--green);font-family:var(--fm);font-size:.68rem;
+  padding:5px 12px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.open-rep-btn:hover{background:rgba(34,211,160,.2)}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-text">Editor<span>Suite</span></div>
+    <div class="sb-logo-tag">Creator Toolkit v2</div>
+  </div>
+
+  <div class="sb-home on" id="hbtn" onclick="goHome()">
+    <div class="sb-home-title">⌁ Paste Anything</div>
+    <div class="sb-home-sub">Auto-detect &amp; run</div>
+  </div>
+
+  <div class="sb-sep"></div>
+
+  <div class="sb-cat scrapers">
+    <div class="sb-cat"><div class="sb-cat-lbl">Scrapers</div></div>
+    <div class="sb-tool" onclick="goTool('scraper')"><div class="sb-tool-icon">🎵</div><div class="sb-tool-name">Trending Audio</div></div>
+    <div class="sb-tool" onclick="goTool('hfreq')"><div class="sb-tool-icon">#</div><div class="sb-tool-name">Hashtag Frequency</div></div>
+    <div class="sb-tool" onclick="goTool('crosshash')"><div class="sb-tool-icon">⟁</div><div class="sb-tool-name">Cross-Hashtag Sounds</div></div>
+    <div class="sb-tool" onclick="goTool('viral')"><div class="sb-tool-icon">🔥</div><div class="sb-tool-name">Viral Video Finder</div></div>
+    <div class="sb-tool" onclick="goTool('trending')"><div class="sb-tool-icon">📈</div><div class="sb-tool-name">Trending Now</div></div>
+    <div class="sb-tool" onclick="goTool('sp_exp')"><div class="sb-tool-icon">💚</div><div class="sb-tool-name">Export to Spotify</div></div>
+  </div>
+
+  <div class="sb-sep"></div>
+
+  <div class="sb-cat analytics">
+    <div class="sb-cat"><div class="sb-cat-lbl">Analytics</div></div>
+    <div class="sb-tool" onclick="goTool('hanalyze')"><div class="sb-tool-icon">📊</div><div class="sb-tool-name">Hashtag Analyzer</div></div>
+    <div class="sb-tool" onclick="goTool('competitor')"><div class="sb-tool-icon">⚔️</div><div class="sb-tool-name">Competitor Tracker</div></div>
+    <div class="sb-tool" onclick="goTool('besttime')"><div class="sb-tool-icon">🕐</div><div class="sb-tool-name">Best Posting Time</div></div>
+    <div class="sb-tool" onclick="goTool('engagement')"><div class="sb-tool-icon">💡</div><div class="sb-tool-name">Engagement Calc</div></div>
+    <div class="sb-tool" onclick="goTool('niche')"><div class="sb-tool-icon">🗺</div><div class="sb-tool-name">Niche Report</div></div>
+    <div class="sb-tool" onclick="goTool('growth')"><div class="sb-tool-icon">🌱</div><div class="sb-tool-name">Growth Tracker</div></div>
+    <div class="sb-tool" onclick="goTool('health')"><div class="sb-tool-icon">💪</div><div class="sb-tool-name">Account Health</div></div>
+  </div>
+
+  <div class="sb-sep"></div>
+
+  <div class="sb-cat downloaders">
+    <div class="sb-cat"><div class="sb-cat-lbl">Downloaders</div></div>
+    <div class="sb-tool" onclick="goTool('dl_vid')"><div class="sb-tool-icon">⬇️</div><div class="sb-tool-name">TikTok / YouTube DL</div></div>
+    <div class="sb-tool" onclick="goTool('dl_prof')"><div class="sb-tool-icon">👤</div><div class="sb-tool-name">Profile &amp; Playlist</div></div>
+    <div class="sb-tool" onclick="goTool('dl_spotify')"><div class="sb-tool-icon">🎧</div><div class="sb-tool-name">Spotify / SoundCloud</div></div>
+    <div class="sb-tool" onclick="goTool('dl_audio')"><div class="sb-tool-icon">🎙</div><div class="sb-tool-name">Audio Extractor</div></div>
+  </div>
+
+  <div class="sb-sep"></div>
+
+  <div class="sb-cat studio">
+    <div class="sb-cat"><div class="sb-cat-lbl">Studio</div></div>
+    <div class="sb-tool" onclick="goTool('compress')"><div class="sb-tool-icon">📦</div><div class="sb-tool-name">Video Compressor</div></div>
+    <div class="sb-tool" onclick="goTool('bulk_comp')"><div class="sb-tool-icon">🗂</div><div class="sb-tool-name">Bulk Compressor</div></div>
+    <div class="sb-tool" onclick="goTool('bg_rem')"><div class="sb-tool-icon">✂️</div><div class="sb-tool-name">Background Remover</div></div>
+    <div class="sb-tool" onclick="goTool('calendar')"><div class="sb-tool-icon">📅</div><div class="sb-tool-name">Posting Calendar</div></div>
+  </div>
+
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- HOME -->
+  <div class="panel on" id="ph">
+    <div class="home-hero">
+      <div class="home-hero-label">21 tools · zero bs</div>
+      <h1 class="home-hero-h1">Your content,<br><em>on autopilot.</em></h1>
+      <p class="home-hero-sub">Paste a link or hashtag — EditorSuite figures out the rest. Scrape, analyze, download, edit. All local, all fast.</p>
+
+      <div class="paste-wrap">
+        <div class="paste-card">
+          <div class="paste-row">
+            <span class="paste-icon" id="ii">⌁</span>
+            <input id="mi" type="text" placeholder="https://... or #hashtag or @username" autocomplete="off" spellcheck="false">
+            <button class="paste-btn" onclick="doPaste()">PASTE</button>
+          </div>
+          <div class="paste-meta">
+            <div class="det-chip" id="dc"><div class="det-dot"></div><span id="dlbl"></span></div>
+            <button class="go-btn" id="gb" onclick="runHome()">Run →</button>
+          </div>
+        </div>
+        <div class="paste-opts" id="hor" style="display:none">
+          <div class="p-opt" id="oq" style="display:none"><span class="p-opt-lbl">QUALITY</span><select class="p-opt-sel" id="sq"><option>1080p</option><option>720p</option><option>480p</option></select></div>
+          <div class="p-opt" id="oaq" style="display:none"><span class="p-opt-lbl">AUDIO</span><select class="p-opt-sel" id="saq"><option value="320">320 kbps</option><option value="256">256 kbps</option><option value="192">192 kbps</option><option value="128">128 kbps</option></select></div>
+          <div class="p-opt" id="olim" style="display:none"><span class="p-opt-lbl">LIMIT</span><select class="p-opt-sel" id="slim"><option value="300">300 videos</option><option value="500">500</option><option value="100">100</option><option value="50">50</option></select></div>
+        </div>
+        <div class="ex-row">
+          <div class="ex-chip" onclick="ex('https://www.tiktok.com/@user/video/123')">TikTok video</div>
+          <div class="ex-chip" onclick="ex('https://youtu.be/dQw4w9WgXcQ')">YouTube</div>
+          <div class="ex-chip" onclick="ex('https://open.spotify.com/track/...')">Spotify track</div>
+          <div class="ex-chip" onclick="ex('#fyp')">#hashtag scrape</div>
+          <div class="ex-chip" onclick="ex('@charlidamelio')">Profile DL</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-progress" id="hp">
+      <div class="prog-hdr"><span class="prog-lbl" id="hpl">RUNNING</span><span class="prog-pct" id="hps"></span></div>
+      <div class="prog-track"><div class="prog-bar ind" id="hpb"></div></div>
+      <div class="log-box" id="hl"></div>
+    </div>
+    <div class="home-result" id="hr"></div>
+
+    <!-- TOOL GRID -->
+    <div class="tools-area">
+
+      <div class="section-hdr scrapers">
+        <div class="section-title" style="color:var(--cat-scraper)">Scrapers</div>
+        <div class="section-count">6 tools</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="tools-grid scrapers">
+        <div class="tool-card" onclick="goTool('scraper')"><span class="tool-card-icon">🎵</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Trending Audio Scraper</div><div class="tool-card-desc">Find the top sounds from any TikTok hashtag — ranked by usage count</div></div>
+        <div class="tool-card" onclick="goTool('hfreq')"><span class="tool-card-icon">#</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Hashtag Frequency</div><div class="tool-card-desc">Discover the most-used hashtags in any niche to maximize reach</div></div>
+        <div class="tool-card" onclick="goTool('crosshash')"><span class="tool-card-icon">⟁</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Cross-Hashtag Sounds</div><div class="tool-card-desc">Find sounds trending across multiple different niches at once</div></div>
+        <div class="tool-card" onclick="goTool('viral')"><span class="tool-card-icon">🔥</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Viral Video Finder</div><div class="tool-card-desc">Scrape top performing videos by view count for any hashtag</div></div>
+        <div class="tool-card" onclick="goTool('trending')"><span class="tool-card-icon">📈</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">TikTok Trending Now</div><div class="tool-card-desc">See what's blowing up globally on TikTok right now in real time</div></div>
+        <div class="tool-card" onclick="goTool('sp_exp')"><span class="tool-card-icon">💚</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Export to Spotify</div><div class="tool-card-desc">Scrape trending TikTok sounds and push them straight to a Spotify playlist</div></div>
+      </div>
+
+      <div class="section-hdr analytics" style="margin-top:40px">
+        <div class="section-title" style="color:var(--cat-analytics)">Analytics</div>
+        <div class="section-count">7 tools</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="tools-grid analytics">
+        <div class="tool-card" onclick="goTool('hanalyze')"><span class="tool-card-icon">📊</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Hashtag Analyzer</div><div class="tool-card-desc">Compare reach, avg views and difficulty across multiple hashtags</div></div>
+        <div class="tool-card" onclick="goTool('competitor')"><span class="tool-card-icon">⚔️</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Competitor Tracker</div><div class="tool-card-desc">Side-by-side deep analysis of any two TikTok accounts</div></div>
+        <div class="tool-card" onclick="goTool('besttime')"><span class="tool-card-icon">🕐</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Best Posting Time</div><div class="tool-card-desc">Find exactly which days and hours get the most views for your account</div></div>
+        <div class="tool-card" onclick="goTool('engagement')"><span class="tool-card-icon">💡</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Engagement Calculator</div><div class="tool-card-desc">Calculate your engagement rate and benchmark it against TikTok averages</div></div>
+        <div class="tool-card" onclick="goTool('niche')"><span class="tool-card-icon">🗺</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Niche Report</div><div class="tool-card-desc">Full niche audit: trending sounds, top hashtags, and viral videos combined</div></div>
+        <div class="tool-card" onclick="goTool('growth')"><span class="tool-card-icon">🌱</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Growth Tracker</div><div class="tool-card-desc">Snapshot follower counts over time and chart your account's growth</div></div>
+        <div class="tool-card" onclick="goTool('health')"><span class="tool-card-icon">💪</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Account Health Dashboard</div><div class="tool-card-desc">Full dashboard: views trend, engagement rate, posting habits and a health score</div></div>
+      </div>
+
+      <div class="section-hdr downloaders" style="margin-top:40px">
+        <div class="section-title" style="color:var(--cat-dl)">Downloaders</div>
+        <div class="section-count">4 tools</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="tools-grid downloaders">
+        <div class="tool-card" onclick="goTool('dl_vid')"><span class="tool-card-icon">⬇️</span><div class="tool-card-tag">DL</div><div class="tool-card-name">TikTok / YouTube DL</div><div class="tool-card-desc">Download any single video in best quality as MP4</div></div>
+        <div class="tool-card" onclick="goTool('dl_prof')"><span class="tool-card-icon">👤</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Profile &amp; Playlist DL</div><div class="tool-card-desc">Bulk download full TikTok profiles, YouTube channels or playlists</div></div>
+        <div class="tool-card" onclick="goTool('dl_spotify')"><span class="tool-card-icon">🎧</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Spotify / SoundCloud</div><div class="tool-card-desc">Download any track, album or playlist as high-quality MP3</div></div>
+        <div class="tool-card" onclick="goTool('dl_audio')"><span class="tool-card-icon">🎙</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Audio Extractor</div><div class="tool-card-desc">Rip the audio from any local video file or TikTok / YouTube URL</div></div>
+      </div>
+
+      <div class="section-hdr studio" style="margin-top:40px">
+        <div class="section-title" style="color:var(--cat-studio)">Studio</div>
+        <div class="section-count">4 tools</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="tools-grid studio">
+        <div class="tool-card" onclick="goTool('compress')"><span class="tool-card-icon">📦</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Video Compressor</div><div class="tool-card-desc">Compress a single video file with HandBrake presets</div></div>
+        <div class="tool-card" onclick="goTool('bulk_comp')"><span class="tool-card-icon">🗂</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Bulk Compressor</div><div class="tool-card-desc">Compress every video in a folder in one batch operation</div></div>
+        <div class="tool-card" onclick="goTool('bg_rem')"><span class="tool-card-icon">✂️</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Background Remover</div><div class="tool-card-desc">AI-powered background removal on single images or entire folders</div></div>
+        <div class="tool-card" onclick="goTool('calendar')"><span class="tool-card-icon">📅</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Posting Calendar</div><div class="tool-card-desc">Generate an optimal posting schedule based on your account's own data</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOOL PANEL -->
+  <div class="panel" id="pt2">
+    <div class="tool-panel-inner" id="tpi">
+      <div class="t-back" onclick="goHome()">← Back to dashboard</div>
+      <div class="t-cat-badge" id="tcb"></div>
+      <span class="t-icon-big" id="tic"></span>
+      <div class="t-title" id="tt"></div>
+      <div class="t-sub" id="ts"></div>
+      <div id="tf"></div>
+      <div id="tp">
+        <div class="prog-hdr"><span class="prog-lbl" id="tpl">RUNNING</span><span class="prog-pct" id="tps"></span></div>
+        <div class="prog-track"><div class="prog-bar ind" id="tpb"></div></div>
+        <div id="tl" class="log-box"></div>
+      </div>
+      <div class="tool-result" id="tr"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+const T={
+  scraper:{cat:'scrapers',cl:'SCRAPERS',name:'Trending Audio Scraper',sub:'Find top sounds from any TikTok hashtag',
+    f:[{id:'hashtag',l:'HASHTAG',p:'fyp (no #)'},{id:'limit',l:'TARGET VIDEOS',s:['300','500','200','100']}]},
+  hfreq:{cat:'scrapers',cl:'SCRAPERS',name:'Hashtag Frequency',sub:'Most-used hashtags in a niche',
+    f:[{id:'hashtag',l:'HASHTAG',p:'dancechallenge'}]},
+  crosshash:{cat:'scrapers',cl:'SCRAPERS',name:'Cross-Hashtag Sounds',sub:'Sounds trending across multiple niches',
+    f:[{id:'hashtags',l:'HASHTAGS (comma-separated)',p:'fyp, dance, trending'}]},
+  viral:{cat:'scrapers',cl:'SCRAPERS',name:'Viral Video Finder',sub:'Top performing videos by view count',
+    f:[{id:'hashtag',l:'HASHTAG',p:'fyp'},{id:'limit',l:'VIDEOS TO SCAN',s:['100','200','50']}]},
+  trending:{cat:'scrapers',cl:'SCRAPERS',name:'TikTok Trending Now',sub:"What's blowing up globally right now",f:[]},
+  sp_exp:{cat:'scrapers',cl:'SCRAPERS',name:'Export to Spotify',sub:'Push trending TikTok sounds to a Spotify playlist',
+    f:[{id:'hashtag',l:'HASHTAG TO SCRAPE',p:'fyp'}]},
+  hanalyze:{cat:'analytics',cl:'ANALYTICS',name:'Hashtag Analyzer',sub:'Compare reach & avg views across hashtags',
+    f:[{id:'hashtags',l:'HASHTAGS (comma-separated)',p:'fyp, dance, trending'}]},
+  competitor:{cat:'analytics',cl:'ANALYTICS',name:'Competitor Tracker',sub:'Side-by-side analysis of two TikTok accounts',
+    f:[{id:'user1',l:'ACCOUNT 1',p:'@username'},{id:'user2',l:'ACCOUNT 2',p:'@username'}]},
+  besttime:{cat:'analytics',cl:'ANALYTICS',name:'Best Posting Time',sub:'Find your best days & hours to post',
+    f:[{id:'username',l:'YOUR TIKTOK @',p:'@username'}]},
+  engagement:{cat:'analytics',cl:'ANALYTICS',name:'Engagement Calculator',sub:'ER benchmarked against TikTok averages',
+    f:[{id:'likes',l:'LIKES',p:'12500'},{id:'comments',l:'COMMENTS',p:'340'},{id:'shares',l:'SHARES',p:'890'},{id:'views',l:'VIEWS',p:'150000'}]},
+  niche:{cat:'analytics',cl:'ANALYTICS',name:'Niche Report',sub:'Full audit: sounds + hashtags + viral videos',
+    f:[{id:'hashtag',l:'HASHTAG',p:'fyp'}]},
+  growth:{cat:'analytics',cl:'ANALYTICS',name:'Growth Tracker',sub:'Snapshot & chart follower growth over time',
+    f:[{id:'username',l:'TIKTOK @',p:'@username'}]},
+  health:{cat:'analytics',cl:'ANALYTICS',name:'Account Health Dashboard',sub:'Full dashboard: views trend, ER, posting habits, health score',
+    f:[{id:'username',l:'TIKTOK @',p:'@username'},{id:'limit',l:'MAX POSTS',s:['100','50','200','300']}]},
+  dl_vid:{cat:'downloaders',cl:'DOWNLOADERS',name:'TikTok / YouTube DL',sub:'Download a single video in best quality',
+    f:[{id:'url',l:'VIDEO URL',p:'https://www.tiktok.com/@user/video/...'},{id:'quality',l:'QUALITY',s:['1080','720','480','best']}]},
+  dl_prof:{cat:'downloaders',cl:'DOWNLOADERS',name:'Profile & Playlist DL',sub:'Full TikTok profiles, YouTube playlists & channels',
+    f:[{id:'url',l:'URL OR @USERNAME',p:'@username or playlist URL'},{id:'limit',l:'MAX VIDEOS',s:['all','50','100','200']}]},
+  dl_spotify:{cat:'downloaders',cl:'DOWNLOADERS',name:'Spotify / SoundCloud DL',sub:'Track, album, or playlist — downloads from YouTube Music',
+    f:[{id:'url',l:'SPOTIFY OR SOUNDCLOUD URL',p:'https://open.spotify.com/track/...'},{id:'quality',l:'AUDIO QUALITY',s:['320','256','192','128']}]},
+  dl_audio:{cat:'downloaders',cl:'DOWNLOADERS',name:'Audio Extractor',sub:'MP3 from a local video file or TikTok/YouTube URL',
+    f:[{id:'input',l:'FILE PATH OR URL',p:'C:\\video.mp4 or https://...'},{id:'bitrate',l:'BITRATE',s:['320','256','192','128']}]},
+  compress:{cat:'studio',cl:'STUDIO',name:'Video Compressor',sub:'Compress a single video with HandBrake',
+    f:[{id:'input',l:'VIDEO FILE PATH',p:'C:\\Videos\\clip.mp4'}]},
+  bulk_comp:{cat:'studio',cl:'STUDIO',name:'Bulk Compressor',sub:'Compress every video in a folder',
+    f:[{id:'folder',l:'FOLDER PATH',p:'C:\\Videos\\'}]},
+  bg_rem:{cat:'studio',cl:'STUDIO',name:'Background Remover',sub:'AI background removal — single image or batch folder',
+    f:[{id:'input',l:'FILE OR FOLDER PATH',p:'C:\\image.png'}]},
+  calendar:{cat:'studio',cl:'STUDIO',name:'Posting Calendar',sub:'Generate a posting schedule based on your account data',
+    f:[{id:'username',l:'YOUR TIKTOK @',p:'@username'}]},
+};
+
+let det=null,hrun=false,trun=false,dtimer=null;
+
+function goHome(){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('ph').classList.add('on');
+  document.querySelectorAll('.sb-tool,.sb-home').forEach(b=>b.classList.remove('on'));
+  document.getElementById('hbtn').classList.add('on');
+  document.getElementById('main').scrollTop=0;
+}
+
+function goTool(id){
+  const t=T[id]; if(!t)return;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pt2').classList.add('on');
+  document.querySelectorAll('.sb-tool,.sb-home').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.sb-tool').forEach(b=>{if(b.getAttribute('onclick')===`goTool('${id}')`)b.classList.add('on')});
+  const tpi=document.getElementById('tpi');
+  tpi.className='tool-panel-inner '+t.cat;
+  const tcb=document.getElementById('tcb');
+  tcb.textContent=t.cl; tcb.className='t-cat-badge';
+  document.getElementById('tic').textContent=({scraper:'🎵',hfreq:'#',crosshash:'⟁',viral:'🔥',trending:'📈',sp_exp:'💚',hanalyze:'📊',competitor:'⚔️',besttime:'🕐',engagement:'💡',niche:'🗺',growth:'🌱',health:'💪',dl_vid:'⬇️',dl_prof:'👤',dl_spotify:'🎧',dl_audio:'🎙',compress:'📦',bulk_comp:'🗂',bg_rem:'✂️',calendar:'📅'})[id]||'⚙️';
+  document.getElementById('tt').textContent=t.name;
+  document.getElementById('ts').textContent=t.sub;
+  let h='';
+  if(t.f.length){
+    const gc=t.f.length===1?'form-row single':'form-row';
+    h+=`<div class="${gc}">`;
+    t.f.forEach(f=>{
+      h+=`<div class="form-field"><label class="form-lbl">${f.l}</label>`;
+      if(f.s)h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
+      else h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||''}">`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  } else {
+    h+='<div style="color:var(--text3);font-size:.85rem;margin-bottom:20px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:9px"><p>This tool runs automatically — no input required.</p></div>`;
+  }
+  h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox='0 0 16 16' fill='currentColor'><path d='M3 2l11 6-11 6z'/></svg> Run ${t.name}</button>`;
+  document.getElementById('tf').innerHTML=h;
+  document.getElementById('tp').classList.remove('show');
+  document.getElementById('tr').innerHTML='';
+  trun=false;
+  document.getElementById('main').scrollTop=0;
+}
+
+// Input detect
+const mi=document.getElementById('mi');
+mi.addEventListener('input',()=>{clearTimeout(dtimer);dtimer=setTimeout(()=>doDetect(mi.value),260)});
+mi.addEventListener('keydown',e=>{if(e.key==='Enter'&&det&&!hrun)runHome()});
+
+async function doDetect(txt){
+  if(!txt.trim()){setChip(null);return}
+  try{
+    const r=await fetch('/api/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:txt})});
+    det=await r.json(); setChip(det); updateOpts(det.type);
+  }catch(e){}
+}
+
+function setChip(d){
+  const dc=document.getElementById('dc'),dl=document.getElementById('dlbl'),gb=document.getElementById('gb');
+  if(!d||!d.type){dc.className='dc';gb.className='gbtn';return}
+  const cm={tiktok_video:'dl',tiktok_profile:'dl',youtube_video:'dl',youtube_playlist:'dl',
+    spotify_track:'mu',spotify_album:'mu',spotify_playlist:'mu',soundcloud:'mu',hashtag:'sc2'}[d.type]||'un';
+  const ic={tiktok_video:'▶ ',tiktok_profile:'👤 ',youtube_video:'▶ ',youtube_playlist:'📋 ',
+    spotify_track:'🎵 ',spotify_album:'💿 ',spotify_playlist:'🎧 ',soundcloud:'🎵 ',hashtag:'# ',unknown:'? '};
+  dc.className=`dc show ${cm}`;
+  dl.textContent=(ic[d.type]||'')+d.label;
+  gb.className=hrun?'gbtn show busy':'gbtn show';
+}
+
+function updateOpts(tp){
+  const row=document.getElementById('hor');
+  const q=document.getElementById('oq'),aq=document.getElementById('oaq'),lm=document.getElementById('olim');
+  const isV=['tiktok_video','youtube_video','tiktok_profile','youtube_playlist'].includes(tp);
+  const isA=['spotify_track','spotify_album','spotify_playlist','soundcloud'].includes(tp);
+  const isL=['hashtag','tiktok_profile','youtube_playlist'].includes(tp);
+  q.style.display=isV?'flex':'none'; aq.style.display=isA?'flex':'none'; lm.style.display=isL?'flex':'none';
+  row.style.display=(isV||isA||isL)?'flex':'none';
+}
+
+async function doPaste(){
+  try{const t=await navigator.clipboard.readText();mi.value=t;doDetect(t);}catch(e){mi.focus();}
+}
+function ex(t){mi.value=t;mi.focus();doDetect(t);}
+
+function runHome(){
+  if(!det||!det.type||hrun)return;
+  hrun=true;
+  const gb=document.getElementById('gb'); gb.className='gbtn show busy'; gb.textContent='RUNNING...';
+  const hp=document.getElementById('hp'); hp.classList.add('show');
+  document.getElementById('hr').innerHTML='';
+  const hl=document.getElementById('hl'); hl.innerHTML='';
+  const hpb=document.getElementById('hpb'); hpb.style.width='0%'; hpb.classList.add('ind');
+  document.getElementById('hpl').textContent='RUNNING'; document.getElementById('hps').textContent='';
+  const opts={quality:document.getElementById('sq')?.value||'1080',
+    audio_quality:document.getElementById('saq')?.value||'320',
+    limit:document.getElementById('slim')?.value||'300'};
+  doStream('/api/run',{detected:det,options:opts},{
+    logEl:hl,barEl:hpb,lblEl:document.getElementById('hpl'),stEl:document.getElementById('hps'),
+    resEl:document.getElementById('hr'),
+    onDone:()=>{hrun=false;const g=document.getElementById('gb');g.className=det?'gbtn show':'gbtn';g.textContent='GO →';}
+  });
+}
+
+function runTool(id){
+  if(trun)return;
+  const t=T[id]; if(!t)return;
+  trun=true;
+  document.getElementById('rbtn').classList.add('busy');
+  const opts={}; t.f.forEach(f=>{const el=document.getElementById(`tf_${f.id}`);if(el)opts[f.id]=el.value.trim();});
+  const tp=document.getElementById('tp'); tp.classList.add('show');
+  const tl=document.getElementById('tl'); tl.innerHTML='';
+  const tpb=document.getElementById('tpb'); tpb.style.width='0%'; tpb.classList.add('ind');
+  document.getElementById('tpl').textContent='RUNNING'; document.getElementById('tps').textContent='';
+  document.getElementById('tr').innerHTML='';
+  doStream('/api/tool',{tool_id:id,options:opts},{
+    logEl:tl,barEl:tpb,lblEl:document.getElementById('tpl'),stEl:document.getElementById('tps'),
+    resEl:document.getElementById('tr'),
+    onDone:()=>{trun=false;const b=document.getElementById('rbtn');if(b)b.classList.remove('busy');}
+  });
+}
+
+async function doStream(url,body,{logEl,barEl,lblEl,stEl,resEl,onDone}){
+  let rd=null;
+  try{
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const{value,done}=await reader.read(); if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        let m; try{m=JSON.parse(line.slice(6));}catch(e){continue;}
+        if(m.type==='log') addLog(logEl,m.text);
+        else if(m.type==='progress'){barEl.classList.remove('ind');barEl.style.width=(m.value/m.total*100).toFixed(1)+'%';stEl.textContent=m.value+' / '+m.total;}
+        else if(m.type==='result') rd=m.data;
+        else if(m.type==='done'){
+          barEl.classList.remove('ind');barEl.style.width='100%';
+          lblEl.textContent='DONE';stEl.textContent='';
+          if(m.text)addLog(logEl,'✓ '+m.text,'done');
+          if(rd)renderRes(resEl,rd,m.text);
+          onDone();
+        }
+        else if(m.type==='error') addLog(logEl,'✗ '+m.text,'err');
+        else if(m.type==='close') onDone();
+      }
+    }
+  }catch(e){addLog(logEl,'Error: '+e.message,'err');onDone();}
+}
+
+function addLog(box,text,cls=''){
+  const el=document.createElement('span');
+  if(!cls){
+    if(/^[✓]|^\[v\]|Done|complete/i.test(text))cls='ok';
+    else if(/^\[!\]|warn|✗/i.test(text))cls='warn';
+    else if(/^\[x\]|error/i.test(text))cls='err';
+    else if(/^\[i\]|^\s+\[i\]/i.test(text))cls='info';
+  }
+  el.className='ll'+(cls?' '+cls:''); el.textContent=text;
+  box.appendChild(el); box.appendChild(document.createTextNode('\n')); box.scrollTop=box.scrollHeight;
+}
+
+function renderRes(el,d,msg){if(d.type==='sounds')el.innerHTML=renderSounds(d,msg);}
+
+function renderSounds(d,msg){
+  const top=d.top||[],mx=top[0]?.count||1;
+  const rows=top.map((s,i)=>{
+    const p=(s.count/mx*100).toFixed(0);
+    const rk=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    return `<div class="sw"><div class="srk${i<3?' t':''}">${rk}</div><div class="si"><div class="sna">${x(s.title||'—')}</div><div class="sau">${x(s.author||'')}</div></div><div class="sbw"><div class="sbf" style="width:${p}%"></div></div><div class="sco">${s.count}×</div></div>`;
+  }).join('');
+  const ob=d.html_path?`<button class="ob" onclick="openF('${x(d.html_path)}')">OPEN REPORT ↗</button>`:'';
+  return `<div class="rc"><div class="rch"><div class="rct">Trending Sounds — #${x(d.hashtag)}</div><div class="rcm">${new Date().toLocaleTimeString()}</div></div><div class="sr"><div class="sc3"><div class="sn">${n(d.scanned)}</div><div class="sl2">Scanned</div></div><div class="sc3"><div class="sn">${n(d.kept)}</div><div class="sl2">Sounds</div></div><div class="sc3"><div class="sn" style="color:var(--text3)">${n(d.removed)}</div><div class="sl2">Filtered</div></div></div><div class="sl3">${rows}</div><div class="ds"><div class="di">✓</div><div class="dt">${x(msg||'Complete')}</div>${ob}</div></div>`;
+}
+
+async function openF(path){await fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});}
+const x=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const n=v=>Number(v).toLocaleString();
+
+</script>
+</body>
+</html>

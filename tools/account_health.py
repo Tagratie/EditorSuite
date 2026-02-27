@@ -92,16 +92,38 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
                         wait_until="domcontentloaded", timeout=30000)
 
         import asyncio as _a
-        await _a.sleep(3)
+        await _a.sleep(4)
 
-        stale = 0
-        while len(seen) < max_posts and stale < 14:
+        # TikTok profile pages load ~20 posts initially then require scrolling
+        # to trigger more /api/post/item_list calls. We scroll + wait for
+        # new network responses, and also try clicking any "load more" elements.
+        last_count = 0
+        stale      = 0
+        while len(seen) < max_posts and stale < 10:
             print(f"  Loaded {len(seen)} posts...", end="\r", flush=True)
-            prev = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await _a.sleep(2.5)
-            new_h = await page.evaluate("document.body.scrollHeight")
-            stale = stale + 1 if new_h == prev else 0
+            await _a.sleep(3.0)
+
+            # Try clicking any visible "load more" / skeleton buttons
+            for sel in [
+                "[data-e2e='user-post-item-list'] ~ button",
+                "button[class*='loadmore' i]",
+                "button[class*='load-more' i]",
+                "div[class*='loadmore' i]",
+            ]:
+                try:
+                    btn = page.locator(sel).first
+                    if await btn.is_visible(timeout=500):
+                        await btn.click()
+                        await _a.sleep(1.5)
+                except Exception:
+                    pass
+
+            if len(seen) == last_count:
+                stale += 1
+            else:
+                stale = 0
+            last_count = len(seen)
 
         await browser.close()
 
