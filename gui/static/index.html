@@ -4,39 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EditorSuite</title>
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#070709;--bg2:#0d0d10;--bg3:#131317;--bg4:#19191e;--bg5:#1f1f26;
+  --bg:#070709;--bg2:#0d0d10;--bg3:#131317;--bg4:#19191e;
   --border:#1c1c24;--border2:#26262f;--border3:#303040;
   --cyan:#00dfc0;--pink:#ff3b7a;--purple:#a855f7;
   --amber:#f59e0b;--green:#22d3a0;--red:#f43f5e;--blue:#38bdf8;
   --text:#f0f0f4;--text2:#a0a0b0;--text3:#606070;
   --sidebar:260px;
-  --fh:'Space Grotesk',sans-serif;--fm:'JetBrains Mono',monospace;
+  --fh:"Space Grotesk",sans-serif;--fm:"JetBrains Mono",monospace;
   --cat-scraper:#ff3b7a;--cat-analytics:#a855f7;--cat-dl:#00dfc0;--cat-studio:#f59e0b;
 }
-
 body{background:var(--bg);color:var(--text);font-family:var(--fh);height:100vh;overflow:hidden;display:flex}
-
-/* subtle noise overlay */
-body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat:repeat;background-size:128px}
 
-/* ── SIDEBAR ── */
-#sb{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);
-  border-right:1px solid var(--border);height:100vh;overflow-y:auto;overflow-x:hidden;
-  display:flex;flex-direction:column;position:relative;z-index:10;flex-shrink:0}
+/* SIDEBAR */
+#sb{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);
+  height:100vh;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;
+  position:relative;z-index:10;flex-shrink:0}
 #sb::-webkit-scrollbar{width:3px}
 #sb::-webkit-scrollbar-thumb{background:var(--border3)}
-
+#sb::after{content:"";display:block;height:36px;flex-shrink:0}
 .sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
 .sb-logo-text{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
 .sb-logo-text span{color:var(--cyan)}
 .sb-logo-tag{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:3px;letter-spacing:.04em}
-
 .sb-home{margin:12px 12px 6px;padding:12px 14px;
   background:linear-gradient(135deg,rgba(0,223,192,.1),rgba(255,59,122,.06));
   border:1px solid var(--border2);border-radius:10px;cursor:pointer;transition:all .2s}
@@ -45,158 +42,180 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opac
   background:linear-gradient(90deg,var(--cyan),var(--pink));
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .sb-home-sub{font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-top:3px}
-
 .sb-sep{height:1px;background:var(--border);margin:8px 0}
-
-.sb-cat{padding:14px 20px 6px}
 .sb-cat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;
-  display:flex;align-items:center;gap:8px}
-.sb-cat-lbl::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-.sb-cat.scrapers .sb-cat-lbl{color:var(--cat-scraper)}
-.sb-cat.analytics .sb-cat-lbl{color:var(--cat-analytics)}
-.sb-cat.downloaders .sb-cat-lbl{color:var(--cat-dl)}
-.sb-cat.studio .sb-cat-lbl{color:var(--cat-studio)}
-
+  display:flex;align-items:center;gap:8px;padding:14px 20px 6px}
+.sb-cat-lbl::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.scrapers-cat .sb-cat-lbl{color:var(--cat-scraper)}
+.analytics-cat .sb-cat-lbl{color:var(--cat-analytics)}
+.downloaders-cat .sb-cat-lbl{color:var(--cat-dl)}
+.studio-cat .sb-cat-lbl{color:var(--cat-studio)}
 .sb-tool{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 20px;
-  cursor:pointer;transition:all .15s;border-radius:6px;margin:2px 8px;
-  border:1px solid transparent}
+  cursor:pointer;transition:all .15s;border-radius:6px;margin:2px 8px;border:1px solid transparent}
 .sb-tool:hover{background:var(--bg3);border-color:var(--border)}
 .sb-tool.on{background:var(--bg3);border-color:var(--border2)}
-.sb-cat.scrapers   .sb-tool.on{border-left:2px solid var(--cat-scraper)}
-.sb-cat.analytics  .sb-tool.on{border-left:2px solid var(--cat-analytics)}
-.sb-cat.downloaders.sb-tool.on,.sb-cat.downloaders .sb-tool.on{border-left:2px solid var(--cat-dl)}
-.sb-cat.studio     .sb-tool.on{border-left:2px solid var(--cat-studio)}
+.scrapers-cat .sb-tool.on{border-left:2px solid var(--cat-scraper)}
+.scrapers-cat .sb-tool.on .sb-tool-name{color:var(--cat-scraper)}
+.analytics-cat .sb-tool.on{border-left:2px solid var(--cat-analytics)}
+.analytics-cat .sb-tool.on .sb-tool-name{color:var(--cat-analytics)}
+.downloaders-cat .sb-tool.on{border-left:2px solid var(--cat-dl)}
+.downloaders-cat .sb-tool.on .sb-tool-name{color:var(--cat-dl)}
+.studio-cat .sb-tool.on{border-left:2px solid var(--cat-studio)}
+.studio-cat .sb-tool.on .sb-tool-name{color:var(--cat-studio)}
 .sb-tool-icon{font-size:.9rem;width:20px;text-align:center;flex-shrink:0}
 .sb-tool-name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sb-cat.scrapers   .sb-tool.on .sb-tool-name{color:var(--cat-scraper)}
-.sb-cat.analytics  .sb-tool.on .sb-tool-name{color:var(--cat-analytics)}
-.sb-cat.downloaders .sb-tool.on .sb-tool-name{color:var(--cat-dl)}
-.sb-cat.studio     .sb-tool.on .sb-tool-name{color:var(--cat-studio)}
 
-/* ── MAIN ── */
+/* MAIN */
 #main{flex:1;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1}
 #main::-webkit-scrollbar{width:5px}
 #main::-webkit-scrollbar-thumb{background:var(--border3)}
 .panel{display:none;min-height:100%}
 .panel.on{display:block}
 
-/* ── HOME PANEL ── */
-#ph{padding:0}
-
-.home-hero{padding:40px 40px 32px;border-bottom:1px solid var(--border);
-  background:linear-gradient(180deg,var(--bg2) 0%,transparent 100%)}
-.home-hero-label{font-family:var(--fm);font-size:.72rem;color:var(--cyan);
-  letter-spacing:.18em;text-transform:uppercase;opacity:.8;margin-bottom:12px}
-.home-hero-h1{font-size:clamp(1.6rem,2.8vw,2.4rem);font-weight:700;
-  letter-spacing:-.03em;line-height:1.1;margin-bottom:8px}
-.home-hero-h1 em{font-style:normal;
-  background:linear-gradient(90deg,var(--cyan),var(--pink));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.home-hero-sub{font-size:.9rem;color:var(--text2);font-weight:300;margin-bottom:28px;max-width:520px}
-
-/* paste input */
-.paste-wrap{max-width:640px}
-.paste-card{background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:5px;
-  transition:border-color .25s,box-shadow .2s}
-.paste-card:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,223,192,.08)}
-.paste-row{display:flex;align-items:center;gap:10px;padding:8px 14px}
-.paste-icon{color:var(--text3);font-size:1rem;flex-shrink:0;transition:color .2s}
-.paste-card:focus-within .paste-icon{color:var(--cyan)}
+/* STICKY PASTE BAR */
+.paste-bar{position:sticky;top:0;z-index:20;
+  background:rgba(7,7,9,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);padding:10px 24px;
+  display:flex;align-items:center;gap:10px}
+.paste-bar-icon{color:var(--text3);font-size:.95rem;flex-shrink:0;transition:color .2s}
+.paste-bar:focus-within .paste-bar-icon{color:var(--cyan)}
 #mi{flex:1;background:none;border:none;outline:none;font-family:var(--fh);
-  font-size:.95rem;color:var(--text);padding:8px 0;caret-color:var(--cyan)}
+  font-size:.92rem;color:var(--text);padding:6px 0;caret-color:var(--cyan);min-width:0}
 #mi::placeholder{color:var(--text3)}
-.paste-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:7px;
-  color:var(--text2);font-family:var(--fm);font-size:.72rem;letter-spacing:.06em;
-  padding:8px 14px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.paste-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:6px;
+  color:var(--text2);font-family:var(--fm);font-size:.68rem;letter-spacing:.06em;
+  padding:6px 11px;cursor:pointer;transition:all .2s;flex-shrink:0}
 .paste-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.paste-meta{display:flex;align-items:center;justify-content:space-between;
-  padding:6px 14px 8px;min-height:38px}
-.det-chip{display:inline-flex;align-items:center;gap:7px;
-  font-family:var(--fm);font-size:.72rem;letter-spacing:.04em;
-  border-radius:20px;padding:4px 12px;opacity:0;transform:translateY(3px);transition:all .22s}
+.det-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);
+  font-size:.8rem;font-weight:500;border-radius:6px;padding:4px 10px;
+  opacity:0;transform:translateY(2px);transition:all .2s;white-space:nowrap;flex-shrink:0}
 .det-chip.show{opacity:1;transform:none}
-.det-chip.dl{background:rgba(0,223,192,.1);color:var(--cyan)}
-.det-chip.mu{background:rgba(168,85,247,.12);color:var(--purple)}
-.det-chip.sc{background:rgba(255,59,122,.1);color:var(--pink)}
-.det-chip.un{background:rgba(255,255,255,.05);color:var(--text3)}
-.det-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.go-btn{background:var(--cyan);color:#000;border:none;border-radius:7px;
-  font-family:var(--fh);font-weight:600;font-size:.82rem;letter-spacing:.02em;
-  padding:8px 22px;cursor:pointer;transition:all .2s;opacity:0;pointer-events:none;white-space:nowrap}
+.det-chip.dl{color:var(--cyan)}.det-chip.mu{color:var(--purple)}
+.det-chip.sc2{color:var(--pink)}.det-chip.un{color:var(--text3)}
+.go-btn{background:linear-gradient(135deg,var(--cyan),#00b8a0);color:#000;border:none;
+  border-radius:100px;font-family:var(--fh);font-weight:700;font-size:.76rem;letter-spacing:.04em;
+  padding:8px 18px;cursor:pointer;transition:all .25s;opacity:0;pointer-events:none;white-space:nowrap;
+  box-shadow:0 2px 12px rgba(0,223,192,.2);display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
+.go-btn::after{content:"→";transition:transform .2s}
+.go-btn:hover::after{transform:translateX(3px)}
 .go-btn.show{opacity:1;pointer-events:all}
-.go-btn:hover{background:#00f5d4;box-shadow:0 0 20px rgba(0,223,192,.25)}
-.go-btn.busy{background:var(--bg4);color:var(--text3);border:1px solid var(--border);cursor:not-allowed;box-shadow:none}
-.paste-opts{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 6px;max-width:640px}
-.p-opt{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;
-  padding:7px 12px;display:flex;align-items:center;gap:8px}
-.p-opt-lbl{font-family:var(--fm);font-size:.7rem;color:var(--text3);letter-spacing:.05em}
+.go-btn:hover{background:linear-gradient(135deg,#00f5d4,#00ccb0);box-shadow:0 4px 20px rgba(0,223,192,.35)}
+.go-btn.busy{background:var(--bg3);color:var(--text3);border:1px solid var(--border2);cursor:not-allowed;box-shadow:none}
+.go-btn.busy::after{content:""}
+/* opts row below bar — slides down when needed */
+.paste-opts{display:flex;gap:8px;flex-wrap:wrap;padding:6px 24px 8px;
+  background:rgba(7,7,9,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);position:sticky;top:57px;z-index:19}
+.p-opt{display:flex;align-items:center;gap:7px}
+.p-opt-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.05em}
 .p-opt-sel{background:var(--bg4);border:1px solid var(--border2);border-radius:5px;
-  color:var(--text);font-family:var(--fm);font-size:.76rem;padding:4px 8px;outline:none;cursor:pointer}
+  color:var(--text);font-family:var(--fm);font-size:.74rem;padding:3px 8px;outline:none;cursor:pointer}
 .p-opt-sel:focus{border-color:var(--cyan)}
-.ex-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.ex-chip{background:transparent;border:1px solid var(--border2);border-radius:20px;
-  font-family:var(--fm);font-size:.72rem;color:var(--text3);
-  padding:5px 13px;cursor:pointer;transition:all .18s}
-.ex-chip:hover{border-color:var(--border3);color:var(--text2)}
 
-/* home progress */
-.home-progress{padding:24px 40px 0;max-width:720px;display:none}
-.home-progress.show{display:block}
-.prog-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.prog-lbl{font-family:var(--fm);font-size:.7rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
-.prog-pct{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
-.prog-track{height:2px;background:var(--bg4);border-radius:2px;margin-bottom:14px;overflow:hidden}
-.prog-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:2px;width:0%;transition:width .35s}
-.prog-bar.ind{width:35%;animation:ind 1.3s ease-in-out infinite}
-@keyframes ind{0%{transform:translateX(-250%)}100%{transform:translateX(500%)}}
-.log-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  padding:14px 16px;height:170px;overflow-y:auto;
-  font-family:var(--fm);font-size:.76rem;line-height:1.8;color:var(--text2)}
-.log-box::-webkit-scrollbar{width:3px}
-.log-box::-webkit-scrollbar-thumb{background:var(--border3)}
-.ll{display:block}
-.ll.ok{color:var(--green)}.ll.warn{color:var(--amber)}.ll.err{color:var(--red)}
-.ll.info{color:var(--cyan)}.ll.done{color:var(--green);font-weight:600}
-.home-result{padding:20px 40px;max-width:760px}
 
-/* ── TOOL GRID ── */
+/* LIVE FEED (replaces terminal — 3 rolling lines, no scroll) */
+.live-feed{margin-top:10px;display:none}
+.live-feed.show{display:block}
+.lf-line{font-family:var(--fm);font-size:.75rem;line-height:1.9;color:var(--text3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .3s}
+.lf-line.active{color:var(--text2)}
+.lf-line.ok{color:var(--green)}.lf-line.err{color:var(--red)}.lf-line.warn{color:var(--amber)}
+
+/* DOWNLOAD BUTTONS in cards */
+.dl-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.dl-btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:8px;
+  font-family:var(--fh);font-size:.82rem;font-weight:600;padding:10px 18px;
+  cursor:pointer;transition:all .2s;text-decoration:none}
+.dl-btn.primary{background:var(--cyan);color:#000}
+.dl-btn.primary:hover{background:#00f5d4;box-shadow:0 4px 16px rgba(0,223,192,.3)}
+.dl-btn.secondary{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+.dl-btn.secondary:hover{border-color:var(--border3);color:var(--text)}
+
+
+/* SETTINGS PANEL */
+.settings-wrap{padding:40px;max-width:680px}
+.settings-section{margin-bottom:36px}
+.settings-section-title{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.settings-section-title::after{content:"";flex:1;height:1px;background:var(--border)}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.settings-grid.single{grid-template-columns:1fr}
+.settings-field{display:flex;flex-direction:column;gap:6px}
+.settings-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.05em}
+.settings-lbl span{color:var(--text3);font-size:.66rem;margin-left:4px}
+.settings-in{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
+  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;
+  outline:none;transition:border-color .2s;width:100%}
+.settings-in:focus{border-color:var(--cyan)}
+.settings-in::placeholder{color:var(--text3)}
+.settings-toggle-row{display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:12px 16px}
+.settings-toggle-label{font-size:.88rem;font-weight:500}
+.settings-toggle-sub{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:2px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;inset:0;background:var(--bg4);border:1px solid var(--border2);
+  border-radius:22px;cursor:pointer;transition:all .2s}
+.toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;
+  background:var(--text3);border-radius:50%;transition:all .2s}
+.toggle input:checked+.toggle-slider{background:rgba(0,223,192,.2);border-color:var(--cyan)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px);background:var(--cyan)}
+.settings-save-btn{background:linear-gradient(135deg,var(--cyan),#00b8a0);color:#000;
+  border:none;border-radius:9px;font-family:var(--fh);font-weight:700;font-size:.9rem;
+  padding:13px 32px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.settings-save-btn:hover{background:linear-gradient(135deg,#00f5d4,#00ccb0);box-shadow:0 4px 20px rgba(0,223,192,.3)}
+.settings-save-btn:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;box-shadow:none}
+.settings-toast{display:inline-flex;align-items:center;gap:8px;font-family:var(--fm);font-size:.78rem;
+  color:var(--green);opacity:0;transition:opacity .3s;margin-left:14px}
+.settings-toast.show{opacity:1}
+
+/* PROGRESS BAR (slim, no terminal) */
+.run-progress{padding:20px 40px 0;max-width:760px;display:none}
+.run-progress.show{display:block}
+.rp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.rp-label{font-family:var(--fm);font-size:.7rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
+.rp-status{font-family:var(--fm);font-size:.72rem;color:var(--text3);max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rp-track{height:3px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.rp-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:3px;width:0%;transition:width .4s}
+.rp-bar.ind{width:30%;animation:rpanim 1.2s ease-in-out infinite}
+@keyframes rpanim{0%{transform:translateX(-200%)}100%{transform:translateX(500%)} }
+
+/* RESULT AREA */
+.result-area{padding:24px 40px 60px;max-width:900px}
+
+/* TOOL GRID */
 .tools-area{padding:32px 40px 60px}
 .section-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;margin-top:36px}
 .section-hdr:first-child{margin-top:0}
-.section-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
+.section-title{font-size:1rem;font-weight:600}
 .section-count{font-family:var(--fm);font-size:.72rem;color:var(--text3)}
 .section-line{flex:1;height:1px;background:var(--border);margin-left:8px}
-
 .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:8px}
-
 .tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
   padding:18px 18px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
-.tool-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;border-radius:12px;pointer-events:none}
+.tool-card::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .2s;border-radius:12px;pointer-events:none}
 .tool-card:hover{border-color:var(--border3);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .tool-card:hover::before{opacity:1}
-/* category glow on hover */
 .scrapers .tool-card::before{background:linear-gradient(135deg,rgba(255,59,122,.05),transparent)}
 .analytics .tool-card::before{background:linear-gradient(135deg,rgba(168,85,247,.05),transparent)}
 .downloaders .tool-card::before{background:linear-gradient(135deg,rgba(0,223,192,.05),transparent)}
 .studio .tool-card::before{background:linear-gradient(135deg,rgba(245,158,11,.05),transparent)}
-
 .tool-card-icon{font-size:1.35rem;margin-bottom:12px;display:block}
-.tool-card-name{font-size:.92rem;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
-.tool-card-desc{font-size:.8rem;color:var(--text2);line-height:1.5;font-weight:400}
-.tool-card-tag{position:absolute;top:12px;right:12px;
-  font-family:var(--fm);font-size:.62rem;letter-spacing:.06em;
-  border-radius:4px;padding:2px 7px;opacity:.6}
+.tool-card-name{font-size:.92rem;font-weight:600;margin-bottom:6px}
+.tool-card-desc{font-size:.8rem;color:var(--text2);line-height:1.5}
+.tool-card-tag{position:absolute;top:12px;right:12px;font-family:var(--fm);font-size:.62rem;
+  letter-spacing:.06em;border-radius:4px;padding:2px 7px;opacity:.6}
 .scrapers .tool-card-tag{background:rgba(255,59,122,.15);color:var(--cat-scraper)}
 .analytics .tool-card-tag{background:rgba(168,85,247,.15);color:var(--cat-analytics)}
 .downloaders .tool-card-tag{background:rgba(0,223,192,.15);color:var(--cat-dl)}
 .studio .tool-card-tag{background:rgba(245,158,11,.15);color:var(--cat-studio)}
 
-/* ── TOOL PANEL ── */
+/* TOOL PANEL */
 #pt2{padding:0}
-.tool-panel-inner{padding:40px;max-width:760px}
+.tool-panel-inner{padding:40px;max-width:820px}
 .t-back{display:inline-flex;align-items:center;gap:7px;font-family:var(--fm);font-size:.74rem;
   color:var(--text3);cursor:pointer;margin-bottom:28px;transition:color .2s;
-  border:1px solid transparent;padding:6px 12px;border-radius:6px;background:var(--bg2);border-color:var(--border)}
+  border:1px solid var(--border);padding:6px 12px;border-radius:6px;background:var(--bg2)}
 .t-back:hover{color:var(--text2);border-color:var(--border2)}
 .t-cat-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:.72rem;
   letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:4px 10px;margin-bottom:14px}
@@ -207,23 +226,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .t-icon-big{font-size:2rem;margin-bottom:10px;display:block}
 .t-title{font-size:1.8rem;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
 .t-sub{font-size:.92rem;color:var(--text2);font-weight:400;margin-bottom:32px;max-width:480px;line-height:1.6}
-
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;max-width:580px}
 .form-row.single{grid-template-columns:1fr}
 .form-field{display:flex;flex-direction:column;gap:6px}
 .form-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.06em}
 .form-in{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text);font-family:var(--fh);font-size:.9rem;
-  padding:11px 14px;outline:none;transition:border-color .2s;width:100%}
+  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;outline:none;transition:border-color .2s;width:100%}
 .form-in:focus{border-color:var(--cyan)}.form-in::placeholder{color:var(--text3)}
 .form-sel{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text);font-family:var(--fh);font-size:.9rem;
-  padding:11px 14px;outline:none;cursor:pointer;transition:border-color .2s;width:100%}
+  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;outline:none;cursor:pointer;transition:border-color .2s;width:100%}
 .form-sel:focus{border-color:var(--cyan)}
-
-.run-btn{display:inline-flex;align-items:center;gap:10px;
-  border:none;border-radius:9px;font-family:var(--fh);font-weight:600;
-  font-size:.9rem;padding:13px 28px;cursor:pointer;transition:all .2s;margin-bottom:28px}
+.run-btn{display:inline-flex;align-items:center;gap:10px;border:none;border-radius:9px;
+  font-family:var(--fh);font-weight:600;font-size:.9rem;padding:13px 28px;cursor:pointer;transition:all .2s;margin-bottom:28px}
 .run-btn svg{width:16px;height:16px;flex-shrink:0}
 .run-btn.busy{background:var(--bg3)!important;color:var(--text3)!important;cursor:not-allowed;box-shadow:none!important}
 .scrapers .run-btn{background:var(--cat-scraper);color:#fff}
@@ -234,66 +248,198 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .downloaders .run-btn:hover:not(.busy){background:#00f5d4;box-shadow:0 0 24px rgba(0,223,192,.3)}
 .studio .run-btn{background:var(--cat-studio);color:#000}
 .studio .run-btn:hover:not(.busy){background:#fbbf24;box-shadow:0 0 24px rgba(245,158,11,.3)}
-
-#tp{display:none;max-width:580px}.#tp.show{display:block}
+#tp{display:none}.#tp.show{display:block}
 #tp.show{display:block}
-#tl{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  padding:14px 16px;height:200px;overflow-y:auto;margin-top:12px;
-  font-family:var(--fm);font-size:.76rem;line-height:1.8;color:var(--text2)}
-#tl::-webkit-scrollbar{width:3px}
-#tl::-webkit-scrollbar-thumb{background:var(--border3)}
-.tool-result{margin-top:20px;max-width:580px}
+.tool-result{margin-top:4px}
 
-/* result cards */
-.rc{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;animation:fadeup .3s ease}
-@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.rc-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
-.rc-title{font-size:.95rem;font-weight:600}
-.rc-meta{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
-.stats-row{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border)}
-.stat-cell{padding:18px;text-align:center;border-right:1px solid var(--border)}.stat-cell:last-child{border-right:none}
-.stat-n{font-size:1.9rem;font-weight:700;color:var(--cyan);line-height:1;margin-bottom:4px}
-.stat-l{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
-.sounds-list{padding:4px 0}
-.s-row{display:flex;align-items:center;gap:12px;padding:10px 18px;transition:background .15s}
-.s-row:hover{background:var(--bg3)}
-.s-rank{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:24px;text-align:right;flex-shrink:0}
-.s-rank.t{color:var(--cyan)}
-.s-info{flex:1;min-width:0}
-.s-name{font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.s-auth{font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-top:2px}
-.s-bar-wrap{width:80px;height:2px;background:var(--bg4);border-radius:2px;flex-shrink:0}
-.s-bar{height:100%;background:var(--cyan);border-radius:2px}
-.s-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:38px;text-align:right;flex-shrink:0}
-.done-row{display:flex;align-items:center;gap:10px;padding:12px 18px;
-  background:rgba(34,211,160,.06);border-top:1px solid rgba(34,211,160,.15)}
-.done-ico{width:22px;height:22px;border-radius:50%;background:rgba(34,211,160,.15);
-  display:flex;align-items:center;justify-content:center;color:var(--green);font-size:.8rem;flex-shrink:0}
-.done-txt{font-family:var(--fm);font-size:.76rem;color:var(--green)}
-.open-rep-btn{margin-left:auto;background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.25);
+/* ═══ RESULT CARD STYLES ═══ */
+@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeup .3s ease;margin-bottom:16px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.card-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
+.card-meta{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
+.card-body{padding:0}
+.card-footer{display:flex;align-items:center;gap:10px;padding:12px 20px;
+  background:rgba(34,211,160,.05);border-top:1px solid rgba(34,211,160,.12)}
+.cf-icon{width:22px;height:22px;border-radius:50%;background:rgba(34,211,160,.15);
+  display:flex;align-items:center;justify-content:center;color:var(--green);font-size:.75rem;flex-shrink:0}
+.cf-text{font-family:var(--fm);font-size:.75rem;color:var(--green)}
+.open-btn{margin-left:auto;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.25);
   border-radius:6px;color:var(--green);font-family:var(--fm);font-size:.68rem;
   padding:5px 12px;cursor:pointer;transition:all .2s;flex-shrink:0}
-.open-rep-btn:hover{background:rgba(34,211,160,.2)}
+.open-btn:hover{background:rgba(34,211,160,.2)}
+
+/* stats strip */
+.stats-strip{display:grid;border-bottom:1px solid var(--border)}
+.stats-strip.c2{grid-template-columns:1fr 1fr}
+.stats-strip.c3{grid-template-columns:repeat(3,1fr)}
+.stats-strip.c4{grid-template-columns:repeat(4,1fr)}
+.stat{padding:18px 20px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-n{font-size:1.8rem;font-weight:700;line-height:1;margin-bottom:4px;color:var(--cyan)}
+.stat-n.pink{color:var(--pink)}.stat-n.purple{color:var(--purple)}
+.stat-n.amber{color:var(--amber)}.stat-n.dim{color:var(--text3)}
+.stat-n.green{color:var(--green)}
+.stat-l{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+
+/* sound rows */
+.sound-rows{}
+.s-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);transition:background .15s}
+.s-row:last-child{border-bottom:none}
+.s-row:hover{background:var(--bg3)}
+.s-rank{font-family:var(--fm);font-size:.75rem;color:var(--text3);width:24px;text-align:right;flex-shrink:0}
+.s-rank.gold{color:#ffd700}.s-rank.silver{color:#c0c0c0}.s-rank.bronze{color:#cd7f32}
+.s-info{flex:1;min-width:0}
+.s-name{font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-auth{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:2px}
+.s-bar-wrap{width:100px;height:3px;background:var(--bg4);border-radius:3px;flex-shrink:0}
+.s-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:3px;transition:width .6s .1s}
+.s-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text2);width:42px;text-align:right;flex-shrink:0}
+
+/* hashtag freq bars */
+.hf-row{display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);transition:background .15s}
+.hf-row:last-child{border-bottom:none}
+.hf-row:hover{background:var(--bg3)}
+.hf-tag{font-family:var(--fm);font-size:.8rem;color:var(--pink);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hf-bar-wrap{flex:1;height:6px;background:var(--bg4);border-radius:3px}
+.hf-bar{height:100%;background:linear-gradient(90deg,var(--pink),var(--purple));border-radius:3px;transition:width .6s}
+.hf-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:52px;text-align:right;flex-shrink:0}
+
+/* video cards */
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:16px}
+.vid-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .2s}
+.vid-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.vid-rank{font-family:var(--fm);font-size:.65rem;color:var(--text3);margin-bottom:8px}
+.vid-title{font-size:.83rem;font-weight:500;line-height:1.4;margin-bottom:10px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vid-stats{display:flex;gap:10px;flex-wrap:wrap}
+.vid-stat{font-family:var(--fm);font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px}
+.vid-stat span{color:var(--text2)}
+
+/* table */
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 20px;text-align:left;border-bottom:1px solid var(--border);font-weight:500}
+.data-table td{padding:11px 20px;font-size:.85rem;border-bottom:1px solid var(--border)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover{background:var(--bg3)}
+.tag-pill{display:inline-block;background:rgba(255,59,122,.12);color:var(--pink);
+  font-family:var(--fm);font-size:.68rem;border-radius:4px;padding:2px 7px;margin:1px}
+
+/* engagement meters */
+.eng-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:16px}
+.eng-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px}
+.eng-val{font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px}
+.eng-label{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.eng-grade{display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:.72rem;border-radius:5px;padding:3px 9px}
+.eng-grade.above{background:rgba(34,211,160,.12);color:var(--green)}
+.eng-grade.average{background:rgba(245,158,11,.12);color:var(--amber)}
+.eng-grade.below{background:rgba(244,63,94,.12);color:var(--red)}
+
+/* competitor two-col */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border)}
+.col-hdr{padding:14px 20px;font-size:.9rem;font-weight:600;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.col-hdr:last-child{border-right:none}
+.col-hdr .at{color:var(--cyan)}.col-hdr2 .at{color:var(--purple)}
+.col-stat{padding:10px 20px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:.85rem}
+.col-stat:nth-child(even){border-right:none}
+.col-stat-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+.col-stat-val{font-size:.95rem;font-weight:600;color:var(--cyan)}
+
+/* time slots */
+.slot-rows{}
+.slot-row{display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border);transition:background .15s}
+.slot-row:last-child{border-bottom:none}
+.slot-row:hover{background:var(--bg3)}
+.slot-rank{font-family:var(--fm);font-size:.7rem;color:var(--text3);width:20px;text-align:right}
+.slot-day{font-weight:600;font-size:.88rem;width:36px;flex-shrink:0}
+.slot-time{font-family:var(--fm);font-size:.8rem;color:var(--text3);width:55px;flex-shrink:0}
+.slot-bar-wrap{flex:1;height:6px;background:var(--bg4);border-radius:3px}
+.slot-bar{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));border-radius:3px;transition:width .6s}
+.slot-views{font-family:var(--fm);font-size:.72rem;color:var(--text2);width:72px;text-align:right;flex-shrink:0}
+
+/* health score */
+.health-score-wrap{display:flex;align-items:center;gap:24px;padding:24px}
+.score-circle{width:90px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+.score-num{font-size:1.8rem;font-weight:700;line-height:1;position:relative;z-index:1}
+.score-label{font-family:var(--fm);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:center;margin-top:2px}
+.score-info{flex:1}
+.score-title{font-size:1rem;font-weight:600;margin-bottom:4px}
+.score-sub{font-size:.85rem;color:var(--text2)}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:16px;border-top:1px solid var(--border)}
+.metric{background:var(--bg3);border-radius:9px;padding:14px}
+.metric-val{font-size:1.4rem;font-weight:700;color:var(--cyan);margin-bottom:3px}
+.metric-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase}
+
+/* growth */
+.growth-snap{padding:16px;border-bottom:1px solid var(--border)}
+.growth-snap-label{font-family:var(--fm);font-size:.68rem;color:var(--text3);margin-bottom:8px}
+.growth-stats{display:flex;gap:20px;flex-wrap:wrap}
+.g-stat{flex:1;min-width:100px}
+.g-val{font-size:1.5rem;font-weight:700;color:var(--cyan);margin-bottom:2px}
+.g-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.growth-history{padding:0}
+.hist-row{display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid var(--border);font-size:.83rem}
+.hist-row:last-child{border-bottom:none}
+.hist-date{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:130px;flex-shrink:0}
+.hist-val{font-family:var(--fm);font-weight:600;color:var(--text)}
+.hist-delta{font-family:var(--fm);font-size:.72rem;margin-left:auto}
+.hist-delta.up{color:var(--green)}.hist-delta.down{color:var(--red)}.hist-delta.flat{color:var(--text3)}
+
+/* calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:16px}
+.cal-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative}
+.cal-num{position:absolute;top:10px;right:12px;font-family:var(--fm);font-size:.65rem;color:var(--text3)}
+.cal-day{font-size:.8rem;font-weight:600;color:var(--amber);margin-bottom:4px}
+.cal-date{font-family:var(--fm);font-size:.72rem;color:var(--text3)}
+.cal-time{font-size:1.3rem;font-weight:700;color:var(--text);margin-top:8px}
+
+/* download status */
+.dl-status{padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.dl-icon{font-size:3rem}
+.dl-text{font-size:1rem;font-weight:600;color:var(--text)}
+.dl-sub{font-family:var(--fm);font-size:.78rem;color:var(--text3);max-width:400px;line-height:1.6}
+.dl-progress-list{width:100%;max-width:500px}
+.dl-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.83rem}
+.dl-item:last-child{border-bottom:none}
+.dl-item-icon{width:18px;font-size:.9rem;flex-shrink:0;text-align:center}
+.dl-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* niche tabs */
+.tab-row{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{padding:10px 18px;font-family:var(--fm);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
+  cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none}
+.tab-btn.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+
+/* trending two col */
+.trending-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.trend-col{border-right:1px solid var(--border)}
+.trend-col:last-child{border-right:none}
+.trend-col-hdr{padding:12px 16px;font-family:var(--fm);font-size:.68rem;color:var(--text3);
+  letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)}
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <nav id="sb">
   <div class="sb-logo">
     <div class="sb-logo-text">Editor<span>Suite</span></div>
     <div class="sb-logo-tag">Creator Toolkit v2</div>
   </div>
-
+  <div style="margin:8px 12px 4px">
+    <div class="sb-tool" style="margin:0;border-radius:8px;background:var(--bg3);border:1px solid var(--border)" onclick="goSettings()">
+      <div class="sb-tool-icon">⚙️</div>
+      <div class="sb-tool-name" style="color:var(--text3)">Settings</div>
+    </div>
+  </div>
   <div class="sb-home on" id="hbtn" onclick="goHome()">
     <div class="sb-home-title">⌁ Paste Anything</div>
     <div class="sb-home-sub">Auto-detect &amp; run</div>
   </div>
-
   <div class="sb-sep"></div>
-
-  <div class="sb-cat scrapers">
-    <div class="sb-cat"><div class="sb-cat-lbl">Scrapers</div></div>
+  <div class="scrapers-cat">
+    <div class="sb-cat-lbl">Scrapers</div>
     <div class="sb-tool" onclick="goTool('scraper')"><div class="sb-tool-icon">🎵</div><div class="sb-tool-name">Trending Audio</div></div>
     <div class="sb-tool" onclick="goTool('hfreq')"><div class="sb-tool-icon">#</div><div class="sb-tool-name">Hashtag Frequency</div></div>
     <div class="sb-tool" onclick="goTool('crosshash')"><div class="sb-tool-icon">⟁</div><div class="sb-tool-name">Cross-Hashtag Sounds</div></div>
@@ -301,11 +447,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opac
     <div class="sb-tool" onclick="goTool('trending')"><div class="sb-tool-icon">📈</div><div class="sb-tool-name">Trending Now</div></div>
     <div class="sb-tool" onclick="goTool('sp_exp')"><div class="sb-tool-icon">💚</div><div class="sb-tool-name">Export to Spotify</div></div>
   </div>
-
   <div class="sb-sep"></div>
-
-  <div class="sb-cat analytics">
-    <div class="sb-cat"><div class="sb-cat-lbl">Analytics</div></div>
+  <div class="analytics-cat">
+    <div class="sb-cat-lbl">Analytics</div>
     <div class="sb-tool" onclick="goTool('hanalyze')"><div class="sb-tool-icon">📊</div><div class="sb-tool-name">Hashtag Analyzer</div></div>
     <div class="sb-tool" onclick="goTool('competitor')"><div class="sb-tool-icon">⚔️</div><div class="sb-tool-name">Competitor Tracker</div></div>
     <div class="sb-tool" onclick="goTool('besttime')"><div class="sb-tool-icon">🕐</div><div class="sb-tool-name">Best Posting Time</div></div>
@@ -314,276 +458,313 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opac
     <div class="sb-tool" onclick="goTool('growth')"><div class="sb-tool-icon">🌱</div><div class="sb-tool-name">Growth Tracker</div></div>
     <div class="sb-tool" onclick="goTool('health')"><div class="sb-tool-icon">💪</div><div class="sb-tool-name">Account Health</div></div>
   </div>
-
   <div class="sb-sep"></div>
-
-  <div class="sb-cat downloaders">
-    <div class="sb-cat"><div class="sb-cat-lbl">Downloaders</div></div>
+  <div class="downloaders-cat">
+    <div class="sb-cat-lbl">Downloaders</div>
     <div class="sb-tool" onclick="goTool('dl_vid')"><div class="sb-tool-icon">⬇️</div><div class="sb-tool-name">TikTok / YouTube DL</div></div>
     <div class="sb-tool" onclick="goTool('dl_prof')"><div class="sb-tool-icon">👤</div><div class="sb-tool-name">Profile &amp; Playlist</div></div>
     <div class="sb-tool" onclick="goTool('dl_spotify')"><div class="sb-tool-icon">🎧</div><div class="sb-tool-name">Spotify / SoundCloud</div></div>
     <div class="sb-tool" onclick="goTool('dl_audio')"><div class="sb-tool-icon">🎙</div><div class="sb-tool-name">Audio Extractor</div></div>
   </div>
-
   <div class="sb-sep"></div>
-
-  <div class="sb-cat studio">
-    <div class="sb-cat"><div class="sb-cat-lbl">Studio</div></div>
+  <div class="studio-cat">
+    <div class="sb-cat-lbl">Studio</div>
     <div class="sb-tool" onclick="goTool('compress')"><div class="sb-tool-icon">📦</div><div class="sb-tool-name">Video Compressor</div></div>
     <div class="sb-tool" onclick="goTool('bulk_comp')"><div class="sb-tool-icon">🗂</div><div class="sb-tool-name">Bulk Compressor</div></div>
     <div class="sb-tool" onclick="goTool('bg_rem')"><div class="sb-tool-icon">✂️</div><div class="sb-tool-name">Background Remover</div></div>
     <div class="sb-tool" onclick="goTool('calendar')"><div class="sb-tool-icon">📅</div><div class="sb-tool-name">Posting Calendar</div></div>
   </div>
-
 </nav>
 
-<!-- MAIN -->
 <div id="main">
-
   <!-- HOME -->
   <div class="panel on" id="ph">
-    <div class="home-hero">
-      <div class="home-hero-label">21 tools · zero bs</div>
-      <h1 class="home-hero-h1">Your content,<br><em>on autopilot.</em></h1>
-      <p class="home-hero-sub">Paste a link or hashtag — EditorSuite figures out the rest. Scrape, analyze, download, edit. All local, all fast.</p>
-
-      <div class="paste-wrap">
-        <div class="paste-card">
-          <div class="paste-row">
-            <span class="paste-icon" id="ii">⌁</span>
-            <input id="mi" type="text" placeholder="https://... or #hashtag or @username" autocomplete="off" spellcheck="false">
-            <button class="paste-btn" onclick="doPaste()">PASTE</button>
-          </div>
-          <div class="paste-meta">
-            <div class="det-chip" id="dc"><div class="det-dot"></div><span id="dlbl"></span></div>
-            <button class="go-btn" id="gb" onclick="runHome()">Run →</button>
-          </div>
-        </div>
-        <div class="paste-opts" id="hor" style="display:none">
-          <div class="p-opt" id="oq" style="display:none"><span class="p-opt-lbl">QUALITY</span><select class="p-opt-sel" id="sq"><option>1080p</option><option>720p</option><option>480p</option></select></div>
-          <div class="p-opt" id="oaq" style="display:none"><span class="p-opt-lbl">AUDIO</span><select class="p-opt-sel" id="saq"><option value="320">320 kbps</option><option value="256">256 kbps</option><option value="192">192 kbps</option><option value="128">128 kbps</option></select></div>
-          <div class="p-opt" id="olim" style="display:none"><span class="p-opt-lbl">LIMIT</span><select class="p-opt-sel" id="slim"><option value="300">300 videos</option><option value="500">500</option><option value="100">100</option><option value="50">50</option></select></div>
-        </div>
-        <div class="ex-row">
-          <div class="ex-chip" onclick="ex('https://www.tiktok.com/@user/video/123')">TikTok video</div>
-          <div class="ex-chip" onclick="ex('https://youtu.be/dQw4w9WgXcQ')">YouTube</div>
-          <div class="ex-chip" onclick="ex('https://open.spotify.com/track/...')">Spotify track</div>
-          <div class="ex-chip" onclick="ex('#fyp')">#hashtag scrape</div>
-          <div class="ex-chip" onclick="ex('@charlidamelio')">Profile DL</div>
-        </div>
-      </div>
+    <!-- Sticky paste bar -->
+    <div class="paste-bar">
+      <span class="paste-bar-icon">⌁</span>
+      <input id="mi" type="text" placeholder="Paste a URL, #hashtag or @username and hit Enter..." autocomplete="off" spellcheck="false">
+      <div class="det-chip" id="dc"><span id="dlbl"></span></div>
+      <button class="paste-btn" onclick="doPaste()">PASTE</button>
+      <button class="go-btn" id="gb" onclick="runHome()">Run</button>
     </div>
-
-    <div class="home-progress" id="hp">
-      <div class="prog-hdr"><span class="prog-lbl" id="hpl">RUNNING</span><span class="prog-pct" id="hps"></span></div>
-      <div class="prog-track"><div class="prog-bar ind" id="hpb"></div></div>
-      <div class="log-box" id="hl"></div>
+    <div class="paste-opts" id="hor" style="display:none">
+      <div class="p-opt" id="oq" style="display:none"><span class="p-opt-lbl">QUALITY</span><select class="p-opt-sel" id="sq"><option>1080p</option><option>720p</option><option>480p</option></select></div>
+      <div class="p-opt" id="oaq" style="display:none"><span class="p-opt-lbl">AUDIO</span><select class="p-opt-sel" id="saq"><option value="320">320 kbps</option><option value="256">256 kbps</option><option value="192">192 kbps</option><option value="128">128 kbps</option></select></div>
+      <div class="p-opt" id="olim" style="display:none"><span class="p-opt-lbl">LIMIT</span><select class="p-opt-sel" id="slim"><option value="300">300 videos</option><option value="500">500</option><option value="100">100</option><option value="50">50</option></select></div>
     </div>
-    <div class="home-result" id="hr"></div>
-
-    <!-- TOOL GRID -->
-    <div class="tools-area">
-
-      <div class="section-hdr scrapers">
+    <!-- progress + results sit right below bar before the grid -->
+    <div class="run-progress" id="hp" style="padding:16px 24px 0">
+      <div class="rp-top"><span class="rp-label" id="hpl">RUNNING</span><span class="rp-status" id="hps"></span></div>
+      <div class="rp-track"><div class="rp-bar ind" id="hpb"></div></div>
+      <div class="live-feed" id="hlf"><div class="lf-line" id="hlf0"></div><div class="lf-line" id="hlf1"></div><div class="lf-line" id="hlf2"></div></div>
+    </div>
+    <div class="result-area" id="hr" style="padding:16px 24px 0"></div>
+    <div class="tools-area" style="padding-top:24px">
+      <div class="section-hdr">
         <div class="section-title" style="color:var(--cat-scraper)">Scrapers</div>
-        <div class="section-count">6 tools</div>
-        <div class="section-line"></div>
+        <div class="section-count">6 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid scrapers">
-        <div class="tool-card" onclick="goTool('scraper')"><span class="tool-card-icon">🎵</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Trending Audio Scraper</div><div class="tool-card-desc">Find the top sounds from any TikTok hashtag — ranked by usage count</div></div>
+        <div class="tool-card" onclick="goTool('scraper')"><span class="tool-card-icon">🎵</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Trending Audio Scraper</div><div class="tool-card-desc">Find top sounds from any TikTok hashtag ranked by usage count</div></div>
         <div class="tool-card" onclick="goTool('hfreq')"><span class="tool-card-icon">#</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Hashtag Frequency</div><div class="tool-card-desc">Discover the most-used hashtags in any niche to maximize reach</div></div>
-        <div class="tool-card" onclick="goTool('crosshash')"><span class="tool-card-icon">⟁</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Cross-Hashtag Sounds</div><div class="tool-card-desc">Find sounds trending across multiple different niches at once</div></div>
+        <div class="tool-card" onclick="goTool('crosshash')"><span class="tool-card-icon">⟁</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Cross-Hashtag Sounds</div><div class="tool-card-desc">Find sounds trending across multiple niches at once</div></div>
         <div class="tool-card" onclick="goTool('viral')"><span class="tool-card-icon">🔥</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Viral Video Finder</div><div class="tool-card-desc">Scrape top performing videos by view count for any hashtag</div></div>
-        <div class="tool-card" onclick="goTool('trending')"><span class="tool-card-icon">📈</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">TikTok Trending Now</div><div class="tool-card-desc">See what's blowing up globally on TikTok right now in real time</div></div>
-        <div class="tool-card" onclick="goTool('sp_exp')"><span class="tool-card-icon">💚</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Export to Spotify</div><div class="tool-card-desc">Scrape trending TikTok sounds and push them straight to a Spotify playlist</div></div>
+        <div class="tool-card" onclick="goTool('trending')"><span class="tool-card-icon">📈</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">TikTok Trending Now</div><div class="tool-card-desc">See what's blowing up globally on TikTok right now</div></div>
+        <div class="tool-card" onclick="goTool('sp_exp')"><span class="tool-card-icon">💚</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Export to Spotify</div><div class="tool-card-desc">Push trending TikTok sounds straight to a Spotify playlist</div></div>
       </div>
-
-      <div class="section-hdr analytics" style="margin-top:40px">
+      <div class="section-hdr" style="margin-top:40px">
         <div class="section-title" style="color:var(--cat-analytics)">Analytics</div>
-        <div class="section-count">7 tools</div>
-        <div class="section-line"></div>
+        <div class="section-count">7 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid analytics">
-        <div class="tool-card" onclick="goTool('hanalyze')"><span class="tool-card-icon">📊</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Hashtag Analyzer</div><div class="tool-card-desc">Compare reach, avg views and difficulty across multiple hashtags</div></div>
-        <div class="tool-card" onclick="goTool('competitor')"><span class="tool-card-icon">⚔️</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Competitor Tracker</div><div class="tool-card-desc">Side-by-side deep analysis of any two TikTok accounts</div></div>
-        <div class="tool-card" onclick="goTool('besttime')"><span class="tool-card-icon">🕐</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Best Posting Time</div><div class="tool-card-desc">Find exactly which days and hours get the most views for your account</div></div>
-        <div class="tool-card" onclick="goTool('engagement')"><span class="tool-card-icon">💡</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Engagement Calculator</div><div class="tool-card-desc">Calculate your engagement rate and benchmark it against TikTok averages</div></div>
-        <div class="tool-card" onclick="goTool('niche')"><span class="tool-card-icon">🗺</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Niche Report</div><div class="tool-card-desc">Full niche audit: trending sounds, top hashtags, and viral videos combined</div></div>
-        <div class="tool-card" onclick="goTool('growth')"><span class="tool-card-icon">🌱</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Growth Tracker</div><div class="tool-card-desc">Snapshot follower counts over time and chart your account's growth</div></div>
-        <div class="tool-card" onclick="goTool('health')"><span class="tool-card-icon">💪</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Account Health Dashboard</div><div class="tool-card-desc">Full dashboard: views trend, engagement rate, posting habits and a health score</div></div>
+        <div class="tool-card" onclick="goTool('hanalyze')"><span class="tool-card-icon">📊</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Hashtag Analyzer</div><div class="tool-card-desc">Compare reach, avg views and difficulty across hashtags</div></div>
+        <div class="tool-card" onclick="goTool('competitor')"><span class="tool-card-icon">⚔️</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Competitor Tracker</div><div class="tool-card-desc">Side-by-side deep analysis of two TikTok accounts</div></div>
+        <div class="tool-card" onclick="goTool('besttime')"><span class="tool-card-icon">🕐</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Best Posting Time</div><div class="tool-card-desc">Find exactly which days and hours get the most views</div></div>
+        <div class="tool-card" onclick="goTool('engagement')"><span class="tool-card-icon">💡</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Engagement Calculator</div><div class="tool-card-desc">Calculate your ER and benchmark against TikTok averages</div></div>
+        <div class="tool-card" onclick="goTool('niche')"><span class="tool-card-icon">🗺</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Niche Report</div><div class="tool-card-desc">Full audit: trending sounds, top hashtags and viral videos</div></div>
+        <div class="tool-card" onclick="goTool('growth')"><span class="tool-card-icon">🌱</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Growth Tracker</div><div class="tool-card-desc">Snapshot follower counts and chart your account's growth</div></div>
+        <div class="tool-card" onclick="goTool('health')"><span class="tool-card-icon">💪</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Account Health</div><div class="tool-card-desc">Views trend, ER, posting habits and a health score</div></div>
       </div>
-
-      <div class="section-hdr downloaders" style="margin-top:40px">
+      <div class="section-hdr" style="margin-top:40px">
         <div class="section-title" style="color:var(--cat-dl)">Downloaders</div>
-        <div class="section-count">4 tools</div>
-        <div class="section-line"></div>
+        <div class="section-count">4 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid downloaders">
         <div class="tool-card" onclick="goTool('dl_vid')"><span class="tool-card-icon">⬇️</span><div class="tool-card-tag">DL</div><div class="tool-card-name">TikTok / YouTube DL</div><div class="tool-card-desc">Download any single video in best quality as MP4</div></div>
-        <div class="tool-card" onclick="goTool('dl_prof')"><span class="tool-card-icon">👤</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Profile &amp; Playlist DL</div><div class="tool-card-desc">Bulk download full TikTok profiles, YouTube channels or playlists</div></div>
+        <div class="tool-card" onclick="goTool('dl_prof')"><span class="tool-card-icon">👤</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Profile &amp; Playlist DL</div><div class="tool-card-desc">Bulk download full profiles, channels or playlists</div></div>
         <div class="tool-card" onclick="goTool('dl_spotify')"><span class="tool-card-icon">🎧</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Spotify / SoundCloud</div><div class="tool-card-desc">Download any track, album or playlist as high-quality MP3</div></div>
-        <div class="tool-card" onclick="goTool('dl_audio')"><span class="tool-card-icon">🎙</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Audio Extractor</div><div class="tool-card-desc">Rip the audio from any local video file or TikTok / YouTube URL</div></div>
+        <div class="tool-card" onclick="goTool('dl_audio')"><span class="tool-card-icon">🎙</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Audio Extractor</div><div class="tool-card-desc">Rip audio from any local video file or URL</div></div>
       </div>
-
-      <div class="section-hdr studio" style="margin-top:40px">
+      <div class="section-hdr" style="margin-top:40px">
         <div class="section-title" style="color:var(--cat-studio)">Studio</div>
-        <div class="section-count">4 tools</div>
-        <div class="section-line"></div>
+        <div class="section-count">4 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid studio">
-        <div class="tool-card" onclick="goTool('compress')"><span class="tool-card-icon">📦</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Video Compressor</div><div class="tool-card-desc">Compress a single video file with HandBrake presets</div></div>
-        <div class="tool-card" onclick="goTool('bulk_comp')"><span class="tool-card-icon">🗂</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Bulk Compressor</div><div class="tool-card-desc">Compress every video in a folder in one batch operation</div></div>
-        <div class="tool-card" onclick="goTool('bg_rem')"><span class="tool-card-icon">✂️</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Background Remover</div><div class="tool-card-desc">AI-powered background removal on single images or entire folders</div></div>
-        <div class="tool-card" onclick="goTool('calendar')"><span class="tool-card-icon">📅</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Posting Calendar</div><div class="tool-card-desc">Generate an optimal posting schedule based on your account's own data</div></div>
+        <div class="tool-card" onclick="goTool('compress')"><span class="tool-card-icon">📦</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Video Compressor</div><div class="tool-card-desc">Compress a single video with HandBrake presets</div></div>
+        <div class="tool-card" onclick="goTool('bulk_comp')"><span class="tool-card-icon">🗂</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Bulk Compressor</div><div class="tool-card-desc">Compress every video in a folder in one batch</div></div>
+        <div class="tool-card" onclick="goTool('bg_rem')"><span class="tool-card-icon">✂️</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Background Remover</div><div class="tool-card-desc">AI background removal on images or entire folders</div></div>
+        <div class="tool-card" onclick="goTool('calendar')"><span class="tool-card-icon">📅</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Posting Calendar</div><div class="tool-card-desc">Optimal posting schedule from your account's own data</div></div>
       </div>
-
     </div>
   </div>
 
   <!-- TOOL PANEL -->
   <div class="panel" id="pt2">
     <div class="tool-panel-inner" id="tpi">
-      <div class="t-back" onclick="goHome()">← Back to dashboard</div>
+      <div class="t-back" onclick="goHome()">← Back</div>
       <div class="t-cat-badge" id="tcb"></div>
       <span class="t-icon-big" id="tic"></span>
       <div class="t-title" id="tt"></div>
       <div class="t-sub" id="ts"></div>
       <div id="tf"></div>
       <div id="tp">
-        <div class="prog-hdr"><span class="prog-lbl" id="tpl">RUNNING</span><span class="prog-pct" id="tps"></span></div>
-        <div class="prog-track"><div class="prog-bar ind" id="tpb"></div></div>
-        <div id="tl" class="log-box"></div>
+        <div class="rp-top" style="margin-bottom:8px"><span class="rp-label" id="tpl">RUNNING</span><span class="rp-status" id="tps"></span></div>
+        <div class="rp-track" style="margin-bottom:0"><div class="rp-bar ind" id="tpb"></div></div>
+        <div class="live-feed" id="tlf" style="margin-top:8px"><div class="lf-line" id="tlf0"></div><div class="lf-line" id="tlf1"></div><div class="lf-line" id="tlf2"></div></div>
       </div>
       <div class="tool-result" id="tr"></div>
+    </div>
+  </div>
+  <!-- SETTINGS PANEL -->
+  <div class="panel" id="ps">
+    <div class="settings-wrap">
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:32px">
+        <div style="font-size:1.8rem;font-weight:700;letter-spacing:-.03em">Settings</div>
+        <div style="font-family:var(--fm);font-size:.72rem;color:var(--text3)">config.json</div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Account</div>
+        <div class="settings-grid single">
+          <div class="settings-field">
+            <label class="settings-lbl">YOUR TIKTOK USERNAME <span>used as default in analytics tools</span></label>
+            <input class="settings-in" id="cfg_my_username" placeholder="@username" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Output Folders</div>
+        <div class="settings-grid single">
+          <div class="settings-field">
+            <label class="settings-lbl">ROOT OUTPUT DIRECTORY</label>
+            <input class="settings-in" id="cfg_root_dir" placeholder="C:\EditorSuite_Output">
+          </div>
+        </div>
+        <div class="settings-grid" style="margin-top:10px">
+          <div class="settings-field"><label class="settings-lbl">SOUNDS FOLDER <span>leave blank = auto</span></label><input class="settings-in" id="cfg_dir_sounds" placeholder="default"></div>
+          <div class="settings-field"><label class="settings-lbl">DOWNLOADS FOLDER</label><input class="settings-in" id="cfg_dir_downloads" placeholder="default"></div>
+          <div class="settings-field"><label class="settings-lbl">AUDIO FOLDER</label><input class="settings-in" id="cfg_dir_audio" placeholder="default"></div>
+          <div class="settings-field"><label class="settings-lbl">ANALYSIS FOLDER</label><input class="settings-in" id="cfg_dir_analysis" placeholder="default"></div>
+          <div class="settings-field"><label class="settings-lbl">COMPRESS FOLDER</label><input class="settings-in" id="cfg_dir_compress" placeholder="default"></div>
+          <div class="settings-field"><label class="settings-lbl">IMAGES FOLDER</label><input class="settings-in" id="cfg_dir_images" placeholder="default"></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Scraping Defaults</div>
+        <div class="settings-grid">
+          <div class="settings-field"><label class="settings-lbl">DEFAULT VIDEOS TO SCAN</label><input class="settings-in" id="cfg_default_videos" placeholder="500"></div>
+          <div class="settings-field"><label class="settings-lbl">DEFAULT TOP N RESULTS</label><input class="settings-in" id="cfg_default_top_n" placeholder="50"></div>
+          <div class="settings-field"><label class="settings-lbl">SCROLL DELAY (seconds)</label><input class="settings-in" id="cfg_scroll_delay" placeholder="2.0"></div>
+          <div class="settings-field"><label class="settings-lbl">STALE LIMIT</label><input class="settings-in" id="cfg_stale_limit" placeholder="8"></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Spotify API <span style="font-family:var(--fm);font-size:.66rem;color:var(--text3);font-weight:400;letter-spacing:0">required for Export to Spotify</span></div>
+        <div class="settings-grid">
+          <div class="settings-field"><label class="settings-lbl">CLIENT ID</label><input class="settings-in" id="cfg_spotify_client_id" placeholder="paste here" autocomplete="off"></div>
+          <div class="settings-field"><label class="settings-lbl">CLIENT SECRET</label><input class="settings-in" id="cfg_spotify_client_secret" type="password" placeholder="paste here" autocomplete="off"></div>
+        </div>
+        <div style="margin-top:10px;font-family:var(--fm);font-size:.72rem;color:var(--text3);line-height:1.7">
+          Get credentials at <span style="color:var(--cyan)">developer.spotify.com/dashboard</span> → Create App → set redirect URI to <span style="color:var(--cyan)">http://localhost:8888/callback</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Behaviour</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="settings-toggle-row">
+            <div><div class="settings-toggle-label">Auto-open output folder</div><div class="settings-toggle-sub">Open folder in Explorer after every tool finishes</div></div>
+            <label class="toggle"><input type="checkbox" id="cfg_auto_open_folder"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center">
+        <button class="settings-save-btn" onclick="saveSettings()">Save Settings</button>
+        <span class="settings-toast" id="stst">✓ Saved</span>
+      </div>
     </div>
   </div>
 
 </div>
 
 <script>
-
 const T={
-  scraper:{cat:'scrapers',cl:'SCRAPERS',name:'Trending Audio Scraper',sub:'Find top sounds from any TikTok hashtag',
-    f:[{id:'hashtag',l:'HASHTAG',p:'fyp (no #)'},{id:'limit',l:'TARGET VIDEOS',s:['300','500','200','100']}]},
-  hfreq:{cat:'scrapers',cl:'SCRAPERS',name:'Hashtag Frequency',sub:'Most-used hashtags in a niche',
-    f:[{id:'hashtag',l:'HASHTAG',p:'dancechallenge'}]},
-  crosshash:{cat:'scrapers',cl:'SCRAPERS',name:'Cross-Hashtag Sounds',sub:'Sounds trending across multiple niches',
-    f:[{id:'hashtags',l:'HASHTAGS (comma-separated)',p:'fyp, dance, trending'}]},
-  viral:{cat:'scrapers',cl:'SCRAPERS',name:'Viral Video Finder',sub:'Top performing videos by view count',
-    f:[{id:'hashtag',l:'HASHTAG',p:'fyp'},{id:'limit',l:'VIDEOS TO SCAN',s:['100','200','50']}]},
-  trending:{cat:'scrapers',cl:'SCRAPERS',name:'TikTok Trending Now',sub:"What's blowing up globally right now",f:[]},
-  sp_exp:{cat:'scrapers',cl:'SCRAPERS',name:'Export to Spotify',sub:'Push trending TikTok sounds to a Spotify playlist',
-    f:[{id:'hashtag',l:'HASHTAG TO SCRAPE',p:'fyp'}]},
-  hanalyze:{cat:'analytics',cl:'ANALYTICS',name:'Hashtag Analyzer',sub:'Compare reach & avg views across hashtags',
-    f:[{id:'hashtags',l:'HASHTAGS (comma-separated)',p:'fyp, dance, trending'}]},
-  competitor:{cat:'analytics',cl:'ANALYTICS',name:'Competitor Tracker',sub:'Side-by-side analysis of two TikTok accounts',
-    f:[{id:'user1',l:'ACCOUNT 1',p:'@username'},{id:'user2',l:'ACCOUNT 2',p:'@username'}]},
-  besttime:{cat:'analytics',cl:'ANALYTICS',name:'Best Posting Time',sub:'Find your best days & hours to post',
-    f:[{id:'username',l:'YOUR TIKTOK @',p:'@username'}]},
-  engagement:{cat:'analytics',cl:'ANALYTICS',name:'Engagement Calculator',sub:'ER benchmarked against TikTok averages',
-    f:[{id:'likes',l:'LIKES',p:'12500'},{id:'comments',l:'COMMENTS',p:'340'},{id:'shares',l:'SHARES',p:'890'},{id:'views',l:'VIEWS',p:'150000'}]},
-  niche:{cat:'analytics',cl:'ANALYTICS',name:'Niche Report',sub:'Full audit: sounds + hashtags + viral videos',
-    f:[{id:'hashtag',l:'HASHTAG',p:'fyp'}]},
-  growth:{cat:'analytics',cl:'ANALYTICS',name:'Growth Tracker',sub:'Snapshot & chart follower growth over time',
-    f:[{id:'username',l:'TIKTOK @',p:'@username'}]},
-  health:{cat:'analytics',cl:'ANALYTICS',name:'Account Health Dashboard',sub:'Full dashboard: views trend, ER, posting habits, health score',
-    f:[{id:'username',l:'TIKTOK @',p:'@username'},{id:'limit',l:'MAX POSTS',s:['100','50','200','300']}]},
-  dl_vid:{cat:'downloaders',cl:'DOWNLOADERS',name:'TikTok / YouTube DL',sub:'Download a single video in best quality',
-    f:[{id:'url',l:'VIDEO URL',p:'https://www.tiktok.com/@user/video/...'},{id:'quality',l:'QUALITY',s:['1080','720','480','best']}]},
-  dl_prof:{cat:'downloaders',cl:'DOWNLOADERS',name:'Profile & Playlist DL',sub:'Full TikTok profiles, YouTube playlists & channels',
-    f:[{id:'url',l:'URL OR @USERNAME',p:'@username or playlist URL'},{id:'limit',l:'MAX VIDEOS',s:['all','50','100','200']}]},
-  dl_spotify:{cat:'downloaders',cl:'DOWNLOADERS',name:'Spotify / SoundCloud DL',sub:'Track, album, or playlist — downloads from YouTube Music',
-    f:[{id:'url',l:'SPOTIFY OR SOUNDCLOUD URL',p:'https://open.spotify.com/track/...'},{id:'quality',l:'AUDIO QUALITY',s:['320','256','192','128']}]},
-  dl_audio:{cat:'downloaders',cl:'DOWNLOADERS',name:'Audio Extractor',sub:'MP3 from a local video file or TikTok/YouTube URL',
-    f:[{id:'input',l:'FILE PATH OR URL',p:'C:\\video.mp4 or https://...'},{id:'bitrate',l:'BITRATE',s:['320','256','192','128']}]},
-  compress:{cat:'studio',cl:'STUDIO',name:'Video Compressor',sub:'Compress a single video with HandBrake',
-    f:[{id:'input',l:'VIDEO FILE PATH',p:'C:\\Videos\\clip.mp4'}]},
-  bulk_comp:{cat:'studio',cl:'STUDIO',name:'Bulk Compressor',sub:'Compress every video in a folder',
-    f:[{id:'folder',l:'FOLDER PATH',p:'C:\\Videos\\'}]},
-  bg_rem:{cat:'studio',cl:'STUDIO',name:'Background Remover',sub:'AI background removal — single image or batch folder',
-    f:[{id:'input',l:'FILE OR FOLDER PATH',p:'C:\\image.png'}]},
-  calendar:{cat:'studio',cl:'STUDIO',name:'Posting Calendar',sub:'Generate a posting schedule based on your account data',
-    f:[{id:'username',l:'YOUR TIKTOK @',p:'@username'}]},
+  scraper:{cat:"scrapers",cl:"SCRAPERS",name:"Trending Audio Scraper",sub:"Find top sounds from any TikTok hashtag",
+    f:[{id:"hashtag",l:"HASHTAG",p:"fyp (no #)"},{id:"limit",l:"TARGET VIDEOS",s:["300","500","200","100"]}]},
+  hfreq:{cat:"scrapers",cl:"SCRAPERS",name:"Hashtag Frequency",sub:"Most-used hashtags in a niche",
+    f:[{id:"hashtag",l:"HASHTAG",p:"dancechallenge"}]},
+  crosshash:{cat:"scrapers",cl:"SCRAPERS",name:"Cross-Hashtag Sounds",sub:"Sounds trending across multiple niches",
+    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"fyp, dance, trending"}]},
+  viral:{cat:"scrapers",cl:"SCRAPERS",name:"Viral Video Finder",sub:"Top performing videos by view count",
+    f:[{id:"hashtag",l:"HASHTAG",p:"fyp"},{id:"limit",l:"VIDEOS TO SCAN",s:["100","200","50"]}]},
+  trending:{cat:"scrapers",cl:"SCRAPERS",name:"TikTok Trending Now",sub:"What's blowing up globally right now",f:[]},
+  sp_exp:{cat:"scrapers",cl:"SCRAPERS",name:"Export to Spotify",sub:"Push trending TikTok sounds to a Spotify playlist",
+    f:[{id:"hashtag",l:"HASHTAG TO SCRAPE",p:"fyp"}]},
+  hanalyze:{cat:"analytics",cl:"ANALYTICS",name:"Hashtag Analyzer",sub:"Compare reach & avg views across hashtags",
+    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"fyp, dance, trending"}]},
+  competitor:{cat:"analytics",cl:"ANALYTICS",name:"Competitor Tracker",sub:"Side-by-side analysis of two accounts",
+    f:[{id:"user1",l:"ACCOUNT 1",p:"@username"},{id:"user2",l:"ACCOUNT 2",p:"@username"}]},
+  besttime:{cat:"analytics",cl:"ANALYTICS",name:"Best Posting Time",sub:"Best days & hours to post",
+    f:[{id:"username",l:"YOUR TIKTOK @",p:"@username"}]},
+  engagement:{cat:"analytics",cl:"ANALYTICS",name:"Engagement Calculator",sub:"ER benchmarked against TikTok averages",
+    f:[{id:"followers",l:"FOLLOWERS",p:"50000"},{id:"views",l:"AVG VIEWS / VIDEO",p:"15000"},{id:"likes",l:"AVG LIKES / VIDEO",p:"1200"},{id:"comments",l:"AVG COMMENTS",p:"80"},{id:"shares",l:"AVG SHARES",p:"40"}]},
+  niche:{cat:"analytics",cl:"ANALYTICS",name:"Niche Report",sub:"Full audit: sounds + hashtags + viral videos",
+    f:[{id:"hashtag",l:"HASHTAG",p:"fyp"}]},
+  growth:{cat:"analytics",cl:"ANALYTICS",name:"Growth Tracker",sub:"Snapshot & chart follower growth over time",
+    f:[{id:"username",l:"TIKTOK @",p:"@username"}]},
+  health:{cat:"analytics",cl:"ANALYTICS",name:"Account Health Dashboard",sub:"Full dashboard: views trend, ER, posting habits, health score",
+    f:[{id:"username",l:"TIKTOK @",p:"@username"},{id:"limit",l:"MAX POSTS",s:["100","50","200","300"]}]},
+  dl_vid:{cat:"downloaders",cl:"DOWNLOADERS",name:"TikTok / YouTube DL",sub:"Download a single video in best quality",
+    f:[{id:"url",l:"VIDEO URL",p:"https://www.tiktok.com/@user/video/..."},{id:"quality",l:"QUALITY",s:["1080","720","480","best"]}]},
+  dl_prof:{cat:"downloaders",cl:"DOWNLOADERS",name:"Profile & Playlist DL",sub:"Full profiles, playlists & channels",
+    f:[{id:"url",l:"URL OR @USERNAME",p:"@username or playlist URL"},{id:"limit",l:"MAX VIDEOS",s:["all","50","100","200"]}]},
+  dl_spotify:{cat:"downloaders",cl:"DOWNLOADERS",name:"Spotify / SoundCloud DL",sub:"Track, album, or playlist as MP3",
+    f:[{id:"url",l:"SPOTIFY OR SOUNDCLOUD URL",p:"https://open.spotify.com/track/..."},{id:"quality",l:"AUDIO QUALITY",s:["320","256","192","128"]}]},
+  dl_audio:{cat:"downloaders",cl:"DOWNLOADERS",name:"Audio Extractor",sub:"MP3 from a local file or URL",
+    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\\video.mp4 or https://..."},{id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
+  compress:{cat:"studio",cl:"STUDIO",name:"Video Compressor",sub:"Compress a single video with HandBrake",
+    f:[{id:"input",l:"VIDEO FILE PATH",p:"C:\\Videos\\clip.mp4"}]},
+  bulk_comp:{cat:"studio",cl:"STUDIO",name:"Bulk Compressor",sub:"Compress every video in a folder",
+    f:[{id:"folder",l:"FOLDER PATH",p:"C:\\Videos\\"}]},
+  bg_rem:{cat:"studio",cl:"STUDIO",name:"Background Remover",sub:"AI background removal — single image or batch",
+    f:[{id:"input",l:"FILE OR FOLDER PATH",p:"C:\\image.png"}]},
+  calendar:{cat:"studio",cl:"STUDIO",name:"Posting Calendar",sub:"Generate a posting schedule from your data",
+    f:[{id:"posts_per_week",l:"POSTS PER WEEK",s:["3","5","7","2","1"]},{id:"start_date",l:"START DATE",p:"2025-01-01"}]},
 };
+
+const ICONS={scraper:"🎵",hfreq:"#",crosshash:"⟁",viral:"🔥",trending:"📈",sp_exp:"💚",
+  hanalyze:"📊",competitor:"⚔️",besttime:"🕐",engagement:"💡",niche:"🗺",growth:"🌱",health:"💪",
+  dl_vid:"⬇️",dl_prof:"👤",dl_spotify:"🎧",dl_audio:"🎙",compress:"📦",bulk_comp:"🗂",bg_rem:"✂️",calendar:"📅"};
 
 let det=null,hrun=false,trun=false,dtimer=null;
 
+// ── NAVIGATION ──────────────────────────────────────────────────────────────
 function goHome(){
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.getElementById('ph').classList.add('on');
-  document.querySelectorAll('.sb-tool,.sb-home').forEach(b=>b.classList.remove('on'));
-  document.getElementById('hbtn').classList.add('on');
-  document.getElementById('main').scrollTop=0;
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  document.getElementById("ph").classList.add("on");
+  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
+  document.getElementById("hbtn").classList.add("on");
+  document.getElementById("main").scrollTop=0;
 }
 
 function goTool(id){
   const t=T[id]; if(!t)return;
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.getElementById('pt2').classList.add('on');
-  document.querySelectorAll('.sb-tool,.sb-home').forEach(b=>b.classList.remove('on'));
-  document.querySelectorAll('.sb-tool').forEach(b=>{if(b.getAttribute('onclick')===`goTool('${id}')`)b.classList.add('on')});
-  const tpi=document.getElementById('tpi');
-  tpi.className='tool-panel-inner '+t.cat;
-  const tcb=document.getElementById('tcb');
-  tcb.textContent=t.cl; tcb.className='t-cat-badge';
-  document.getElementById('tic').textContent=({scraper:'🎵',hfreq:'#',crosshash:'⟁',viral:'🔥',trending:'📈',sp_exp:'💚',hanalyze:'📊',competitor:'⚔️',besttime:'🕐',engagement:'💡',niche:'🗺',growth:'🌱',health:'💪',dl_vid:'⬇️',dl_prof:'👤',dl_spotify:'🎧',dl_audio:'🎙',compress:'📦',bulk_comp:'🗂',bg_rem:'✂️',calendar:'📅'})[id]||'⚙️';
-  document.getElementById('tt').textContent=t.name;
-  document.getElementById('ts').textContent=t.sub;
-  let h='';
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  document.getElementById("pt2").classList.add("on");
+  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
+  document.querySelectorAll(".sb-tool").forEach(b=>{if(b.getAttribute("onclick")===`goTool('${id}')`)b.classList.add("on")});
+  const tpi=document.getElementById("tpi");
+  tpi.className="tool-panel-inner "+t.cat;
+  document.getElementById("tcb").textContent=t.cl;
+  document.getElementById("tic").textContent=ICONS[id]||"⚙️";
+  document.getElementById("tt").textContent=t.name;
+  document.getElementById("ts").textContent=t.sub;
+  let h="";
   if(t.f.length){
-    const gc=t.f.length===1?'form-row single':'form-row';
-    h+=`<div class="${gc}">`;
+    h+=`<div class="form-row${t.f.length===1?" single":""}">`;
     t.f.forEach(f=>{
       h+=`<div class="form-field"><label class="form-lbl">${f.l}</label>`;
-      if(f.s)h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
-      else h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||''}">`;
+      if(f.s) h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`;
+      else h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
       h+=`</div>`;
     });
     h+=`</div>`;
-  } else {
-    h+='<div style="color:var(--text3);font-size:.85rem;margin-bottom:20px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:9px"><p>This tool runs automatically — no input required.</p></div>`;
   }
-  h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox='0 0 16 16' fill='currentColor'><path d='M3 2l11 6-11 6z'/></svg> Run ${t.name}</button>`;
-  document.getElementById('tf').innerHTML=h;
-  document.getElementById('tp').classList.remove('show');
-  document.getElementById('tr').innerHTML='';
+  h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Run ${t.name}</button>`;
+  document.getElementById("tf").innerHTML=h;
+  document.getElementById("tp").style.display="none";
+  document.getElementById("tr").innerHTML="";
   trun=false;
-  document.getElementById('main').scrollTop=0;
+  document.getElementById("main").scrollTop=0;
 }
 
-// Input detect
-const mi=document.getElementById('mi');
-mi.addEventListener('input',()=>{clearTimeout(dtimer);dtimer=setTimeout(()=>doDetect(mi.value),260)});
-mi.addEventListener('keydown',e=>{if(e.key==='Enter'&&det&&!hrun)runHome()});
+// ── HOME DETECT ──────────────────────────────────────────────────────────────
+const mi=document.getElementById("mi");
+mi.addEventListener("input",()=>{clearTimeout(dtimer);dtimer=setTimeout(()=>doDetect(mi.value),260)});
+mi.addEventListener("keydown",e=>{if(e.key==="Enter"&&det&&!hrun)runHome()});
 
 async function doDetect(txt){
   if(!txt.trim()){setChip(null);return}
   try{
-    const r=await fetch('/api/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:txt})});
+    const r=await fetch("/api/detect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:txt})});
     det=await r.json(); setChip(det); updateOpts(det.type);
   }catch(e){}
 }
 
 function setChip(d){
-  const dc=document.getElementById('dc'),dl=document.getElementById('dlbl'),gb=document.getElementById('gb');
-  if(!d||!d.type){dc.className='dc';gb.className='gbtn';return}
-  const cm={tiktok_video:'dl',tiktok_profile:'dl',youtube_video:'dl',youtube_playlist:'dl',
-    spotify_track:'mu',spotify_album:'mu',spotify_playlist:'mu',soundcloud:'mu',hashtag:'sc2'}[d.type]||'un';
-  const ic={tiktok_video:'▶ ',tiktok_profile:'👤 ',youtube_video:'▶ ',youtube_playlist:'📋 ',
-    spotify_track:'🎵 ',spotify_album:'💿 ',spotify_playlist:'🎧 ',soundcloud:'🎵 ',hashtag:'# ',unknown:'? '};
-  dc.className=`dc show ${cm}`;
-  dl.textContent=(ic[d.type]||'')+d.label;
-  gb.className=hrun?'gbtn show busy':'gbtn show';
+  const dc=document.getElementById("dc"),dl=document.getElementById("dlbl"),gb=document.getElementById("gb");
+  if(!d||!d.type){dc.className="det-chip";gb.className="go-btn";return}
+  const cm={tiktok_video:"dl",tiktok_profile:"dl",youtube_video:"dl",youtube_playlist:"dl",
+    spotify_track:"mu",spotify_album:"mu",spotify_playlist:"mu",soundcloud:"mu",hashtag:"sc2"}[d.type]||"un";
+  const ic={tiktok_video:"▶ ",tiktok_profile:"👤 ",youtube_video:"▶ ",youtube_playlist:"📋 ",
+    spotify_track:"🎵 ",spotify_album:"💿 ",spotify_playlist:"🎧 ",soundcloud:"🎵 ",hashtag:"# "};
+  dc.className=`det-chip show ${cm}`;
+  dl.textContent=(ic[d.type]||"")+d.label;
+  gb.className=hrun?"go-btn show busy":"go-btn show";
 }
 
 function updateOpts(tp){
-  const row=document.getElementById('hor');
-  const q=document.getElementById('oq'),aq=document.getElementById('oaq'),lm=document.getElementById('olim');
-  const isV=['tiktok_video','youtube_video','tiktok_profile','youtube_playlist'].includes(tp);
-  const isA=['spotify_track','spotify_album','spotify_playlist','soundcloud'].includes(tp);
-  const isL=['hashtag','tiktok_profile','youtube_playlist'].includes(tp);
-  q.style.display=isV?'flex':'none'; aq.style.display=isA?'flex':'none'; lm.style.display=isL?'flex':'none';
-  row.style.display=(isV||isA||isL)?'flex':'none';
+  const row=document.getElementById("hor");
+  const q=document.getElementById("oq"),aq=document.getElementById("oaq"),lm=document.getElementById("olim");
+  const isV=["tiktok_video","youtube_video","tiktok_profile","youtube_playlist"].includes(tp);
+  const isA=["spotify_track","spotify_album","spotify_playlist","soundcloud"].includes(tp);
+  const isL=["hashtag","tiktok_profile","youtube_playlist"].includes(tp);
+  q.style.display=isV?"flex":"none"; aq.style.display=isA?"flex":"none"; lm.style.display=isL?"flex":"none";
+  row.style.display=(isV||isA||isL)?"flex":"none";
 }
 
 async function doPaste(){
@@ -591,101 +772,343 @@ async function doPaste(){
 }
 function ex(t){mi.value=t;mi.focus();doDetect(t);}
 
+// ── RUN HOME ─────────────────────────────────────────────────────────────────
 function runHome(){
   if(!det||!det.type||hrun)return;
   hrun=true;
-  const gb=document.getElementById('gb'); gb.className='gbtn show busy'; gb.textContent='RUNNING...';
-  const hp=document.getElementById('hp'); hp.classList.add('show');
-  document.getElementById('hr').innerHTML='';
-  const hl=document.getElementById('hl'); hl.innerHTML='';
-  const hpb=document.getElementById('hpb'); hpb.style.width='0%'; hpb.classList.add('ind');
-  document.getElementById('hpl').textContent='RUNNING'; document.getElementById('hps').textContent='';
-  const opts={quality:document.getElementById('sq')?.value||'1080',
-    audio_quality:document.getElementById('saq')?.value||'320',
-    limit:document.getElementById('slim')?.value||'300'};
-  doStream('/api/run',{detected:det,options:opts},{
-    logEl:hl,barEl:hpb,lblEl:document.getElementById('hpl'),stEl:document.getElementById('hps'),
-    resEl:document.getElementById('hr'),
-    onDone:()=>{hrun=false;const g=document.getElementById('gb');g.className=det?'gbtn show':'gbtn';g.textContent='GO →';}
+  const gb=document.getElementById("gb"); gb.className="go-btn show busy"; gb.textContent="Running...";
+  const hp=document.getElementById("hp"); hp.classList.add("show");
+  document.getElementById("hr").innerHTML="";
+  const hpb=document.getElementById("hpb"); hpb.style.width="0%"; hpb.classList.add("ind");
+  document.getElementById("hpl").textContent="RUNNING"; document.getElementById("hps").textContent="";
+  const opts={quality:document.getElementById("sq")?.value||"1080",
+    audio_quality:document.getElementById("saq")?.value||"320",
+    limit:document.getElementById("slim")?.value||"300"};
+  doStream("/api/run",{detected:det,options:opts},{
+    barEl:hpb,lblEl:document.getElementById("hpl"),stEl:document.getElementById("hps"),
+    resEl:document.getElementById("hr"),feedId:"hlf",
+    onDone:()=>{hrun=false;const g=document.getElementById("gb");g.className=det?"go-btn show":"go-btn";g.textContent="Run";}
   });
 }
 
+// ── RUN TOOL ─────────────────────────────────────────────────────────────────
 function runTool(id){
   if(trun)return;
   const t=T[id]; if(!t)return;
   trun=true;
-  document.getElementById('rbtn').classList.add('busy');
+  document.getElementById("rbtn").classList.add("busy");
   const opts={}; t.f.forEach(f=>{const el=document.getElementById(`tf_${f.id}`);if(el)opts[f.id]=el.value.trim();});
-  const tp=document.getElementById('tp'); tp.classList.add('show');
-  const tl=document.getElementById('tl'); tl.innerHTML='';
-  const tpb=document.getElementById('tpb'); tpb.style.width='0%'; tpb.classList.add('ind');
-  document.getElementById('tpl').textContent='RUNNING'; document.getElementById('tps').textContent='';
-  document.getElementById('tr').innerHTML='';
-  doStream('/api/tool',{tool_id:id,options:opts},{
-    logEl:tl,barEl:tpb,lblEl:document.getElementById('tpl'),stEl:document.getElementById('tps'),
-    resEl:document.getElementById('tr'),
-    onDone:()=>{trun=false;const b=document.getElementById('rbtn');if(b)b.classList.remove('busy');}
+  const tp=document.getElementById("tp"); tp.style.display="block";
+  const tpb=document.getElementById("tpb"); tpb.style.width="0%"; tpb.classList.add("ind");
+  document.getElementById("tpl").textContent="RUNNING"; document.getElementById("tps").textContent="";
+  document.getElementById("tr").innerHTML="";
+  doStream("/api/tool",{tool_id:id,options:opts},{
+    barEl:tpb,lblEl:document.getElementById("tpl"),stEl:document.getElementById("tps"),
+    resEl:document.getElementById("tr"),feedId:"tlf",
+    onDone:()=>{trun=false;const b=document.getElementById("rbtn");if(b)b.classList.remove("busy");}
   });
 }
 
-async function doStream(url,body,{logEl,barEl,lblEl,stEl,resEl,onDone}){
+// ── STREAM ────────────────────────────────────────────────────────────────────
+function makeLiveFeed(feedId){
+  // returns a function that pushes lines into a 3-line rolling display
+  const feed=document.getElementById(feedId); if(!feed)return()=>{};
+  feed.classList.add("show");
+  const lines=[feed.children[0],feed.children[1],feed.children[2]];
+  let buf=[];
+  return function push(text,cls=""){
+    buf.push({text,cls}); if(buf.length>3) buf.shift();
+    lines.forEach((el,i)=>{
+      const entry=buf[i]||{text:"",cls:""};
+      el.textContent=entry.text;
+      el.className="lf-line"+(entry.cls?" "+entry.cls:"")+(i===buf.length-1?" active":"");
+    });
+  };
+}
+
+async function doStream(url,body,{barEl,lblEl,stEl,resEl,feedId,onDone}){
+  const pushLog=makeLiveFeed(feedId||"");
   let rd=null;
   try{
-    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+    const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf="";
     while(true){
       const{value,done}=await reader.read(); if(done)break;
       buf+=dec.decode(value,{stream:true});
-      const lines=buf.split('\n'); buf=lines.pop();
+      const lines=buf.split("\n"); buf=lines.pop();
       for(const line of lines){
-        if(!line.startsWith('data: '))continue;
+        if(!line.startsWith("data: "))continue;
         let m; try{m=JSON.parse(line.slice(6));}catch(e){continue;}
-        if(m.type==='log') addLog(logEl,m.text);
-        else if(m.type==='progress'){barEl.classList.remove('ind');barEl.style.width=(m.value/m.total*100).toFixed(1)+'%';stEl.textContent=m.value+' / '+m.total;}
-        else if(m.type==='result') rd=m.data;
-        else if(m.type==='done'){
-          barEl.classList.remove('ind');barEl.style.width='100%';
-          lblEl.textContent='DONE';stEl.textContent='';
-          if(m.text)addLog(logEl,'✓ '+m.text,'done');
-          if(rd)renderRes(resEl,rd,m.text);
+        if(m.type==="log"){
+          const cls=/^✓|done|complete|saved/i.test(m.text)?"ok":/^✗|error|fail/i.test(m.text)?"err":/^⚠|warn/i.test(m.text)?"warn":"";
+          pushLog(m.text, cls);
+        }
+        else if(m.type==="progress"){
+          barEl.classList.remove("ind");
+          barEl.style.width=(m.value/m.total*100).toFixed(1)+"%";
+          stEl.textContent=`${m.value} / ${m.total}`;
+          if(m.track) appendDlItem(resEl,m.track,m.ok);
+        }
+        else if(m.type==="result"){
+          rd=m.data;
+          renderRes(resEl,rd,"");
+        }
+        else if(m.type==="done"){
+          barEl.classList.remove("ind"); barEl.style.width="100%";
+          lblEl.textContent="DONE"; stEl.textContent="";
+          pushLog("✓ "+m.text,"ok");
+          if(rd) renderRes(resEl,rd,m.text);
+          else if(m.text) resEl.innerHTML=doneCard(m.text,m.path||"");
           onDone();
         }
-        else if(m.type==='error') addLog(logEl,'✗ '+m.text,'err');
-        else if(m.type==='close') onDone();
+        else if(m.type==="error"){
+          stEl.textContent=""; lblEl.textContent="ERROR";
+          pushLog("✗ "+m.text,"err");
+          resEl.innerHTML=errorCard(m.text);
+          onDone();
+        }
+        else if(m.type==="close") onDone();
       }
     }
-  }catch(e){addLog(logEl,'Error: '+e.message,'err');onDone();}
+  }catch(e){resEl.innerHTML=errorCard(e.message); onDone();}
 }
 
-function addLog(box,text,cls=''){
-  const el=document.createElement('span');
-  if(!cls){
-    if(/^[✓]|^\[v\]|Done|complete/i.test(text))cls='ok';
-    else if(/^\[!\]|warn|✗/i.test(text))cls='warn';
-    else if(/^\[x\]|error/i.test(text))cls='err';
-    else if(/^\[i\]|^\s+\[i\]/i.test(text))cls='info';
-  }
-  el.className='ll'+(cls?' '+cls:''); el.textContent=text;
-  box.appendChild(el); box.appendChild(document.createTextNode('\n')); box.scrollTop=box.scrollHeight;
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function goSettings(){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  document.getElementById("ps").classList.add("on");
+  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
+  document.getElementById("main").scrollTop=0;
+  loadSettings();
 }
 
-function renderRes(el,d,msg){if(d.type==='sounds')el.innerHTML=renderSounds(d,msg);}
+async function loadSettings(){
+  try{
+    const cfg=await fetch("/api/config").then(r=>r.json());
+    const fields=["my_username","root_dir","dir_sounds","dir_downloads","dir_audio",
+      "dir_analysis","dir_compress","dir_images","default_videos","default_top_n",
+      "scroll_delay","stale_limit","spotify_client_id","spotify_client_secret"];
+    fields.forEach(k=>{
+      const el=document.getElementById("cfg_"+k);
+      if(el) el.value=cfg[k]||"";
+    });
+    const toggles=["auto_open_folder"];
+    toggles.forEach(k=>{
+      const el=document.getElementById("cfg_"+k);
+      if(el) el.checked=!!cfg[k];
+    });
+  }catch(e){console.error("loadSettings",e);}
+}
 
-function renderSounds(d,msg){
+async function saveSettings(){
+  const btn=document.querySelector(".settings-save-btn");
+  btn.disabled=true;
+  const fields=["my_username","root_dir","dir_sounds","dir_downloads","dir_audio",
+    "dir_analysis","dir_compress","dir_images","default_videos","default_top_n",
+    "scroll_delay","stale_limit","spotify_client_id","spotify_client_secret"];
+  const updates={};
+  fields.forEach(k=>{
+    const el=document.getElementById("cfg_"+k);
+    if(el) updates[k]=el.value.trim();
+  });
+  const toggles=["auto_open_folder"];
+  toggles.forEach(k=>{
+    const el=document.getElementById("cfg_"+k);
+    if(el) updates[k]=el.checked;
+  });
+  try{
+    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(updates)});
+    const toast=document.getElementById("stst");
+    toast.classList.add("show");
+    setTimeout(()=>toast.classList.remove("show"),2000);
+  }catch(e){alert("Save failed: "+e.message);}
+  btn.disabled=false;
+}
+
+// ── RENDERERS ────────────────────────────────────────────────────────────────
+function renderRes(el,d,msg){
+  const type=d.type||"";
+  if(type==="sounds")         el.innerHTML=rSounds(d,msg);
+  else if(type==="hashtag_freq") el.innerHTML=rHashtagFreq(d,msg);
+  else if(type==="cross_sounds") el.innerHTML=rCrossSounds(d,msg);
+  else if(type==="viral")     el.innerHTML=rViral(d,msg);
+  else if(type==="trending")  el.innerHTML=rTrending(d,msg);
+  else if(type==="engagement") el.innerHTML=rEngagement(d,msg);
+  else if(type==="hashtag_analyze") el.innerHTML=rHashtagAnalyze(d,msg);
+  else if(type==="competitor") el.innerHTML=rCompetitor(d,msg);
+  else if(type==="best_time") el.innerHTML=rBestTime(d,msg);
+  else if(type==="niche")     el.innerHTML=rNiche(d,msg);
+  else if(type==="growth")    el.innerHTML=rGrowth(d,msg);
+  else if(type==="health")    el.innerHTML=rHealth(d,msg);
+  else if(type==="calendar")  el.innerHTML=rCalendar(d,msg);
+  else el.innerHTML=doneCard(msg||"Done");
+}
+
+// sounds
+function rSounds(d,msg){
   const top=d.top||[],mx=top[0]?.count||1;
   const rows=top.map((s,i)=>{
-    const p=(s.count/mx*100).toFixed(0);
-    const rk=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
-    return `<div class="sw"><div class="srk${i<3?' t':''}">${rk}</div><div class="si"><div class="sna">${x(s.title||'—')}</div><div class="sau">${x(s.author||'')}</div></div><div class="sbw"><div class="sbf" style="width:${p}%"></div></div><div class="sco">${s.count}×</div></div>`;
-  }).join('');
-  const ob=d.html_path?`<button class="ob" onclick="openF('${x(d.html_path)}')">OPEN REPORT ↗</button>`:'';
-  return `<div class="rc"><div class="rch"><div class="rct">Trending Sounds — #${x(d.hashtag)}</div><div class="rcm">${new Date().toLocaleTimeString()}</div></div><div class="sr"><div class="sc3"><div class="sn">${n(d.scanned)}</div><div class="sl2">Scanned</div></div><div class="sc3"><div class="sn">${n(d.kept)}</div><div class="sl2">Sounds</div></div><div class="sc3"><div class="sn" style="color:var(--text3)">${n(d.removed)}</div><div class="sl2">Filtered</div></div></div><div class="sl3">${rows}</div><div class="ds"><div class="di">✓</div><div class="dt">${x(msg||'Complete')}</div>${ob}</div></div>`;
+    const pct=(s.count/mx*100).toFixed(0);
+    const rk=i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="s-rank">${i+1}</span>`;
+    const rc=i===0?"gold":i===1?"silver":i===2?"bronze":"";
+    return `<div class="s-row"><div class="s-rank ${rc}">${i<3?rk:i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-bar-wrap"><div class="s-bar" style="width:${pct}%"></div></div><div class="s-cnt">${s.count}×</div></div>`;
+  }).join("");
+  const ob=d.html_path?`<button class="open-btn" data-path="${x(d.html_path)}" onclick="openF(this.dataset.path)">Open Full Report ↗</button>`:"";
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Trending Sounds — #${x(d.hashtag)}</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="stats-strip c3"><div class="stat"><div class="stat-n">${n(d.scanned)}</div><div class="stat-l">Scanned</div></div><div class="stat"><div class="stat-n pink">${n(d.kept)}</div><div class="stat-l">Sounds found</div></div><div class="stat"><div class="stat-n dim">${n(d.removed)}</div><div class="stat-l">Filtered</div></div></div><div class="sound-rows">${rows}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Complete")}</div>${ob}</div></div>`;
 }
 
-async function openF(path){await fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});}
-const x=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const n=v=>Number(v).toLocaleString();
+// hashtag frequency
+function rHashtagFreq(d,msg){
+  const top=d.top||[],mx=top[0]?.count||1;
+  const rows=top.map(t=>`<div class="hf-row"><div class="hf-tag">${x(t.tag)}</div><div class="hf-bar-wrap"><div class="hf-bar" style="width:${(t.count/mx*100).toFixed(0)}%"></div></div><div class="hf-cnt">${t.count}×</div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Hashtag Frequency — #${x(d.hashtag)}</div><div class="card-meta">${d.total_captions} captions · ${d.total_tags} unique tags</div></div>${rows}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
 
+// cross hashtag
+function rCrossSounds(d,msg){
+  const rows=(d.sounds||[]).map((s,i)=>{
+    const pills=(s.tags||[]).map(t=>`<span class="tag-pill">#${x(t)}</span>`).join("");
+    return `<tr><td style="padding-left:20px;font-family:var(--fm);font-size:.68rem;color:var(--text3)">${i+1}</td><td><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></td><td>${pills}</td><td style="font-family:var(--fm);font-size:.78rem;color:var(--text2);text-align:right;padding-right:20px">${s.count}×</td></tr>`;
+  }).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Cross-Hashtag Sounds</div><div class="card-meta">${(d.tags||[]).map(t=>"#"+t).join(", ")}</div></div><table class="data-table"><thead><tr><th>#</th><th>Sound</th><th>Found in</th><th style="text-align:right;padding-right:20px">Count</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// viral videos
+function rViral(d,msg){
+  const cards=(d.videos||[]).map((v,i)=>`<div class="vid-card"><div class="vid-rank">#${i+1}</div><div class="vid-title">${x(v.title||v.desc||"Video")}</div><div class="vid-stats"><div class="vid-stat">👁 <span>${nK(v.views)}</span></div><div class="vid-stat">❤️ <span>${nK(v.likes)}</span></div>${v.comments?`<div class="vid-stat">💬 <span>${nK(v.comments)}</span></div>`:""}</div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Viral Videos — #${x(d.hashtag)}</div><div class="card-meta">${(d.videos||[]).length} videos</div></div><div class="video-grid">${cards}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// trending
+function rTrending(d,msg){
+  const sounds=(d.sounds||[]).slice(0,8).map((s,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-cnt">${s.count}×</div></div>`).join("");
+  const vids=(d.videos||[]).slice(0,8).map((v,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(v.title||v.desc||"Video")}</div><div class="s-auth">👁 ${nK(v.views)}</div></div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">TikTok Trending Now</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="trending-split"><div class="trend-col"><div class="trend-col-hdr">🎵 Top Sounds</div>${sounds}</div><div class="trend-col"><div class="trend-col-hdr">🔥 Trending Videos</div>${vids}</div></div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// engagement
+function rEngagement(d,msg){
+  const g=d.grade_er,gr=d.grade_reach;
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Engagement Analysis</div><div class="card-meta">${x(d.tier)}</div></div><div class="stats-strip c4"><div class="stat"><div class="stat-n">${d.er_likes}%</div><div class="stat-l">ER (likes)</div></div><div class="stat"><div class="stat-n pink">${d.er_total}%</div><div class="stat-l">Total ER</div></div><div class="stat"><div class="stat-n purple">${d.reach_rate}%</div><div class="stat-l">Reach rate</div></div><div class="stat"><div class="stat-n amber">${n(d.followers)}</div><div class="stat-l">Followers</div></div></div><div class="eng-grid"><div class="eng-card"><div class="eng-val" style="color:var(--cyan)">${d.er_likes}%</div><div class="eng-label">Engagement Rate</div><div class="eng-grade ${g}">${g==="above"?"↑ Above average":g==="average"?"→ Average":"↓ Below average"}</div></div><div class="eng-card"><div class="eng-val" style="color:var(--purple)">${d.reach_rate}%</div><div class="eng-label">Reach Rate</div><div class="eng-grade ${gr}">${gr==="above"?"↑ Above average":gr==="average"?"→ Average":"↓ Below average"}</div></div><div class="eng-card"><div class="eng-val" style="color:var(--text2)">${d.bench_er}%</div><div class="eng-label">Benchmark ER (${x(d.tier)})</div></div><div class="eng-card"><div class="eng-val" style="color:var(--text2)">${d.bench_reach}%</div><div class="eng-label">Benchmark Reach</div></div></div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// hashtag analyze
+function rHashtagAnalyze(d,msg){
+  const rows=(d.rows||[]).map(r=>`<tr><td class="tag-pill" style="margin:0;display:inline-block">${x(r.tag)}</td><td>${nK(r.posts)}</td><td style="color:var(--cyan)">${nK(r.avg_views)}</td><td>${nK(r.avg_likes)}</td><td><span style="font-family:var(--fm);font-size:.75rem;color:var(--text3)">${x(r.difficulty||"—")}</span></td></tr>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Hashtag Analysis</div><div class="card-meta">${(d.rows||[]).length} hashtags</div></div><table class="data-table"><thead><tr><th>Hashtag</th><th>Posts</th><th>Avg Views</th><th>Avg Likes</th><th>Difficulty</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// competitor
+function rCompetitor(d,msg){
+  const s1=d.stats1||{},s2=d.stats2||{};
+  const stat=(lbl,v1,v2)=>`<div class="col-stat"><div class="col-stat-lbl">${lbl}</div><div class="col-stat-val">${nK(v1)}</div></div><div class="col-stat"><div class="col-stat-lbl">${lbl}</div><div class="col-stat-val" style="color:var(--purple)">${nK(v2)}</div></div>`;
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Competitor Comparison</div></div><div class="two-col"><div class="col-hdr"><span class="at">@${x(d.user1)}</span></div><div class="col-hdr"><span class="at" style="color:var(--purple)">@${x(d.user2)}</span></div>${stat("Avg Views",s1.avg_views,s2.avg_views)}${stat("Avg Likes",s1.avg_likes,s2.avg_likes)}${stat("Posts",s1.post_count,s2.post_count)}${stat("Avg ER",s1.avg_er,s2.avg_er)}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// best time
+function rBestTime(d,msg){
+  const slots=d.slots||[],mx=slots[0]?.avg_views||1;
+  const rows=slots.map((s,i)=>`<div class="slot-row"><div class="slot-rank">${i+1}</div><div class="slot-day">${s.day}</div><div class="slot-time">${String(s.hour).padStart(2,"0")}:00</div><div class="slot-bar-wrap"><div class="slot-bar" style="width:${(s.avg_views/mx*100).toFixed(0)}%"></div></div><div class="slot-views">${nK(s.avg_views)} avg</div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Best Posting Times — @${x(d.username)}</div><div class="card-meta">${d.total_posts} posts analysed</div></div>${rows}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// niche (tabbed)
+function rNiche(d,msg){
+  const sounds=(d.sounds||[]).map((s,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-cnt">${s.count}×</div></div>`).join("");
+  const videos=(d.viral||[]).map((v,i)=>`<div class="vid-card"><div class="vid-rank">#${i+1}</div><div class="vid-title">${x(v.title||v.desc||"Video")}</div><div class="vid-stats"><div class="vid-stat">👁 <span>${nK(v.views)}</span></div></div></div>`).join("");
+  const tags=(d.top_tags||[]).map(t=>`<div class="hf-row"><div class="hf-tag">${x(t.tag)}</div><div class="hf-bar-wrap"><div class="hf-bar" style="width:${Math.max(8,(t.count/(d.top_tags[0]?.count||1)*100)).toFixed(0)}%"></div></div><div class="hf-cnt">${t.count}×</div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Niche Report — #${x(d.hashtag)}</div><div class="card-meta">${d.scanned} videos scanned</div></div><div class="tab-row"><button class="tab-btn on" onclick="switchTab(this,'n-sounds')">🎵 Sounds</button><button class="tab-btn" onclick="switchTab(this,'n-viral')">🔥 Viral</button><button class="tab-btn" onclick="switchTab(this,'n-tags')">&#35; Hashtags</button></div><div class="tab-panel on" id="n-sounds"><div class="sound-rows">${sounds}</div></div><div class="tab-panel" id="n-viral"><div class="video-grid">${videos}</div></div><div class="tab-panel" id="n-tags">${tags}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// growth
+function rGrowth(d,msg){
+  const s=d.stats||{};
+  const hist=(d.history||[]).slice().reverse().map((h,i,arr)=>{
+    const prev=arr[i+1];
+    const delta=prev?h.followers-prev.followers:null;
+    const dc=delta===null?"flat":delta>0?"up":"down";
+    const ds=delta===null?"—":delta>0?`+${n(delta)}`:n(delta);
+    return `<div class="hist-row"><div class="hist-date">${h.date||""}</div><div class="hist-val">${n(h.followers||0)} followers</div><div class="hist-delta ${dc}">${ds}</div></div>`;
+  }).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Growth Tracker — @${x(d.username)}</div></div><div class="growth-snap"><div class="growth-snap-label">LATEST SNAPSHOT</div><div class="growth-stats"><div class="g-stat"><div class="g-val">${nK(s.followers||0)}</div><div class="g-lbl">Followers</div></div><div class="g-stat"><div class="g-val">${nK(s.likes||0)}</div><div class="g-lbl">Total Likes</div></div><div class="g-stat"><div class="g-val">${nK(s.videos||0)}</div><div class="g-lbl">Videos</div></div></div></div>${hist?`<div class="growth-history">${hist}</div>`:""}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// health
+function rHealth(d,msg){
+  const a=d.analysis||{};
+  const score=a.health_score||0;
+  const sc=score>=70?"var(--green)":score>=40?"var(--amber)":"var(--red)";
+  const metrics=Object.entries({
+    "Avg Views":a.avg_views,"Avg Likes":a.avg_likes,"Avg Comments":a.avg_comments,
+    "Posts":a.post_count,"ER %":a.avg_er,"Posts/Week":a.posts_per_week
+  }).filter(([,v])=>v!=null).map(([l,v])=>`<div class="metric"><div class="metric-val">${nK(v)}</div><div class="metric-lbl">${l}</div></div>`).join("");
+  const ob=d.html_path?`<button class="open-btn" data-path="${x(d.html_path)}" onclick="openF(this.dataset.path)">Open Dashboard ↗</button>`:"";
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Account Health — @${x(d.username)}</div></div><div class="health-score-wrap"><div class="score-circle" style="background:conic-gradient(${sc} ${score*3.6}deg,var(--bg4) 0);"><div><div class="score-num" style="color:${sc}">${score}</div><div class="score-label">/ 100</div></div></div><div class="score-info"><div class="score-title">${score>=70?"Healthy account 💪":score>=40?"Room to improve ⚠️":"Needs attention 🔴"}</div><div class="score-sub">${x(msg||"")}</div></div></div><div class="metrics-grid">${metrics}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">Health analysis complete</div>${ob}</div></div>`;
+}
+
+// calendar
+function rCalendar(d,msg){
+  const cards=(d.schedule||[]).map((s,i)=>`<div class="cal-card"><div class="cal-num">#${i+1}</div><div class="cal-day">${s.day}</div><div class="cal-date">${s.date}</div><div class="cal-time">${s.time}</div></div>`).join("");
+  return `<div class="card"><div class="card-hdr"><div class="card-title">Posting Calendar</div><div class="card-meta">${d.posts_per_week}× / week · ${(d.schedule||[]).length} posts</div></div><div class="cal-grid">${cards}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+}
+
+// dl item live append (for spotify progress)
+function appendDlItem(el,name,ok){
+  let list=el.querySelector(".dl-progress-list");
+  if(!list){el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title">Downloading…</div></div><div class="dl-progress-list"></div></div>`;list=el.querySelector(".dl-progress-list");}
+  const row=document.createElement("div");
+  row.className="dl-item";
+  row.innerHTML=`<div class="dl-item-icon">${ok?"✓":"✗"}</div><div class="dl-item-name">${x(name)}</div>`;
+  row.style.color=ok?"var(--green)":"var(--text3)";
+  list.appendChild(row);
+  el.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function doneCard(msg, path){
+  const match=msg.match(/(?:Saved(?: to)?|→)\s*(.+)/i);
+  const savePath=path||(match?match[1].trim():"");
+  // Use data-path attribute — avoids escaping backslashes in onclick
+  const btns=savePath
+    ? `<div class="dl-btns"><button class="dl-btn primary" data-path="${x(savePath)}" onclick="openFolder(this.dataset.path)">📁 Open Folder</button></div>`
+    : "";
+  return `<div class="card"><div class="card-body"><div class="dl-status"><div class="dl-icon">✓</div><div class="dl-text">Done</div><div class="dl-sub">${x(msg)}</div>${btns}</div></div></div>`;
+}
+function errorCard(msg){
+  return `<div class="card" style="border-color:rgba(244,63,94,.3)"><div class="card-body"><div class="dl-status"><div class="dl-icon">✗</div><div class="dl-text" style="color:var(--red)">Error</div><div class="dl-sub">${x(msg)}</div></div></div></div>`;
+}
+
+function switchTab(btn,panelId){
+  const card=btn.closest(".card");
+  card.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("on"));
+  card.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("on"));
+  btn.classList.add("on");
+  document.getElementById(panelId)?.classList.add("on");
+}
+
+async function openF(path){await fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})}); }
+async function openFolder(path){await fetch("/api/open-folder",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})});}
+function dlFile(path){
+  const a=document.createElement("a");
+  a.href="/api/download-file?path="+encodeURIComponent(path);
+  a.download=path.split(/[\/]/).pop();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+const x=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const n=v=>Number(v).toLocaleString();
+const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":String(v)};
+
+// ── HEARTBEAT — keeps server alive; shutdown when tab closes ─────────────────
+(function(){
+  // Ping every 5 seconds so the watchdog knows we're alive
+  setInterval(()=>{
+    fetch("/api/ping",{method:"POST",keepalive:true}).catch(()=>{});
+  }, 5000);
+
+  // When tab/window closes, tell server to shut down immediately
+  window.addEventListener("beforeunload", ()=>{
+    navigator.sendBeacon("/api/shutdown", "{}");
+  });
+})();
 </script>
-</body>
-</html>

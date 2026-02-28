@@ -1,18 +1,13 @@
 """
 gui/runner.py
-Runs EditorSuite tools in a background thread, yields progress lines
-that the SSE endpoint streams to the browser.
+All 21 EditorSuite tools fully wired — no CLI fallback.
 """
-import os
-import sys
-import re
-import queue
-import threading
-import subprocess
-import shutil
+import os, sys, re, queue, threading, subprocess, asyncio
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = str(Path(__file__).parent.parent)
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from utils.config import load_config
 from utils.dirs   import _init_dirs
@@ -22,250 +17,27 @@ load_config(); _apply_theme("default"); _init_dirs()
 from utils import dirs as _dirs
 
 
-def _strip_ansi(s: str) -> str:
-    return re.sub(r'\033\[[0-9;]*m', '', s)
+def _strip(s): return re.sub(r'\033\[[0-9;]*m', '', str(s))
 
 
-class StreamCapture:
-    """Redirect stdout/stderr into a queue so we can stream it."""
-    def __init__(self, q: queue.Queue):
-        self.q = q
-        self._orig_out = sys.stdout
-        self._orig_err = sys.stderr
+# ── Entry points ──────────────────────────────────────────────────────────────
 
-    def __enter__(self):
-        sys.stdout = self
-        sys.stderr = self
-        return self
+def run_task(detected: dict, options: dict, q: queue.Queue):
+    """Home paste-anything panel."""
+    _run(detected.get("type",""), detected.get("value",""), options, q)
 
-    def __exit__(self, *_):
-        sys.stdout = self._orig_out
-        sys.stderr = self._orig_err
+def run_named_tool(tool_id: str, options: dict, q: queue.Queue):
+    """Sidebar tool buttons."""
+    _run(tool_id, None, options, q)
 
-    def write(self, s: str):
-        if s and s.strip():
-            self.q.put({"type": "log", "text": _strip_ansi(s).rstrip()})
-        self._orig_out.write(s)
-
-    def flush(self):
-        self._orig_out.flush()
-
-
-def run_task(detected: dict, options: dict, q: queue.Queue) -> None:
-    """
-    Entry point called in a background thread.
-    Puts {"type": "log"|"progress"|"result"|"done"|"error", ...} dicts into q.
-    """
-    kind  = detected["type"]
-    value = detected["value"]
-
-    def log(msg):    q.put({"type": "log",      "text": msg})
-    def prog(n, t):  q.put({"type": "progress", "value": n, "total": t})
-    def result(d):   q.put({"type": "result",   "data": d})
-    def done(msg=""):q.put({"type": "done",     "text": msg})
-    def error(msg):  q.put({"type": "error",    "text": msg})
-
+def _run(kind, value, opts, q):
+    log   = lambda m:   q.put({"type":"log",      "text":_strip(m)})
+    prog  = lambda v,t: q.put({"type":"progress", "value":v,"total":t})
+    res   = lambda d:   q.put({"type":"result",   "data":d})
+    def done(m="", path=""): q.put({"type":"done", "text":str(m), "path":str(path)})
+    error = lambda m:   q.put({"type":"error",    "text":str(m)})
     try:
-        if kind == "hashtag":
-            _run_hashtag_scrape(value, options, log, prog, result, done, error)
-        elif kind in ("tiktok_video", "youtube_video"):
-            _run_video_dl(value, options, log, done, error)
-        elif kind == "tiktok_profile":
-            _run_profile_dl(value, options, log, done, error)
-        elif kind == "youtube_playlist":
-            _run_playlist_dl(value, options, log, done, error)
-        elif kind in ("spotify_track", "spotify_album", "spotify_playlist"):
-            _run_spotify(value, options, log, prog, done, error)
-        elif kind == "soundcloud":
-            _run_soundcloud(value, options, log, done, error)
-        else:
-            error(f"Don't know how to handle: {kind}")
-    except Exception as e:
-        import traceback
-        error(f"Unexpected error: {e}")
-        log(traceback.format_exc())
-    finally:
-        q.put(None)   # sentinel — stream closed
-
-
-# ── Hashtag scrape ────────────────────────────────────────────────────────────
-
-def _run_hashtag_scrape(hashtag, opts, log, prog, result, done, error):
-    import asyncio
-    from tools.audio_scraper import scrape_sounds
-    from core.filters import check_garbage, is_funk
-
-    target = int(opts.get("limit", 300))
-    log(f"Scraping #{hashtag} — targeting {target} videos...")
-
-    try:
-        scanned, sounds = asyncio.run(scrape_sounds(hashtag, target))
-    except Exception as e:
-        error(f"Scrape failed: {e}"); return
-
-    kept = sorted(
-        [v for v in sounds.values() if not v["reason"]],
-        key=lambda x: x["count"], reverse=True
-    )
-    removed = [v for v in sounds.values() if v["reason"]]
-
-    log(f"Scanned {scanned} videos · {len(kept)} sounds found · {len(removed)} filtered")
-
-    # Save HTML report
-    from utils.html_report import save_sounds_report
-    os.makedirs(_dirs.DIR_SOUNDS, exist_ok=True)
-    html_path = save_sounds_report(hashtag, scanned, kept, removed, _dirs.DIR_SOUNDS)
-
-    result({
-        "type":        "sounds",
-        "hashtag":     hashtag,
-        "scanned":     scanned,
-        "kept":        len(kept),
-        "removed":     len(removed),
-        "top":         kept[:10],
-        "html_path":   html_path,
-    })
-    done(f"Done — {len(kept)} trending sounds found")
-
-
-# ── Video download ─────────────────────────────────────────────────────────────
-
-def _run_video_dl(url, opts, log, done, error):
-    quality = opts.get("quality", "1080")
-    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, "single")
-    os.makedirs(out_dir, exist_ok=True)
-    out_tpl = os.path.join(out_dir, "%(uploader)s_%(title)s.%(ext)s")
-    is_yt   = any(x in url for x in ("youtube.com", "youtu.be"))
-
-    if is_yt:
-        cmd = ["yt-dlp", url, "-o", out_tpl,
-               "--format", f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-               "--merge-output-format", "mp4", "--add-metadata", "--progress"]
-    else:
-        cmd = ["yt-dlp", url, "-o", out_tpl, "--merge-output-format", "mp4",
-               "--no-warnings", "--progress"]
-
-    log(f"Downloading {'YouTube' if is_yt else 'TikTok'} video...")
-    _stream_subprocess(cmd, log)
-    done(f"Saved to: {out_dir}")
-
-
-# ── Profile download ───────────────────────────────────────────────────────────
-
-def _run_profile_dl(username, opts, log, done, error):
-    url     = f"https://www.tiktok.com/@{username.lstrip('@')}"
-    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, username)
-    os.makedirs(out_dir, exist_ok=True)
-    out_tpl = os.path.join(out_dir, "%(upload_date)s_%(title)s.%(ext)s")
-    limit   = opts.get("limit", "")
-    cmd     = ["yt-dlp", url, "-o", out_tpl,
-               "--format", "bestvideo+bestaudio/best",
-               "--merge-output-format", "mp4",
-               "--yes-playlist", "--ignore-errors", "--no-warnings", "--progress"]
-    if str(limit).isdigit():
-        cmd += ["--playlist-end", str(limit)]
-    log(f"Downloading @{username}'s videos...")
-    _stream_subprocess(cmd, log)
-    done(f"Saved to: {out_dir}")
-
-
-# ── Playlist download ─────────────────────────────────────────────────────────
-
-def _run_playlist_dl(url, opts, log, done, error):
-    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, "playlists")
-    os.makedirs(out_dir, exist_ok=True)
-    out_tpl = os.path.join(out_dir, "%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s")
-    cmd     = ["yt-dlp", url, "-o", out_tpl,
-               "--format", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-               "--merge-output-format", "mp4", "--yes-playlist",
-               "--ignore-errors", "--no-warnings", "--progress"]
-    log("Downloading playlist / channel...")
-    _stream_subprocess(cmd, log)
-    done(f"Saved to: {out_dir}")
-
-
-# ── Spotify ───────────────────────────────────────────────────────────────────
-
-def _run_spotify(url, opts, log, prog, done, error):
-    from tools.music_downloader import _fetch_spotify_tracks
-    import json, urllib.request, re as _re
-
-    log("Reading Spotify track info...")
-    tracks = _fetch_spotify_tracks(url)
-    if not tracks:
-        error("Could not read track info from Spotify page."); return
-
-    log(f"Found {len(tracks)} track(s) — searching YouTube Music...")
-    quality = opts.get("quality", "320")
-    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
-    out_tpl = os.path.join(_dirs.DIR_AUDIO, "%(artist)s - %(title)s.%(ext)s")
-
-    ok_n = fail_n = 0
-    for i, t in enumerate(tracks, 1):
-        title, artist = t.get("title",""), t.get("artist","")
-        if not title: fail_n += 1; continue
-        log(f"[{i}/{len(tracks)}] {title}" + (f" — {artist}" if artist else ""))
-        prog(i, len(tracks))
-        success = False
-        for q in [f"ytmsearch1:{title} {artist}".strip(),
-                  f"ytsearch1:{title} {artist}".strip()]:
-            r = subprocess.run(["yt-dlp", q, "--extract-audio", "--audio-format", "mp3",
-                                "--audio-quality", f"{quality}k", "--output", out_tpl,
-                                "--no-playlist", "--quiet", "--no-warnings",
-                                "--embed-thumbnail", "--add-metadata"],
-                               capture_output=True)
-            if r.returncode == 0:
-                success = True; break
-        if success: ok_n += 1
-        else: fail_n += 1; log(f"  ✗ not found on YouTube Music")
-
-    done(f"{ok_n}/{len(tracks)} tracks downloaded → {_dirs.DIR_AUDIO}")
-
-
-# ── SoundCloud ────────────────────────────────────────────────────────────────
-
-def _run_soundcloud(url, opts, log, done, error):
-    quality = opts.get("quality", "320")
-    out_tpl = os.path.join(_dirs.DIR_AUDIO, "%(uploader)s - %(title)s.%(ext)s")
-    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
-    log("Downloading from SoundCloud...")
-    cmd = ["yt-dlp", url, "--extract-audio", "--audio-format", "mp3",
-           "--audio-quality", f"{quality}k", "--output", out_tpl,
-           "--progress", "--ignore-errors"]
-    _stream_subprocess(cmd, log)
-    done(f"Saved to: {_dirs.DIR_AUDIO}")
-
-
-# ── Subprocess streaming helper ───────────────────────────────────────────────
-
-def _stream_subprocess(cmd: list, log_fn) -> int:
-    try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", errors="replace")
-        for line in proc.stdout:
-            line = _strip_ansi(line).strip()
-            if line:
-                log_fn(line)
-        proc.wait()
-        return proc.returncode
-    except FileNotFoundError:
-        log_fn(f"Command not found: {cmd[0]}")
-        return 1
-
-
-# ── Named tool runner (sidebar tools) ────────────────────────────────────────
-
-def run_named_tool(tool_id: str, options: dict, q: queue.Queue) -> None:
-    """
-    Runs a tool by its sidebar ID.
-    Wraps the existing CLI tool functions, capturing their stdout.
-    """
-    def log(msg):    q.put({"type": "log",  "text": msg})
-    def done(msg=""): q.put({"type": "done", "text": msg})
-    def error(msg):  q.put({"type": "error","text": msg})
-
-    try:
-        _dispatch_named(tool_id, options, log, done, error, q)
+        _dispatch(kind, value, opts, log, prog, res, done, error)
     except Exception as e:
         import traceback
         error(f"Error: {e}")
@@ -274,144 +46,751 @@ def run_named_tool(tool_id: str, options: dict, q: queue.Queue) -> None:
         q.put(None)
 
 
-def _dispatch_named(tool_id, opts, log, done, error, q):
-    """Map sidebar tool IDs to runner logic."""
+# ── Dispatcher ────────────────────────────────────────────────────────────────
 
-    # ── SCRAPERS ──────────────────────────────────────────────────────────────
-    if tool_id == "scraper":
-        hashtag = opts.get("hashtag","").lstrip("#")
-        if not hashtag: error("Enter a hashtag."); return
-        _run_hashtag_scrape(hashtag, opts, log,
-                            lambda v,t: q.put({"type":"progress","value":v,"total":t}),
-                            lambda d: q.put({"type":"result","data":d}),
-                            done, error)
+def _dispatch(kind, value, opts, log, prog, res, done, error):
+    # paste-anything shortcuts
+    if kind == "hashtag":
+        return _scraper(value or opts.get("hashtag",""), opts, log, prog, res, done, error)
+    if kind in ("tiktok_video","youtube_video"):
+        return _dl_video(value or opts.get("url",""), opts, log, done, error)
+    if kind == "tiktok_profile":
+        return _dl_profile(value or opts.get("url",""), opts, log, done, error)
+    if kind == "youtube_playlist":
+        return _dl_playlist(value or opts.get("url",""), opts, log, done, error)
+    if kind in ("spotify_track","spotify_album","spotify_playlist"):
+        return _spotify(value or opts.get("url",""), opts, log, prog, done, error)
+    if kind == "soundcloud":
+        return _soundcloud(value or opts.get("url",""), opts, log, done, error)
 
-    elif tool_id in ("hfreq","hanalyze"):
-        hashtags = [h.strip().lstrip("#") for h in opts.get("hashtags","").split(",") if h.strip()]
-        if not hashtags: hashtags = [opts.get("hashtag","").lstrip("#")]
-        if not any(hashtags): error("Enter at least one hashtag."); return
-        log(f"Analysing {len(hashtags)} hashtag(s)...")
-        _run_cli_tool("tool_hpa" if tool_id=="hanalyze" else "tool_caption", opts, log, done, error)
+    # --- SCRAPERS ---
+    if kind == "scraper":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _scraper(h, opts, log, prog, res, done, error))
 
-    elif tool_id == "crosshash":
-        _run_cli_tool("tool_crosshash", opts, log, done, error)
+    if kind == "hfreq":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _hashtag_freq(h, opts, log, res, done, error))
 
-    elif tool_id == "viral":
-        hashtag = opts.get("hashtag","").lstrip("#")
-        if not hashtag: error("Enter a hashtag."); return
-        _run_hashtag_viral(hashtag, opts, log,
-                           lambda d: q.put({"type":"result","data":d}),
-                           done, error)
+    if kind == "crosshash":
+        tags = [t.strip().lstrip("#") for t in opts.get("hashtags","").split(",") if t.strip()]
+        return (error("Enter at least one hashtag.") if not tags else
+                _cross_hashtag(tags, opts, log, prog, res, done, error))
 
-    elif tool_id == "trending":
-        _run_cli_tool("tool_trending", opts, log, done, error)
+    if kind == "viral":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _viral(h, opts, log, prog, res, done, error))
 
-    elif tool_id == "sp_exp":
-        _run_cli_tool("tool_ets", opts, log, done, error)
+    if kind == "trending":
+        return _trending(opts, log, prog, res, done, error)
 
-    # ── ANALYTICS ─────────────────────────────────────────────────────────────
-    elif tool_id == "competitor":
-        _run_cli_tool("tool_ct", opts, log, done, error)
+    if kind == "sp_exp":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _export_spotify(h, opts, log, prog, done, error))
 
-    elif tool_id == "besttime":
-        _run_cli_tool("tool_bptf", opts, log, done, error)
+    # --- ANALYTICS ---
+    if kind == "hanalyze":
+        tags = [t.strip().lstrip("#") for t in opts.get("hashtags","").split(",") if t.strip()]
+        return (error("Enter at least one hashtag.") if not tags else
+                _hashtag_analyze(tags, opts, log, prog, res, done, error))
 
-    elif tool_id == "engagement":
-        _run_cli_tool("tool_engagerate", opts, log, done, error)
+    if kind == "competitor":
+        u1 = opts.get("user1","").lstrip("@").strip()
+        u2 = opts.get("user2","").lstrip("@").strip()
+        return (error("Enter both usernames.") if not u1 or not u2 else
+                _competitor(u1, u2, opts, log, res, done, error))
 
-    elif tool_id == "niche":
-        _run_cli_tool("tool_nichereport", opts, log, done, error)
+    if kind == "besttime":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter your TikTok username.") if not u else
+                _best_time(u, opts, log, res, done, error))
 
-    elif tool_id == "growth":
-        _run_cli_tool("tool_growthtrack", opts, log, done, error)
+    if kind == "engagement":
+        try:
+            fol  = int(opts.get("followers","0").replace(",","").replace(".",""))
+            views= int(opts.get("views","0").replace(",","").replace(".",""))
+            likes= int(opts.get("likes","0").replace(",","").replace(".",""))
+            coms = int(opts.get("comments","0").replace(",","").replace(".",""))
+            shar = int(opts.get("shares","0").replace(",","").replace(".",""))
+        except ValueError:
+            return error("Enter valid whole numbers.")
+        return _engagement(fol, views, likes, coms, shar, res, done, error)
 
-    elif tool_id == "health":
-        username = opts.get("username","").lstrip("@")
-        if not username: error("Enter a TikTok username."); return
-        opts["username"] = username
-        _run_cli_tool("tool_account_health", opts, log, done, error)
+    if kind == "niche":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _niche_report(h, opts, log, prog, res, done, error))
 
-    # ── DOWNLOADERS ───────────────────────────────────────────────────────────
-    elif tool_id == "dl_vid":
-        url = opts.get("url","")
-        if not url: error("Enter a URL."); return
-        _run_video_dl(url, opts, log, done, error)
+    if kind == "growth":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter a TikTok username.") if not u else
+                _growth(u, log, res, done, error))
 
-    elif tool_id == "dl_prof":
+    if kind == "health":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter a TikTok username.") if not u else
+                _health(u, opts, log, prog, res, done, error))
+
+    # --- DOWNLOADERS ---
+    if kind == "dl_vid":
         url = opts.get("url","").strip()
-        if url.startswith("@"): url = f"https://www.tiktok.com/{url}"
-        if not url: error("Enter a URL or @username."); return
-        if "tiktok.com/@" in url:
-            username = re.sub(r"https?://[^/]+/@?","", url).rstrip("/")
-            _run_profile_dl(username, opts, log, done, error)
-        else:
-            _run_playlist_dl(url, opts, log, done, error)
+        return (error("Enter a URL.") if not url else
+                _dl_video(url, opts, log, done, error))
 
-    elif tool_id == "dl_spotify":
-        url = opts.get("url","")
-        if not url: error("Enter a Spotify or SoundCloud URL."); return
-        if "soundcloud" in url:
-            _run_soundcloud(url, opts, log, done, error)
-        else:
-            opts["audio_quality"] = opts.get("quality","320")
-            _run_spotify(url, opts, log,
-                         lambda v,t: q.put({"type":"progress","value":v,"total":t}),
-                         done, error)
+    if kind == "dl_prof":
+        url = opts.get("url","").strip()
+        if url.startswith("@"):
+            url = f"https://www.tiktok.com/{url}"
+        return (error("Enter a URL or @username.") if not url else
+                (_dl_profile(re.sub(r"https?://[^/]+/@?","",url).rstrip("/"), opts, log, done, error)
+                 if "tiktok.com/@" in url else _dl_playlist(url, opts, log, done, error)))
 
-    elif tool_id == "dl_audio":
-        inp = opts.get("input","")
-        if not inp: error("Enter a file path or URL."); return
-        if inp.startswith("http"):
-            _run_soundcloud(inp, opts, log, done, error)  # yt-dlp handles TikTok/YT too
-        else:
-            _run_audio_extract(inp, opts, log, done, error)
+    if kind == "dl_spotify":
+        url = opts.get("url","").strip()
+        if not url: return error("Enter a URL.")
+        if "soundcloud" in url: return _soundcloud(url, opts, log, done, error)
+        opts.setdefault("audio_quality", opts.get("quality","320"))
+        return _spotify(url, opts, log, prog, done, error)
 
-    # ── STUDIO ────────────────────────────────────────────────────────────────
-    elif tool_id in ("compress","bulk_comp","bg_rem","calendar"):
-        _run_cli_tool({
-            "compress":  "tool_compress",
-            "bulk_comp": "tool_bulkcompress",
-            "bg_rem":    "tool_bgremove",
-            "calendar":  "tool_calendar",
-        }[tool_id], opts, log, done, error)
+    if kind == "dl_audio":
+        inp = opts.get("input","").strip()
+        return (error("Enter a file path or URL.") if not inp else
+                _audio_extract(inp, opts, log, done, error))
 
-    else:
-        error(f"Unknown tool: {tool_id}")
+    # --- STUDIO ---
+    if kind == "compress":
+        inp = opts.get("input","").strip()
+        return (error("Enter a video file path.") if not inp else
+                _compress(inp, opts, log, done, error))
 
+    if kind == "bulk_comp":
+        folder = opts.get("folder","").strip()
+        return (error("Enter a folder path.") if not folder else
+                _bulk_compress(folder, opts, log, prog, done, error))
 
-def _run_audio_extract(inp: str, opts: dict, log, done, error):
-    bitrate = opts.get("bitrate","320")
-    out_dir = _dirs.DIR_AUDIO
-    os.makedirs(out_dir, exist_ok=True)
-    fname   = os.path.splitext(os.path.basename(inp))[0] + "_audio.mp3"
-    out     = os.path.join(out_dir, fname)
-    log(f"Extracting audio from: {inp}")
-    cmd = ["ffmpeg","-y","-i",inp,"-vn","-acodec","libmp3lame",
-           "-ab",f"{bitrate}k",out,"-hide_banner"]
-    ret = _stream_subprocess(cmd, log)
-    if ret == 0: done(f"Saved: {out}")
-    else: error("ffmpeg extraction failed.")
+    if kind == "bg_rem":
+        inp = opts.get("input","").strip()
+        return (error("Enter a file or folder path.") if not inp else
+                _bg_remove(inp, opts, log, prog, done, error))
+
+    if kind == "calendar":
+        ppw   = int(opts.get("posts_per_week","3") or "3")
+        start = opts.get("start_date","").strip()
+        return _calendar(ppw, start, log, res, done, error)
+
+    error(f"Unknown tool: {kind}")
 
 
-def _run_hashtag_viral(hashtag, opts, result_fn, done, error):
-    import asyncio
-    from tools.viral_finder import _scrape_viral
+# =============================================================================
+# SCRAPERS
+# =============================================================================
+
+def _scraper(hashtag, opts, log, prog, res, done, error):
+    from tools.audio_scraper import scrape_sounds
+    limit = int(opts.get("limit","300") or "300")
+    log(f"Scraping #{hashtag} — targeting {limit} videos...")
     try:
-        videos = asyncio.run(_scrape_viral(hashtag, int(opts.get("limit",100))))
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit))
     except Exception as e:
-        error(f"Scrape failed: {e}"); return
-    if not videos: error("No videos found."); return
-    result_fn({"type":"viral","hashtag":hashtag,"videos":videos[:10]})
-    done(f"{len(videos)} videos found")
+        return error(f"Scrape failed: {e}")
+
+    kept    = sorted([v for v in sounds.values() if not v["reason"]],
+                     key=lambda x: x["count"], reverse=True)
+    removed = [v for v in sounds.values() if v["reason"]]
+    log(f"Scanned {scanned} videos · {len(kept)} sounds · {len(removed)} filtered")
+
+    from utils.html_report import save_sounds_report
+    os.makedirs(_dirs.DIR_SOUNDS, exist_ok=True)
+    html_path = save_sounds_report(hashtag, scanned, kept, removed, _dirs.DIR_SOUNDS)
+
+    res({"type":"sounds","hashtag":hashtag,"scanned":scanned,
+         "kept":len(kept),"removed":len(removed),"top":kept[:15],"html_path":html_path})
+    done(f"{len(kept)} trending sounds found")
 
 
-def _run_cli_tool(fn_name: str, opts: dict, log, done, error):
-    """
-    Last-resort runner: calls the CLI tool function directly,
-    capturing its stdout into the log stream.
-    Interactive prompts won't work but most tools just need
-    the options pre-filled.
-    """
-    log(f"Running {fn_name}...")
-    log("(This tool requires interactive input — please use the CLI version for full functionality)")
-    done(f"Open the terminal app and run: main.py → select the tool")
+def _hashtag_freq(hashtag, opts, log, res, done, error):
+    from tools.hashtag_analyzer import _scrape_captions
+    from collections import Counter
+    target = int(opts.get("limit","200") or "200")
+    log(f"Scraping #{hashtag} captions ({target} videos)...")
+    try:
+        captions = asyncio.run(_scrape_captions(hashtag, target))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    tags   = re.findall(r"#(\w+)", " ".join(captions))
+    counts = Counter(tags)
+    top    = [{"tag":f"#{t}","count":c} for t,c in counts.most_common(30)]
+    log(f"Analysed {len(captions)} captions — {len(counts)} unique hashtags found")
+    res({"type":"hashtag_freq","hashtag":hashtag,"top":top,
+         "total_captions":len(captions),"total_tags":len(counts)})
+    done(f"{len(top)} top hashtags for #{hashtag}")
+
+
+def _cross_hashtag(tags, opts, log, prog, res, done, error):
+    from tools.cross_hashtag import _scrape_tag_sounds
+    from playwright.async_api import async_playwright
+    target = int(opts.get("limit","300") or "300")
+    log(f"Scraping {len(tags)} hashtag(s), {target} videos each...")
+
+    all_sounds = {}
+
+    async def _run():
+        async with async_playwright() as pw:
+            for i, tag in enumerate(tags, 1):
+                log(f"  [{i}/{len(tags)}] Scraping #{tag}...")
+                prog(i, len(tags))
+                # _scrape_tag_sounds takes (pw, hashtag, target)
+                sounds, _ = await _scrape_tag_sounds(pw, tag, target)
+                for sid, s in sounds.items():
+                    if sid in all_sounds:
+                        all_sounds[sid]["count"] += s["count"]
+                        all_sounds[sid]["tags"].add(tag)
+                    else:
+                        all_sounds[sid] = {**s, "tags": {tag}}
+
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    cross = sorted(
+        [dict(s, tags=list(s["tags"])) for s in all_sounds.values()
+         if len(s.get("tags", set())) > 1],
+        key=lambda x: x["count"], reverse=True
+    )[:20]
+    log(f"Found {len(cross)} sounds trending across multiple hashtags")
+    res({"type":"cross_sounds","tags":tags,"sounds":cross})
+    done(f"{len(cross)} cross-hashtag sounds found")
+
+
+def _viral(hashtag, opts, log, prog, res, done, error):
+    from tools.viral_finder import _scrape_viral
+    target = int(opts.get("limit","100") or "100")
+    log(f"Finding viral videos in #{hashtag} ({target} videos)...")
+    try:
+        videos = asyncio.run(_scrape_viral(hashtag, target))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    videos = sorted(videos, key=lambda v: v.get("views",0), reverse=True)
+    log(f"Found {len(videos)} videos")
+    res({"type":"viral","hashtag":hashtag,"videos":videos[:20]})
+    done(f"Top {min(20,len(videos))} viral videos in #{hashtag}")
+
+
+def _trending(opts, log, prog, res, done, error):
+    from tools.trending import _scrape_trending
+    target = int(opts.get("limit","300") or "300")
+    log(f"Scraping TikTok trending page ({target} videos)...")
+    try:
+        sounds, removed_sounds, videos = asyncio.run(_scrape_trending(target))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    kept = sorted([s for s in sounds.values() if not s.get("reason")],
+                  key=lambda x: x["count"], reverse=True)
+    log(f"Found {len(kept)} trending sounds, {len(videos)} trending videos")
+    res({"type":"trending","sounds":kept[:15],"videos":videos[:15]})
+    done(f"{len(kept)} trending sounds · {len(videos)} trending videos")
+
+
+def _export_spotify(hashtag, opts, log, prog, done, error):
+    from tools.audio_scraper import scrape_sounds
+    cfg = load_config()
+    cid = cfg.get("spotify_client_id","")
+    sec = cfg.get("spotify_client_secret","")
+    if not cid or not sec:
+        return error("Spotify credentials missing. Add spotify_client_id and spotify_client_secret to config.json.")
+    try:
+        import spotipy
+        from spotipy.oauth2 import SpotifyOAuth
+    except ImportError:
+        return error("spotipy not installed. Run: pip install spotipy")
+
+    limit = int(opts.get("limit","500") or "500")
+    top_n = int(opts.get("top_n","20") or "20")
+    log(f"Scraping #{hashtag}...")
+    try:
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    kept = sorted([v for v in sounds.values() if not v["reason"]],
+                  key=lambda x: x["count"], reverse=True)[:top_n]
+    log(f"Found {len(kept)} sounds — searching Spotify...")
+    try:
+        sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+            client_id=cid, client_secret=sec,
+            redirect_uri="http://localhost:8888/callback",
+            scope="playlist-modify-public"))
+        uid = sp.current_user()["id"]
+        pl  = sp.user_playlist_create(uid, f"TikTok #{hashtag} Trending", public=True)
+        uris = []
+        for s in kept:
+            r = sp.search(q=f"{s['title']} {s.get('author','')}", type="track", limit=1)
+            items = r["tracks"]["items"]
+            if items:
+                uris.append(items[0]["uri"])
+                log(f"  ✓ {s['title']}")
+            else:
+                log(f"  ✗ {s['title']} — not on Spotify")
+        if uris:
+            sp.playlist_add_items(pl["id"], uris)
+        done(f"Playlist created with {len(uris)} tracks: {pl['external_urls']['spotify']}")
+    except Exception as e:
+        error(f"Spotify error: {e}")
+
+
+# =============================================================================
+# ANALYTICS
+# =============================================================================
+
+def _hashtag_analyze(tags, opts, log, prog, res, done, error):
+    from tools.hashtag_analyzer import _analyze_hashtags
+    log(f"Analysing {len(tags)} hashtag(s)...")
+    try:
+        results = asyncio.run(_analyze_hashtags(tags))
+    except Exception as e:
+        return error(f"Analysis failed: {e}")
+
+    rows = sorted([
+        {"tag":f"#{tag}",
+         "posts":     d.get("post_count",0),
+         "avg_views": d.get("avg_views",0),
+         "avg_likes": d.get("avg_likes",0),
+         "difficulty":d.get("difficulty","—")}
+        for tag,d in results.items()
+    ], key=lambda r: r["avg_views"], reverse=True)
+
+    res({"type":"hashtag_analyze","rows":rows})
+    done(f"Analysis complete for {len(rows)} hashtags")
+
+
+def _competitor(u1, u2, opts, log, res, done, error):
+    from tools.competitor import _scrape_profile, _analyze_posts
+    from playwright.async_api import async_playwright
+    log(f"Scraping @{u1} and @{u2}...")
+
+    async def _run():
+        async with async_playwright() as pw:
+            _, posts1 = await _scrape_profile(pw, u1)
+            _, posts2 = await _scrape_profile(pw, u2)
+            return posts1, posts2
+
+    try:
+        posts1, posts2 = asyncio.run(_run())
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    s1 = _analyze_posts(posts1)
+    s2 = _analyze_posts(posts2)
+    log(f"@{u1}: {len(posts1)} posts  |  @{u2}: {len(posts2)} posts")
+    res({"type":"competitor","user1":u1,"user2":u2,
+         "stats1":s1,"stats2":s2,
+         "posts1":posts1[:5],"posts2":posts2[:5]})
+    done(f"Comparison complete: @{u1} vs @{u2}")
+
+
+def _best_time(username, opts, log, res, done, error):
+    from tools.competitor import _scrape_profile
+    from playwright.async_api import async_playwright
+    from collections import defaultdict
+    import datetime
+    log(f"Scraping @{username} posting history...")
+
+    async def _run():
+        async with async_playwright() as pw:
+            _, posts = await _scrape_profile(pw, username)
+            return posts
+
+    try:
+        posts = asyncio.run(_run())
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+    slot_views = defaultdict(list)
+    for p in posts:
+        ts = p.get("timestamp",0)
+        if not ts: continue
+        dt  = datetime.datetime.fromtimestamp(ts)
+        key = (dt.weekday(), dt.hour)
+        slot_views[key].append(p.get("views",0))
+
+    slots = sorted([
+        {"day":DAYS[d],"hour":h,
+         "avg_views":int(sum(v)/len(v)),
+         "count":len(v)}
+        for (d,h),v in slot_views.items()
+    ], key=lambda s: s["avg_views"], reverse=True)
+
+    log(f"Analysed {len(posts)} posts across {len(slots)} time slots")
+    res({"type":"best_time","username":username,
+         "slots":slots[:10],"total_posts":len(posts)})
+    done(f"Best times found from {len(posts)} posts")
+
+
+def _engagement(followers, avg_views, avg_likes, avg_comms, avg_share, res, done, error):
+    if not avg_views:
+        return error("Avg views cannot be zero.")
+    BENCH = {
+        "Nano (<10K)":     {"er":17.99,"reach":40},
+        "Micro (10-100K)": {"er":14.15,"reach":35},
+        "Mid (100K-1M)":   {"er":10.53,"reach":25},
+        "Macro (1M+)":     {"er":7.2,  "reach":15},
+    }
+    tier = ("Nano (<10K)" if followers<10_000 else
+            "Micro (10-100K)" if followers<100_000 else
+            "Mid (100K-1M)" if followers<1_000_000 else "Macro (1M+)")
+    bench_er    = BENCH[tier]["er"]
+    bench_reach = BENCH[tier]["reach"]
+    er_likes    = avg_likes / avg_views * 100
+    er_total    = (avg_likes + avg_comms + avg_share) / avg_views * 100
+    reach_rate  = (avg_views / followers * 100) if followers else 0
+    grade = lambda v,b: "above" if v>=b*1.2 else "average" if v>=b*0.8 else "below"
+    res({"type":"engagement","tier":tier,
+         "er_likes":round(er_likes,2), "er_total":round(er_total,2),
+         "reach_rate":round(reach_rate,1),
+         "bench_er":bench_er,"bench_reach":bench_reach,
+         "grade_er":grade(er_likes,bench_er),
+         "grade_reach":grade(reach_rate,bench_reach),
+         "followers":followers,"avg_views":avg_views})
+    done("Engagement rate calculated")
+
+
+def _niche_report(hashtag, opts, log, prog, res, done, error):
+    from tools.audio_scraper    import scrape_sounds
+    from tools.viral_finder     import _scrape_viral
+    from tools.hashtag_analyzer import _scrape_captions
+    from collections import Counter
+    limit = int(opts.get("limit","300") or "300")
+
+    log(f"Full niche audit for #{hashtag}...")
+    log("  [1/3] Scraping trending sounds...")
+    prog(1, 3)
+    try:
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit))
+    except Exception as e:
+        return error(f"Sound scrape failed: {e}")
+
+    log("  [2/3] Finding viral videos...")
+    prog(2, 3)
+    try:
+        videos = asyncio.run(_scrape_viral(hashtag, min(limit,300)))
+    except Exception as e:
+        videos = []; log(f"  Viral scrape warning: {e}")
+
+    log("  [3/3] Analysing hashtag frequency...")
+    prog(3, 3)
+    try:
+        captions = asyncio.run(_scrape_captions(hashtag, min(limit,300)))
+    except Exception as e:
+        captions = []; log(f"  Caption scrape warning: {e}")
+
+    kept     = sorted([v for v in sounds.values() if not v["reason"]],
+                      key=lambda x: x["count"], reverse=True)[:10]
+    viral    = sorted(videos, key=lambda v: v.get("views",0), reverse=True)[:10]
+    tags     = re.findall(r"#(\w+)", " ".join(captions))
+    top_tags = [{"tag":f"#{t}","count":c}
+                for t,c in Counter(tags).most_common(10)]
+
+    res({"type":"niche","hashtag":hashtag,"scanned":scanned,
+         "sounds":kept,"viral":viral,"top_tags":top_tags})
+    done(f"Niche report done — {len(kept)} sounds · {len(viral)} videos · {len(top_tags)} tags")
+
+
+def _growth(username, log, res, done, error):
+    from tools.growth_tracker import _scrape_profile_stats
+    import json, datetime
+    log(f"Scraping @{username} stats...")
+    try:
+        stats = asyncio.run(_scrape_profile_stats(username))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    snap_file = os.path.join(_dirs.DIR_ANALYSIS, f"{username}_growth.json")
+    os.makedirs(_dirs.DIR_ANALYSIS, exist_ok=True)
+    history = []
+    if os.path.exists(snap_file):
+        try:
+            history = json.loads(open(snap_file,encoding="utf-8").read())
+        except Exception:
+            pass
+    history.append({**stats, "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")})
+    open(snap_file,"w",encoding="utf-8").write(json.dumps(history, indent=2))
+
+    log(f"Snapshot #{len(history)} saved")
+    res({"type":"growth","username":username,"stats":stats,"history":history})
+    done(f"@{username}: {stats.get('followers',0):,} followers · {len(history)} snapshots total")
+
+
+def _health(username, opts, log, prog, res, done, error):
+    from tools.account_health import _scrape_account, _analyse, _save_html
+    max_posts = int(opts.get("limit","100") or "100")
+    log(f"Scraping @{username} (up to {max_posts} posts)...")
+    try:
+        raw = asyncio.run(_scrape_account(username, max_posts))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    posts = raw.get("posts",[])
+    log(f"Scraped {len(posts)} posts — analysing...")
+    a = _analyse(raw)
+    os.makedirs(_dirs.DIR_ANALYSIS, exist_ok=True)
+    html_path = _save_html(username, a, _dirs.DIR_ANALYSIS)
+    log(f"Report saved: {html_path}")
+    res({"type":"health","username":username,"analysis":a,"html_path":html_path})
+    done(f"Health score: {a.get('health_score',0)}/100 · {len(posts)} posts analysed")
+
+
+# =============================================================================
+# DOWNLOADERS
+# =============================================================================
+
+def _dl_video(url, opts, log, done, error):
+    quality = str(opts.get("quality","1080")).replace("p","")
+    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, "single")
+    os.makedirs(out_dir, exist_ok=True)
+    is_yt = any(x in url for x in ("youtube.com","youtu.be"))
+    log(f"Downloading {'YouTube' if is_yt else 'TikTok'} video...")
+    if is_yt:
+        cmd = ["yt-dlp", url, "-o", os.path.join(out_dir,"%(uploader)s_%(title)s.%(ext)s"),
+               "--format", f"bestvideo[height<={quality}]+bestaudio/best",
+               "--merge-output-format","mp4","--add-metadata","--progress"]
+    else:
+        cmd = ["yt-dlp", url, "-o", os.path.join(out_dir,"%(uploader)s_%(title)s.%(ext)s"),
+               "--merge-output-format","mp4","--no-warnings","--progress"]
+    _stream_cmd(cmd, log)
+    done(f"Saved to: {out_dir}", path=out_dir)
+
+
+def _dl_profile(username, opts, log, done, error):
+    url     = f"https://www.tiktok.com/@{username.lstrip('@')}"
+    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, username)
+    os.makedirs(out_dir, exist_ok=True)
+    lim = opts.get("limit","")
+    cmd = ["yt-dlp", url, "-o",
+           os.path.join(out_dir,"%(upload_date)s_%(title)s.%(ext)s"),
+           "--format","bestvideo+bestaudio/best","--merge-output-format","mp4",
+           "--yes-playlist","--ignore-errors","--no-warnings","--progress"]
+    if str(lim).isdigit(): cmd += ["--playlist-end", str(lim)]
+    log(f"Downloading @{username}'s videos...")
+    _stream_cmd(cmd, log)
+    done(f"Saved to: {out_dir}", path=out_dir)
+
+
+def _dl_playlist(url, opts, log, done, error):
+    out_dir = os.path.join(_dirs.DIR_DOWNLOADS, "playlists")
+    os.makedirs(out_dir, exist_ok=True)
+    cmd = ["yt-dlp", url, "-o",
+           os.path.join(out_dir,"%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"),
+           "--format","bestvideo[height<=1080]+bestaudio/best",
+           "--merge-output-format","mp4","--yes-playlist",
+           "--ignore-errors","--no-warnings","--progress"]
+    log("Downloading playlist / channel...")
+    _stream_cmd(cmd, log)
+    done(f"Saved to: {out_dir}", path=out_dir)
+
+
+def _spotify(url, opts, log, prog, done, error):
+    from tools.music_downloader import _get_tracks
+    url = re.sub(r"\?.*$","",url.strip())
+    log("Reading Spotify track info...")
+    tracks = _get_tracks(url)
+    if not tracks:
+        return error("Could not read track info. Make sure the URL is public.")
+
+    quality = opts.get("audio_quality", opts.get("quality","320"))
+    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
+    out_tpl = os.path.join(_dirs.DIR_AUDIO, "%(artist)s - %(title)s.%(ext)s")
+    log(f"Found {len(tracks)} track(s) — downloading from YouTube Music...")
+
+    ok_n = fail_n = 0
+    for i,t in enumerate(tracks, 1):
+        title, artist = t.get("title",""), t.get("artist","")
+        if not title: fail_n += 1; continue
+        log(f"[{i}/{len(tracks)}] {title}" + (f" — {artist}" if artist else ""))
+        prog(i, len(tracks))
+        success = False
+        for q2 in [f"ytmsearch1:{title} {artist}".strip(),
+                   f"ytsearch1:{title} {artist}".strip()]:
+            r = subprocess.run(["yt-dlp", q2,
+                "--extract-audio","--audio-format","mp3",
+                "--audio-quality",f"{quality}k","--output",out_tpl,
+                "--no-playlist","--quiet","--no-warnings",
+                "--embed-thumbnail","--add-metadata"],
+                capture_output=True)
+            if r.returncode == 0: success = True; break
+        if success: ok_n += 1
+        else: fail_n += 1; log(f"  ✗ not found")
+
+    done(f"{ok_n}/{len(tracks)} tracks downloaded → {_dirs.DIR_AUDIO}", path=_dirs.DIR_AUDIO)
+
+
+def _soundcloud(url, opts, log, done, error):
+    q = opts.get("quality", opts.get("audio_quality","320"))
+    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
+    cmd = ["yt-dlp", url,"--extract-audio","--audio-format","mp3",
+           "--audio-quality",f"{q}k",
+           "--output",os.path.join(_dirs.DIR_AUDIO,"%(uploader)s - %(title)s.%(ext)s"),
+           "--progress","--ignore-errors"]
+    log("Downloading from SoundCloud...")
+    _stream_cmd(cmd, log)
+    done(f"Saved to: {_dirs.DIR_AUDIO}", path=_dirs.DIR_AUDIO)
+
+
+def _audio_extract(inp, opts, log, done, error):
+    bitrate = opts.get("bitrate","320")
+    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
+    if inp.startswith("http"):
+        cmd = ["yt-dlp", inp,"--extract-audio","--audio-format","mp3",
+               "--audio-quality",f"{bitrate}k",
+               "--output",os.path.join(_dirs.DIR_AUDIO,"%(title)s.%(ext)s"),
+               "--progress"]
+        log("Extracting audio from URL...")
+        _stream_cmd(cmd, log)
+        done(f"Saved to: {_dirs.DIR_AUDIO}", path=_dirs.DIR_AUDIO)
+    else:
+        if not os.path.exists(inp):
+            return error(f"File not found: {inp}")
+        out = os.path.join(_dirs.DIR_AUDIO, Path(inp).stem+"_audio.mp3")
+        log(f"Extracting audio from: {Path(inp).name}")
+        cmd = ["ffmpeg","-y","-i",inp,"-vn","-acodec","libmp3lame",
+               "-ab",f"{bitrate}k",out,"-hide_banner","-stats"]
+        _stream_cmd(cmd, log)
+        done(f"Saved: {out}", path=out)
+
+
+# =============================================================================
+# STUDIO
+# =============================================================================
+
+def _compress(inp, opts, log, done, error):
+    if not os.path.exists(inp):
+        return error(f"File not found: {inp}")
+    out_dir = _dirs.DIR_COMPRESS
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, Path(inp).stem+"_compressed.mp4")
+    log(f"Compressing: {Path(inp).name}")
+    # Try HandBrakeCLI first, fall back to ffmpeg
+    hb = shutil.which("HandBrakeCLI") or shutil.which("handbrakecli")
+    if hb:
+        cmd = [hb,"-i",inp,"-o",out,"--preset","Fast 1080p30","--optimize"]
+    else:
+        cmd = ["ffmpeg","-y","-i",inp,"-vcodec","libx264","-crf","26",
+               "-preset","medium","-acodec","aac","-b:a","128k",out,"-stats","-hide_banner"]
+    _stream_cmd(cmd, log)
+    done(f"Saved: {out}", path=out)
+
+
+def _bulk_compress(folder, opts, log, prog, done, error):
+    if not os.path.isdir(folder):
+        return error(f"Folder not found: {folder}")
+    exts  = {".mp4",".mov",".avi",".mkv",".webm",".m4v"}
+    files = [f for f in Path(folder).iterdir() if f.suffix.lower() in exts]
+    if not files: return error("No video files found.")
+    out_dir = _dirs.DIR_COMPRESS
+    os.makedirs(out_dir, exist_ok=True)
+    log(f"Found {len(files)} video(s) — compressing...")
+    for i,f in enumerate(files, 1):
+        prog(i, len(files))
+        log(f"[{i}/{len(files)}] {f.name}")
+        out = os.path.join(out_dir, f.stem+"_compressed.mp4")
+        cmd = ["ffmpeg","-y","-i",str(f),"-vcodec","libx264","-crf","26",
+               "-preset","medium","-acodec","aac","-b:a","128k",out,
+               "-loglevel","error","-hide_banner"]
+        subprocess.run(cmd, capture_output=True, creationflags=0x08000000 if os.name=="nt" else 0)
+    done(f"{len(files)} videos compressed → {out_dir}", path=out_dir)
+
+
+def _bg_remove(inp, opts, log, prog, done, error):
+    try:
+        from rembg import remove
+        from PIL import Image
+    except ImportError:
+        return error("rembg not installed. Run: pip install rembg pillow")
+
+    exts = {".png",".jpg",".jpeg",".webp",".bmp"}
+    if os.path.isdir(inp):
+        files = [f for f in Path(inp).iterdir() if f.suffix.lower() in exts]
+        if not files: return error("No images found in folder.")
+        out_dir = os.path.join(inp, "no_bg")
+        os.makedirs(out_dir, exist_ok=True)
+        log(f"Processing {len(files)} image(s)...")
+        for i,f in enumerate(files, 1):
+            prog(i, len(files))
+            log(f"[{i}/{len(files)}] {f.name}")
+            try:
+                out_img = remove(Image.open(str(f)))
+                out_img.save(os.path.join(out_dir, f.stem+"_no_bg.png"))
+            except Exception as e:
+                log(f"  ✗ {e}")
+        done(f"{len(files)} images → {out_dir}", path=out_dir)
+    else:
+        if not os.path.exists(inp): return error(f"File not found: {inp}")
+        log(f"Removing background: {Path(inp).name}")
+        try:
+            out_path = os.path.join(Path(inp).parent, Path(inp).stem+"_no_bg.png")
+            remove(Image.open(inp)).save(out_path)
+            done(f"Saved: {out_path}", path=out_path)
+        except Exception as e:
+            error(f"Failed: {e}")
+
+
+def _calendar(ppw, start_date, log, res, done, error):
+    import datetime
+    from tools.calendar import _load_bptf
+
+    try:
+        best_days, best_hours, _, username = _load_bptf()
+    except Exception:
+        best_days, best_hours, username = [0,2,4], [18,19,20], "your account"
+
+    try:
+        start = datetime.date.fromisoformat(start_date) if start_date else datetime.date.today()
+    except ValueError:
+        start = datetime.date.today()
+
+    DAYS  = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+    sched = []
+    cur   = start
+    added = 0
+    while added < ppw * 4:
+        if cur.weekday() in best_days:
+            hour = best_hours[added % len(best_hours)] if best_hours else 18
+            sched.append({"date":cur.isoformat(),"day":DAYS[cur.weekday()],
+                          "hour":hour,"label":f"{DAYS[cur.weekday()]} {cur.strftime('%b %d')} at {hour:02d}:00"})
+            added += 1
+        cur += datetime.timedelta(days=1)
+        if added == 0 and (cur - start).days > 60: break  # safety
+
+    log(f"Generated {len(sched)}-post schedule based on {username}'s best times")
+    res({"type":"calendar","username":username,"posts_per_week":ppw,"schedule":sched})
+    done(f"{len(sched)}-post calendar generated starting {start.isoformat()}")
+
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+def _stream_cmd(cmd, log_fn):
+    try:
+        kwargs = dict(
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace")
+        if os.name == "nt":               # hide console window on Windows
+            kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+        proc = subprocess.Popen(cmd, **kwargs)
+        for line in proc.stdout:
+            line = _strip(line).strip()
+            if line: log_fn(line)
+        proc.wait()
+        return proc.returncode
+    except FileNotFoundError:
+        log_fn(f"Command not found: {cmd[0]}")
+        return 1

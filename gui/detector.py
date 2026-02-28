@@ -6,15 +6,15 @@ import re
 
 
 TYPES = {
-    "tiktok_video":    "TikTok Video",
-    "tiktok_profile":  "TikTok Profile",
-    "youtube_video":   "YouTube Video",
-    "youtube_playlist":"YouTube Playlist",
-    "spotify_track":   "Spotify Track",
-    "spotify_album":   "Spotify Album",
-    "spotify_playlist":"Spotify Playlist",
-    "soundcloud":      "SoundCloud",
-    "hashtag":         "TikTok Hashtag Scrape",
+    "tiktok_video":    "Download Video",
+    "tiktok_profile":  "Download Profile",
+    "youtube_video":   "Download Video",
+    "youtube_playlist":"Download Playlist",
+    "spotify_track":   "Download Track",
+    "spotify_album":   "Download Album",
+    "spotify_playlist":"Download Playlist",
+    "soundcloud":      "Download Audio",
+    "hashtag":         "Scrape Hashtag",
     "unknown":         "Unknown",
 }
 
