@@ -200,7 +200,11 @@ def start(port: int = 7331, open_browser: bool = True):
     if open_browser:
         def _open():
             import time; time.sleep(1.4)
-            webbrowser.open(f"http://127.0.0.1:{port}")
+            url = f"http://127.0.0.1:{port}"
+            if os.name == "nt":
+                os.startfile(url)  # cleanest on Windows — no extra flags, no menu weirdness
+            else:
+                webbrowser.open(url)
             _focus_browser()
         threading.Thread(target=_open, daemon=True).start()
     print(f"\n  EditorSuite GUI  →  http://127.0.0.1:{port}")

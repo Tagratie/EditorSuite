@@ -74,13 +74,25 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 
 /* STICKY PASTE BAR */
 .paste-bar{position:sticky;top:0;z-index:20;
-  background:rgba(7,7,9,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:rgba(7,7,9,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border);padding:10px 24px;
   display:flex;align-items:center;gap:10px}
-.paste-bar-icon{color:var(--text3);font-size:.95rem;flex-shrink:0;transition:color .2s}
-.paste-bar:focus-within .paste-bar-icon{color:var(--cyan)}
+/* glowy card lives inside the bar */
+.paste-card{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:12px;display:flex;align-items:center;gap:10px;padding:8px 14px;
+  transition:border-color .25s,box-shadow .25s;position:relative;overflow:hidden}
+/* moving glow that follows the mouse */
+.paste-card::before{content:"";position:absolute;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(168,85,247,.18) 0%,transparent 70%);
+  pointer-events:none;transform:translate(-50%,-50%);
+  transition:opacity .3s;opacity:0;left:var(--mx,50%);top:var(--my,50%)}
+.paste-card:hover::before{opacity:1}
+.paste-card:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,223,192,.08)}
+.paste-card:focus-within::before{opacity:0}
+.paste-bar-icon{color:var(--text3);font-size:1rem;flex-shrink:0;transition:color .2s}
+.paste-card:focus-within .paste-bar-icon{color:var(--cyan)}
 #mi{flex:1;background:none;border:none;outline:none;font-family:var(--fh);
-  font-size:.92rem;color:var(--text);padding:6px 0;caret-color:var(--cyan);min-width:0}
+  font-size:.93rem;color:var(--text);padding:2px 0;caret-color:var(--cyan);min-width:0}
 #mi::placeholder{color:var(--text3)}
 .paste-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:6px;
   color:var(--text2);font-family:var(--fm);font-size:.68rem;letter-spacing:.06em;
@@ -193,13 +205,17 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:8px}
 .tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
   padding:18px 18px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
-.tool-card::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .2s;border-radius:12px;pointer-events:none}
+/* mouse-tracking glow blob — colour set per category via --glow-color */
+.tool-card::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle,var(--glow-color,rgba(255,255,255,.06)) 0%,transparent 70%);
+  pointer-events:none;transform:translate(-50%,-50%);
+  transition:opacity .25s;opacity:0;left:var(--mx,50%);top:var(--my,50%)}
 .tool-card:hover{border-color:var(--border3);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .tool-card:hover::before{opacity:1}
-.scrapers .tool-card::before{background:linear-gradient(135deg,rgba(255,59,122,.05),transparent)}
-.analytics .tool-card::before{background:linear-gradient(135deg,rgba(168,85,247,.05),transparent)}
-.downloaders .tool-card::before{background:linear-gradient(135deg,rgba(0,223,192,.05),transparent)}
-.studio .tool-card::before{background:linear-gradient(135deg,rgba(245,158,11,.05),transparent)}
+.scrapers   .tool-card{--glow-color:rgba(255,59,122,.16)}
+.analytics  .tool-card{--glow-color:rgba(168,85,247,.16)}
+.downloaders .tool-card{--glow-color:rgba(0,223,192,.16)}
+.studio     .tool-card{--glow-color:rgba(245,158,11,.16)}
 .tool-card-icon{font-size:1.35rem;margin-bottom:12px;display:block}
 .tool-card-name{font-size:.92rem;font-weight:600;margin-bottom:6px}
 .tool-card-desc{font-size:.8rem;color:var(--text2);line-height:1.5}
@@ -481,10 +497,12 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
   <div class="panel on" id="ph">
     <!-- Sticky paste bar -->
     <div class="paste-bar">
-      <span class="paste-bar-icon">⌁</span>
-      <input id="mi" type="text" placeholder="Paste a URL, #hashtag or @username and hit Enter..." autocomplete="off" spellcheck="false">
-      <div class="det-chip" id="dc"><span id="dlbl"></span></div>
-      <button class="paste-btn" onclick="doPaste()">PASTE</button>
+      <div class="paste-card">
+        <span class="paste-bar-icon">⌁</span>
+        <input id="mi" type="text" placeholder="Paste a URL, #hashtag or @username and hit Enter..." autocomplete="off" spellcheck="false">
+        <div class="det-chip" id="dc"><span id="dlbl"></span></div>
+        <button class="paste-btn" onclick="doPaste()">PASTE</button>
+      </div>
       <button class="go-btn" id="gb" onclick="runHome()">Run</button>
     </div>
     <div class="paste-opts" id="hor" style="display:none">
@@ -1110,5 +1128,21 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
   window.addEventListener("beforeunload", ()=>{
     navigator.sendBeacon("/api/shutdown", "{}");
   });
+})();
+
+// ── MOUSE GLOW — paste card + all tool cards ─────────────────────────────────
+(function(){
+  function attachGlow(el){
+    el.addEventListener('mousemove', e => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - r.top)  + 'px');
+    });
+  }
+  // paste bar card
+  const pc = document.querySelector('.paste-card');
+  if(pc) attachGlow(pc);
+  // all tool cards — use a delegated approach so dynamically added ones work too
+  document.querySelectorAll('.tool-card').forEach(attachGlow);
 })();
 </script>
