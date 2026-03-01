@@ -31,6 +31,7 @@ def run_named_tool(tool_id: str, options: dict, q: queue.Queue):
     _run(tool_id, None, options, q)
 
 def _run(kind, value, opts, q):
+    _init_dirs()   # re-read config so folder settings always take effect
     log   = lambda m:   q.put({"type":"log",      "text":_strip(m)})
     prog  = lambda v,t: q.put({"type":"progress", "value":v,"total":t})
     res   = lambda d:   q.put({"type":"result",   "data":d})
@@ -193,8 +194,9 @@ def _scraper(hashtag, opts, log, prog, res, done, error):
     from tools.audio_scraper import scrape_sounds
     limit = int(opts.get("limit","300") or "300")
     log(f"Scraping #{hashtag} — targeting {limit} videos...")
+    pcb = lambda seen, total: prog(seen, total)
     try:
-        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit))
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit, progress_cb=pcb))
     except Exception as e:
         return error(f"Scrape failed: {e}")
 
@@ -212,13 +214,14 @@ def _scraper(hashtag, opts, log, prog, res, done, error):
     done(f"{len(kept)} trending sounds found")
 
 
-def _hashtag_freq(hashtag, opts, log, res, done, error):
+def _hashtag_freq(hashtag, opts, log, prog, res, done, error):
     from tools.hashtag_analyzer import _scrape_captions
     from collections import Counter
     target = int(opts.get("limit","200") or "200")
     log(f"Scraping #{hashtag} captions ({target} videos)...")
+    pcb = lambda seen, total: prog(seen, total)
     try:
-        captions = asyncio.run(_scrape_captions(hashtag, target))
+        captions = asyncio.run(_scrape_captions(hashtag, target, progress_cb=pcb))
     except Exception as e:
         return error(f"Scrape failed: {e}")
 
@@ -243,9 +246,10 @@ def _cross_hashtag(tags, opts, log, prog, res, done, error):
         async with async_playwright() as pw:
             for i, tag in enumerate(tags, 1):
                 log(f"  [{i}/{len(tags)}] Scraping #{tag}...")
-                prog(i, len(tags))
-                # _scrape_tag_sounds takes (pw, hashtag, target)
-                sounds, _ = await _scrape_tag_sounds(pw, tag, target)
+                # progress within this tag's scroll
+                pcb = lambda seen, total, _i=i, _n=len(tags): prog(
+                    int(((_i-1) + seen/max(total,1)) * 100), _n * 100)
+                sounds, _ = await _scrape_tag_sounds(pw, tag, target, progress_cb=pcb)
                 for sid, s in sounds.items():
                     if sid in all_sounds:
                         all_sounds[sid]["count"] += s["count"]
@@ -272,8 +276,9 @@ def _viral(hashtag, opts, log, prog, res, done, error):
     from tools.viral_finder import _scrape_viral
     target = int(opts.get("limit","100") or "100")
     log(f"Finding viral videos in #{hashtag} ({target} videos)...")
+    pcb = lambda seen, total: prog(seen, total)
     try:
-        videos = asyncio.run(_scrape_viral(hashtag, target))
+        videos = asyncio.run(_scrape_viral(hashtag, target, progress_cb=pcb))
     except Exception as e:
         return error(f"Scrape failed: {e}")
 
@@ -287,8 +292,9 @@ def _trending(opts, log, prog, res, done, error):
     from tools.trending import _scrape_trending
     target = int(opts.get("limit","300") or "300")
     log(f"Scraping TikTok trending page ({target} videos)...")
+    pcb = lambda seen, total: prog(seen, total)
     try:
-        sounds, removed_sounds, videos = asyncio.run(_scrape_trending(target))
+        sounds, removed_sounds, videos = asyncio.run(_scrape_trending(target, progress_cb=pcb))
     except Exception as e:
         return error(f"Scrape failed: {e}")
 
@@ -315,8 +321,9 @@ def _export_spotify(hashtag, opts, log, prog, done, error):
     limit = int(opts.get("limit","500") or "500")
     top_n = int(opts.get("top_n","20") or "20")
     log(f"Scraping #{hashtag}...")
+    pcb = lambda seen, total: prog(seen, total)
     try:
-        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit))
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit, progress_cb=pcb))
     except Exception as e:
         return error(f"Scrape failed: {e}")
 

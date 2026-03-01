@@ -19,7 +19,7 @@ from core.filters import check_garbage, is_funk
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
-async def _scrape_trending(target: int) -> tuple[list, list]:
+async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
     """
     Returns (trending_sounds, trending_videos).
     Hits /api/explore/item_list and the Trending/Discover tab.
@@ -85,6 +85,7 @@ async def _scrape_trending(target: int) -> tuple[list, list]:
         stale = 0
         while len(seen) < target and stale < 6:
             print(f"  Captured {len(seen)} videos...", end="\r", flush=True)
+            if progress_cb: progress_cb(len(seen), target)
             prev = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.5)

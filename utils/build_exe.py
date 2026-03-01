@@ -55,6 +55,8 @@ a = Analysis(
         'PIL', 'PIL.Image',
         'spotipy',
         'rembg',
+        'win32gui', 'win32con', 'win32process', 'win32api',
+        'pywintypes', 'winreg',
     ],
     hookspath=[],
     hooksconfig={{}},
@@ -110,6 +112,15 @@ exe_path = DIST / "EditorSuite.exe"
 if exe_path.exists():
     size_mb = exe_path.stat().st_size / 1024 / 1024
     print(f"\n  ✓ Done!  dist/EditorSuite.exe  ({size_mb:.0f} MB)")
+
+    # Refresh Windows icon cache — forces Explorer to show the new icon immediately
+    if os.name == "nt":
+        print("  [→] Refreshing icon cache...")
+        subprocess.run(["ie4uinit.exe", "-show"], capture_output=True)
+        import ctypes
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
+        print("  [✓] Icon cache cleared")
+
     print(f"  → Double-click EditorSuite.exe to launch — no Python needed.\n")
 else:
     print("\n  [!] Build finished but EditorSuite.exe not found in dist/")

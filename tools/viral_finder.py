@@ -14,7 +14,7 @@ from utils import dirs as _dirs
 from core.browser import new_browser
 
 
-async def _scrape_viral(hashtag: str, target: int) -> list[dict]:
+async def _scrape_viral(hashtag: str, target: int, progress_cb=None) -> list[dict]:
     from playwright.async_api import async_playwright
     videos: list[dict] = []
     seen:   set[str]   = set()
@@ -56,6 +56,7 @@ async def _scrape_viral(hashtag: str, target: int) -> list[dict]:
         stale = 0
         while len(seen) < target and stale < 8:
             print(f"  {len(seen)}/{target} videos...", end="\r", flush=True)
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.0)

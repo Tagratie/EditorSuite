@@ -125,6 +125,19 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .p-opt-sel:focus{border-color:var(--cyan)}
 
 
+
+/* PRESETS */
+.preset-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:24px;margin-top:-8px}
+.preset-lbl{font-family:var(--fm);font-size:.66rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0}
+.preset-chip{font-family:var(--fm);font-size:.74rem;border-radius:20px;padding:5px 13px;
+  cursor:pointer;transition:all .18s;border:1px solid var(--border2);color:var(--text3);
+  background:transparent;white-space:nowrap}
+.scrapers  .preset-chip:hover{border-color:var(--cat-scraper);color:var(--cat-scraper);background:rgba(255,59,122,.07)}
+.analytics .preset-chip:hover{border-color:var(--cat-analytics);color:var(--cat-analytics);background:rgba(168,85,247,.07)}
+.downloaders .preset-chip:hover{border-color:var(--cat-dl);color:var(--cat-dl);background:rgba(0,223,192,.07)}
+.studio    .preset-chip:hover{border-color:var(--cat-studio);color:var(--cat-studio);background:rgba(245,158,11,.07)}
+.preset-chip-active{opacity:.45!important;transform:scale(.96);transition:all .15s}
+
 /* LIVE FEED (replaces terminal — 3 rolling lines, no scroll) */
 .live-feed{margin-top:10px;display:none}
 .live-feed.show{display:block}
@@ -428,6 +441,39 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .tab-btn.on{color:var(--cyan);border-bottom-color:var(--cyan)}
 .tab-panel{display:none}.tab-panel.on{display:block}
 
+
+
+
+
+
+/* SIDEBAR PRESET CATEGORIES */
+.sb-pcat-header{padding:12px 20px 8px;display:flex;align-items:center;justify-content:space-between}
+.sb-pcat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase}
+.sb-pcat-clear{font-family:var(--fm);font-size:.65rem;color:var(--text3);cursor:pointer;
+  padding:2px 7px;border-radius:4px;border:1px solid transparent;transition:all .15s;display:none}
+.sb-pcat-clear:hover{border-color:var(--border2);color:var(--text2)}
+.sb-pcat-clear.show{display:block}
+.sb-pcat-add{font-size:1rem;font-weight:300;color:var(--text3);cursor:pointer;
+  width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+.sb-pcat-add:hover{border-color:var(--purple);color:var(--purple);background:rgba(168,85,247,.1)}
+.sb-pcat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px}
+.sb-pcat-btn{font-family:var(--fm);font-size:.72rem;border-radius:8px;padding:7px 6px;
+  cursor:pointer;transition:all .18s;border:1px solid var(--border);color:var(--text3);
+  background:var(--bg2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:flex;align-items:center;justify-content:center;gap:5px;line-height:1.2}
+.sb-pcat-btn:hover{border-color:var(--border3);color:var(--text2);background:var(--bg3)}
+.sb-pcat-btn.active{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.5);
+  color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.12)}
+/* active category banner inside tool panel */
+.cat-context-badge{display:none;align-items:center;gap:8px;margin-bottom:18px;
+  background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);
+  border-radius:8px;padding:8px 14px;font-family:var(--fm);font-size:.76rem;color:var(--purple)}
+.cat-context-badge.show{display:flex}
+.cat-context-badge span{flex:1}
+.cat-context-x{cursor:pointer;opacity:.6;font-size:.9rem;transition:opacity .15s}
+.cat-context-x:hover{opacity:1}
+
 /* trending two col */
 .trending-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
 .trend-col{border-right:1px solid var(--border)}
@@ -449,9 +495,26 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       <div class="sb-tool-name" style="color:var(--text3)">Settings</div>
     </div>
   </div>
+  <div class="sb-sep"></div>
+  <div class="sb-pcat-header">
+    <span class="sb-pcat-lbl">Preset Category</span>
+    <div style="display:flex;gap:5px;align-items:center">
+      <span class="sb-pcat-clear" id="pcat-clear" onclick="clearCategory()">✕ Clear</span>
+      <span class="sb-pcat-add" id="pcat-add-btn" onclick="toggleCustomAdd()" title="Add custom preset">+</span>
+    </div>
+  </div>
+  <!-- inline custom preset add form — hidden by default -->
+  <div id="pcat-add-form" style="display:none;padding:0 12px 10px;flex-direction:column;gap:6px">
+    <input class="settings-in" id="sb_cp_label" placeholder="Label" style="font-size:.76rem;padding:7px 10px">
+    <input class="settings-in" id="sb_cp_tag"   placeholder="#hashtag" style="font-size:.76rem;padding:7px 10px">
+    <button onclick="sbAddCustomPreset()" style="background:var(--purple);color:#fff;border:none;border-radius:7px;
+      font-family:var(--fh);font-size:.76rem;font-weight:700;padding:7px;cursor:pointer;transition:opacity .2s"
+      onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Preset</button>
+  </div>
+  <div class="sb-pcat-grid" id="pcat-grid"></div>
+  <div class="sb-sep"></div>
   <div class="sb-home on" id="hbtn" onclick="goHome()">
-    <div class="sb-home-title">⌁ Paste Anything</div>
-    <div class="sb-home-sub">Auto-detect &amp; run</div>
+    <div class="sb-home-title">Home</div>
   </div>
   <div class="sb-sep"></div>
   <div class="scrapers-cat">
@@ -574,6 +637,10 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       <span class="t-icon-big" id="tic"></span>
       <div class="t-title" id="tt"></div>
       <div class="t-sub" id="ts"></div>
+      <div class="cat-context-badge" id="ccb">
+        <span id="ccb-text"></span>
+        <span class="cat-context-x" onclick="clearCategory()">✕</span>
+      </div>
       <div id="tf"></div>
       <div id="tp">
         <div class="rp-top" style="margin-bottom:8px"><span class="rp-label" id="tpl">RUNNING</span><span class="rp-status" id="tps"></span></div>
@@ -602,20 +669,38 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       </div>
 
       <div class="settings-section">
-        <div class="settings-section-title">Output Folders</div>
+        <div class="settings-section-title">Output Folders <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:.68rem">Leave blank to use subfolder of root</span></div>
         <div class="settings-grid single">
           <div class="settings-field">
-            <label class="settings-lbl">ROOT OUTPUT DIRECTORY</label>
+            <label class="settings-lbl">📁 ROOT DIRECTORY <span>everything goes here unless overridden below</span></label>
             <input class="settings-in" id="cfg_root_dir" placeholder="C:\EditorSuite_Output">
           </div>
         </div>
-        <div class="settings-grid" style="margin-top:10px">
-          <div class="settings-field"><label class="settings-lbl">SOUNDS FOLDER <span>leave blank = auto</span></label><input class="settings-in" id="cfg_dir_sounds" placeholder="default"></div>
-          <div class="settings-field"><label class="settings-lbl">DOWNLOADS FOLDER</label><input class="settings-in" id="cfg_dir_downloads" placeholder="default"></div>
-          <div class="settings-field"><label class="settings-lbl">AUDIO FOLDER</label><input class="settings-in" id="cfg_dir_audio" placeholder="default"></div>
-          <div class="settings-field"><label class="settings-lbl">ANALYSIS FOLDER</label><input class="settings-in" id="cfg_dir_analysis" placeholder="default"></div>
-          <div class="settings-field"><label class="settings-lbl">COMPRESS FOLDER</label><input class="settings-in" id="cfg_dir_compress" placeholder="default"></div>
-          <div class="settings-field"><label class="settings-lbl">IMAGES FOLDER</label><input class="settings-in" id="cfg_dir_images" placeholder="default"></div>
+        <div class="settings-grid" style="margin-top:12px">
+          <div class="settings-field">
+            <label class="settings-lbl">🎬 VIDEO DOWNLOADS <span>TikTok &amp; YouTube .mp4 files</span></label>
+            <input class="settings-in" id="cfg_dir_downloads" placeholder="root\downloads">
+          </div>
+          <div class="settings-field">
+            <label class="settings-lbl">🎵 SONG DOWNLOADS <span>Spotify &amp; SoundCloud .mp3 files</span></label>
+            <input class="settings-in" id="cfg_dir_audio" placeholder="root\downloads\audio">
+          </div>
+          <div class="settings-field">
+            <label class="settings-lbl">🔊 SCRAPED SOUNDS <span>audio scraper &amp; Spotify export reports</span></label>
+            <input class="settings-in" id="cfg_dir_sounds" placeholder="root\reports\sounds">
+          </div>
+          <div class="settings-field">
+            <label class="settings-lbl">📊 ANALYTICS REPORTS <span>hashtag, competitor, niche reports</span></label>
+            <input class="settings-in" id="cfg_dir_analysis" placeholder="root\reports\analysis">
+          </div>
+          <div class="settings-field">
+            <label class="settings-lbl">📦 COMPRESSED VIDEOS <span>output from video compressor</span></label>
+            <input class="settings-in" id="cfg_dir_compress" placeholder="root\compressed">
+          </div>
+          <div class="settings-field">
+            <label class="settings-lbl">🖼️ IMAGES <span>background remover output</span></label>
+            <input class="settings-in" id="cfg_dir_images" placeholder="root\images">
+          </div>
         </div>
       </div>
 
@@ -650,6 +735,19 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
         </div>
       </div>
 
+      <div class="settings-section">
+        <div class="settings-section-title">Custom Presets</div>
+        <div style="font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-bottom:12px;line-height:1.7">
+          Add your own presets. They appear in every hashtag tool alongside the built-in ones.
+        </div>
+        <div id="custom-presets-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="settings-in" id="cp_label" placeholder="Label (e.g. My Series)" style="flex:1;min-width:140px">
+          <input class="settings-in" id="cp_hashtag" placeholder="Hashtag (e.g. myshow)" style="flex:2;min-width:180px">
+          <button class="settings-save-btn" style="padding:11px 20px;flex-shrink:0" onclick="addCustomPreset()">+ Add</button>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center">
         <button class="settings-save-btn" onclick="saveSettings()">Save Settings</button>
         <span class="settings-toast" id="stst">✓ Saved</span>
@@ -662,26 +760,46 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 <script>
 const T={
   scraper:{cat:"scrapers",cl:"SCRAPERS",name:"Trending Audio Scraper",sub:"Find top sounds from any TikTok hashtag",
-    f:[{id:"hashtag",l:"HASHTAG",p:"fyp (no #)"},{id:"limit",l:"TARGET VIDEOS",s:["300","500","200","100"]}]},
+    f:[{id:"hashtag",l:"HASHTAG",p:"edit"},{id:"limit",l:"TARGET VIDEOS",s:["300","500","200","100"]}]},
   hfreq:{cat:"scrapers",cl:"SCRAPERS",name:"Hashtag Frequency",sub:"Most-used hashtags in a niche",
-    f:[{id:"hashtag",l:"HASHTAG",p:"dancechallenge"}]},
+    f:[{id:"hashtag",l:"HASHTAG",p:"edit"}]},
   crosshash:{cat:"scrapers",cl:"SCRAPERS",name:"Cross-Hashtag Sounds",sub:"Sounds trending across multiple niches",
-    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"fyp, dance, trending"}]},
+    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}],
+    presets:[
+      {l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},
+      {l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},
+      {l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},
+      {l:"Naruto + AOT + DS",v:{hashtags:"naruto, attackontitan, demonslayer"}},
+      {l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},
+    ]},
   viral:{cat:"scrapers",cl:"SCRAPERS",name:"Viral Video Finder",sub:"Top performing videos by view count",
-    f:[{id:"hashtag",l:"HASHTAG",p:"fyp"},{id:"limit",l:"VIDEOS TO SCAN",s:["100","200","50"]}]},
+    f:[{id:"hashtag",l:"HASHTAG",p:"edit"},{id:"limit",l:"VIDEOS TO SCAN",s:["100","200","50"]}]},
   trending:{cat:"scrapers",cl:"SCRAPERS",name:"TikTok Trending Now",sub:"What's blowing up globally right now",f:[]},
   sp_exp:{cat:"scrapers",cl:"SCRAPERS",name:"Export to Spotify",sub:"Push trending TikTok sounds to a Spotify playlist",
-    f:[{id:"hashtag",l:"HASHTAG TO SCRAPE",p:"fyp"}]},
+    f:[{id:"hashtag",l:"HASHTAG TO SCRAPE",p:"edit"}]},
   hanalyze:{cat:"analytics",cl:"ANALYTICS",name:"Hashtag Analyzer",sub:"Compare reach & avg views across hashtags",
-    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"fyp, dance, trending"}]},
+    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}],
+    presets:[
+      {l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},
+      {l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},
+      {l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},
+      {l:"Naruto + AOT + DS",v:{hashtags:"naruto, attackontitan, demonslayer"}},
+      {l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},
+    ]},
   competitor:{cat:"analytics",cl:"ANALYTICS",name:"Competitor Tracker",sub:"Side-by-side analysis of two accounts",
     f:[{id:"user1",l:"ACCOUNT 1",p:"@username"},{id:"user2",l:"ACCOUNT 2",p:"@username"}]},
   besttime:{cat:"analytics",cl:"ANALYTICS",name:"Best Posting Time",sub:"Best days & hours to post",
     f:[{id:"username",l:"YOUR TIKTOK @",p:"@username"}]},
   engagement:{cat:"analytics",cl:"ANALYTICS",name:"Engagement Calculator",sub:"ER benchmarked against TikTok averages",
-    f:[{id:"followers",l:"FOLLOWERS",p:"50000"},{id:"views",l:"AVG VIEWS / VIDEO",p:"15000"},{id:"likes",l:"AVG LIKES / VIDEO",p:"1200"},{id:"comments",l:"AVG COMMENTS",p:"80"},{id:"shares",l:"AVG SHARES",p:"40"}]},
+    f:[{id:"followers",l:"FOLLOWERS",p:"50000"},{id:"views",l:"AVG VIEWS / VIDEO",p:"15000"},{id:"likes",l:"AVG LIKES / VIDEO",p:"1200"},{id:"comments",l:"AVG COMMENTS",p:"80"},{id:"shares",l:"AVG SHARES",p:"40"}],
+    presets:[
+      {l:"Nano (1K)",v:{followers:"1000",views:"800",likes:"60",comments:"8",shares:"4"}},
+      {l:"Micro (10K)",v:{followers:"10000",views:"5000",likes:"400",comments:"40",shares:"20"}},
+      {l:"Mid (100K)",v:{followers:"100000",views:"30000",likes:"2500",comments:"150",shares:"80"}},
+      {l:"Macro (1M)",v:{followers:"1000000",views:"200000",likes:"15000",comments:"800",shares:"400"}},
+    ]},
   niche:{cat:"analytics",cl:"ANALYTICS",name:"Niche Report",sub:"Full audit: sounds + hashtags + viral videos",
-    f:[{id:"hashtag",l:"HASHTAG",p:"fyp"}]},
+    f:[{id:"hashtag",l:"HASHTAG",p:"edit"}]},
   growth:{cat:"analytics",cl:"ANALYTICS",name:"Growth Tracker",sub:"Snapshot & chart follower growth over time",
     f:[{id:"username",l:"TIKTOK @",p:"@username"}]},
   health:{cat:"analytics",cl:"ANALYTICS",name:"Account Health Dashboard",sub:"Full dashboard: views trend, ER, posting habits, health score",
@@ -693,7 +811,7 @@ const T={
   dl_spotify:{cat:"downloaders",cl:"DOWNLOADERS",name:"Spotify / SoundCloud DL",sub:"Track, album, or playlist as MP3",
     f:[{id:"url",l:"SPOTIFY OR SOUNDCLOUD URL",p:"https://open.spotify.com/track/..."},{id:"quality",l:"AUDIO QUALITY",s:["320","256","192","128"]}]},
   dl_audio:{cat:"downloaders",cl:"DOWNLOADERS",name:"Audio Extractor",sub:"MP3 from a local file or URL",
-    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\\video.mp4 or https://..."},{id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
+    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\video.mp4 or https://..."},{id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
   compress:{cat:"studio",cl:"STUDIO",name:"Video Compressor",sub:"Compress a single video with HandBrake",
     f:[{id:"input",l:"VIDEO FILE PATH",p:"C:\\Videos\\clip.mp4"}]},
   bulk_comp:{cat:"studio",cl:"STUDIO",name:"Bulk Compressor",sub:"Compress every video in a folder",
@@ -709,6 +827,184 @@ const ICONS={scraper:"🎵",hfreq:"#",crosshash:"⟁",viral:"🔥",trending:"�
   dl_vid:"⬇️",dl_prof:"👤",dl_spotify:"🎧",dl_audio:"🎙",compress:"📦",bulk_comp:"🗂",bg_rem:"✂️",calendar:"📅"};
 
 let det=null,hrun=false,trun=false,dtimer=null;
+
+
+// ── PRESET CATEGORIES ────────────────────────────────────────────────────────
+// Each category defines per-tool field values.
+// When active, opening any tool auto-fills these into the form.
+const PC = {
+  "📺 Shows": {
+    label:"Shows",
+    defaults:{
+      scraper:   {hashtag:"strangerthings"},
+      hfreq:     {hashtag:"strangerthings"},
+      crosshash: {hashtags:"strangerthings, theboys, houseofdragon, peakyblinders"},
+      viral:     {hashtag:"strangerthings"},
+      sp_exp:    {hashtag:"strangerthings"},
+      hanalyze:  {hashtags:"strangerthings, breakingbad, peakyblinders, squidgame, theboys"},
+      niche:     {hashtag:"strangerthings"},
+      competitor:{user1:"netflix", user2:"hbomax"},
+    },
+    chips:{
+      scraper:   [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}},{l:"Dexter",v:{hashtag:"dextermorgan"}}],
+      hfreq:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
+      crosshash: [{l:"Netflix Hits",v:{hashtags:"strangerthings, theboys, houseofdragon, squidgame"}},{l:"Crime Drama",v:{hashtags:"breakingbad, peakyblinders, dextermorgan, sopranos"}},{l:"Sci-Fi",v:{hashtags:"strangerthings, blackmirror, westworld"}}],
+      viral:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
+      sp_exp:    [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
+      hanalyze:  [{l:"Netflix Lineup",v:{hashtags:"strangerthings, theboys, squidgame, wednesdayaddams"}},{l:"Crime Shows",v:{hashtags:"breakingbad, peakyblinders, dextermorgan, sopranos"}},{l:"HBO Hits",v:{hashtags:"gameofthrones, houseofdragon, succession, thewhitelotus"}}],
+      niche:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
+      competitor:[{l:"Netflix vs HBO",v:{user1:"netflix",user2:"hbomax"}},{l:"Netflix vs Disney+",v:{user1:"netflix",user2:"disneyplus"}},{l:"HBO vs Hulu",v:{user1:"hbomax",user2:"hulu"}}],
+    }
+  },
+  "🎬 Movies": {
+    label:"Movies",
+    defaults:{
+      scraper:   {hashtag:"harrypotter"},
+      hfreq:     {hashtag:"harrypotter"},
+      crosshash: {hashtags:"harrypotter, marvel, starwars, lordoftherings, dc"},
+      viral:     {hashtag:"harrypotter"},
+      sp_exp:    {hashtag:"moviesoundtrack"},
+      hanalyze:  {hashtags:"harrypotter, marvel, starwars, lordoftherings, interstellar"},
+      niche:     {hashtag:"harrypotter"},
+      competitor:{user1:"marvel", user2:"dccomics"},
+    },
+    chips:{
+      scraper:   [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Interstellar",v:{hashtag:"interstellar"}},{l:"Dune",v:{hashtag:"dune"}},{l:"DC",v:{hashtag:"dccomics"}}],
+      hfreq:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
+      crosshash: [{l:"Fantasy Epic",v:{hashtags:"harrypotter, lordoftherings, dune, narnia"}},{l:"Marvel vs DC",v:{hashtags:"marvel, dc, avengers, batman, superman"}},{l:"Sci-Fi Blockbusters",v:{hashtags:"starwars, interstellar, dune, tenet, avatar"}}],
+      viral:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
+      sp_exp:    [{l:"Movie Soundtracks",v:{hashtag:"moviesoundtrack"}},{l:"Hans Zimmer",v:{hashtag:"hanszimmer"}},{l:"Epic Scores",v:{hashtag:"epicmusic"}},{l:"John Williams",v:{hashtag:"johnwilliams"}}],
+      hanalyze:  [{l:"Fantasy Films",v:{hashtags:"harrypotter, lordoftherings, dune, narnia, avatar"}},{l:"Marvel Universe",v:{hashtags:"marvel, avengers, spiderman, ironman, thor"}},{l:"Star Wars Universe",v:{hashtags:"starwars, themandalorian, obiwankenobi, andor"}}],
+      niche:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
+      competitor:[{l:"Marvel vs DC",v:{user1:"marvel",user2:"dccomics"}},{l:"Disney vs Universal",v:{user1:"disney",user2:"universalpictures"}},{l:"Marvel vs Star Wars",v:{user1:"marvel",user2:"starwars"}}],
+    }
+  },
+  "🎌 Anime": {
+    label:"Anime",
+    defaults:{
+      scraper:   {hashtag:"animeedit"},
+      hfreq:     {hashtag:"anime"},
+      crosshash: {hashtags:"anime, animeedit, animetiktok, otaku, animememes"},
+      viral:     {hashtag:"animeedit"},
+      sp_exp:    {hashtag:"animemusic"},
+      hanalyze:  {hashtags:"anime, animeedit, animetiktok, naruto, onepiece"},
+      niche:     {hashtag:"anime"},
+      competitor:{user1:"crunchyroll", user2:"funimation"},
+    },
+    chips:{
+      scraper:   [{l:"Anime Edits",v:{hashtag:"animeedit"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}},{l:"Dragon Ball",v:{hashtag:"dragonball"}}],
+      hfreq:     [{l:"Anime",v:{hashtag:"anime"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
+      crosshash: [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach, dragonball"}},{l:"New Gen",v:{hashtags:"demonslayer, jujutsukaisen, chainsawman, myheroacademia"}},{l:"Edits Niche",v:{hashtags:"animeedit, animetiktok, otaku, animememes"}}],
+      viral:     [{l:"Anime Edits",v:{hashtag:"animeedit"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
+      sp_exp:    [{l:"Anime Music",v:{hashtag:"animemusic"}},{l:"Anime Openings",v:{hashtag:"animeopening"}},{l:"Lo-Fi Anime",v:{hashtag:"animelofigirl"}},{l:"Phonk Anime",v:{hashtag:"animephonk"}}],
+      hanalyze:  [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach, dragonball, hunterxhunter"}},{l:"New Gen",v:{hashtags:"demonslayer, jujutsukaisen, chainsawman, myheroacademia"}},{l:"Edit Tags",v:{hashtags:"animeedit, animetiktok, animememes, otaku, animefyp"}}],
+      niche:     [{l:"Anime",v:{hashtag:"anime"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
+      competitor:[{l:"Crunchyroll vs Funimation",v:{user1:"crunchyroll",user2:"funimation"}},{l:"Naruto vs One Piece",v:{user1:"naruto",user2:"onepiecefans"}},{l:"Demon Slayer vs JJK",v:{user1:"demonslayer",user2:"jujutsukaisen"}}],
+    }
+  },
+};
+
+// Per-tool preset chips, keyed by category name.
+// When a category is active these replace the default tool presets.
+const TP = {
+  scraper:{
+    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
+    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Interstellar",v:{hashtag:"interstellar"}}],
+    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}}],
+  },
+  hfreq:{
+    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
+    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"The Dark Knight",v:{hashtag:"thedarkknight"}}],
+    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}}],
+  },
+  crosshash:{
+    "📺 Shows":  [{l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},{l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},{l:"Succession + Ozark + BB",v:{hashtags:"succession, ozark, breakingbad"}}],
+    "🎬 Movies": [{l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},{l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},{l:"Nolan Pack",v:{hashtags:"interstellar, inception, thedarkknight, tenet"}}],
+    "🎌 Anime":  [{l:"Shonen Pack",v:{hashtags:"naruto, onepiece, dragonball, bleach, haikyuu"}},{l:"Dark Pack",v:{hashtags:"attackontitan, demonslayer, tokyoghoul, vinlandSaga"}},{l:"Hype Pack",v:{hashtags:"jujutsukaisen, chainsaw, demonslayer, animeedit"}}],
+  },
+  viral:{
+    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Squid Game",v:{hashtag:"squidgame"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
+    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marveledit"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lotr"}},{l:"Dune",v:{hashtag:"dune"}}],
+    "🎌 Anime":  [{l:"AOT Edits",v:{hashtag:"attackontitanedit"}},{l:"Demon Slayer",v:{hashtag:"demonslayeredit"}},{l:"Naruto",v:{hashtag:"narutoedit"}},{l:"JJK",v:{hashtag:"jjkedit"}},{l:"One Piece",v:{hashtag:"onepieceedit"}}],
+  },
+  sp_exp:{
+    "📺 Shows":  [{l:"Stranger Things OST",v:{hashtag:"strangerthingsmusic"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinderssoundtrack"}},{l:"Breaking Bad",v:{hashtag:"breakingbadmusic"}},{l:"The Boys",v:{hashtag:"theboysmusic"}}],
+    "🎬 Movies": [{l:"Harry Potter OST",v:{hashtag:"harrypottermusic"}},{l:"Marvel OST",v:{hashtag:"marvelmusic"}},{l:"Hans Zimmer",v:{hashtag:"hanszimmer"}},{l:"Movie Soundtracks",v:{hashtag:"moviesoundtrack"}}],
+    "🎌 Anime":  [{l:"Anime OPs",v:{hashtag:"animeopening"}},{l:"Anime OST",v:{hashtag:"animemusic"}},{l:"Naruto OST",v:{hashtag:"narutomusic"}},{l:"AOT OST",v:{hashtag:"attackontitanmusic"}}],
+  },
+  hanalyze:{
+    "📺 Shows":  [{l:"Netflix Rivals",v:{hashtags:"strangerthings, theboys, squidgame, wednesday"}},{l:"Crime Shows",v:{hashtags:"breakingbad, peakyblinders, ozark, narcos"}},{l:"Sci-Fi Shows",v:{hashtags:"strangerthings, blackmirror, westworld"}}],
+    "🎬 Movies": [{l:"MCU vs DCEU",v:{hashtags:"marvel, dc, avengers, justiceleague"}},{l:"Fantasy Films",v:{hashtags:"harrypotter, lordoftherings, narnia, thehobbit"}},{l:"Blockbusters",v:{hashtags:"starwars, marvel, avatar, fastfurious"}}],
+    "🎌 Anime":  [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach"}},{l:"New Gen",v:{hashtags:"jujutsukaisen, demonslayer, chainsaw, jjk"}},{l:"Edits Battle",v:{hashtags:"animeedit, animeedits, animetiktok"}}],
+  },
+  niche:{
+    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}}],
+    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
+    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"JJK",v:{hashtag:"jujutsukaisen"}}],
+  },
+};
+
+let activeCategory = null;
+
+function initCategories(){
+  const grid = document.getElementById("pcat-grid");
+  if(!grid) return;
+  grid.innerHTML = Object.keys(PC).map(name =>
+    `<button class="sb-pcat-btn" data-cat="${name}" onclick="setCategory('${name}')">${name}</button>`
+  ).join("");
+}
+
+function setCategory(name){
+  if(activeCategory === name){
+    clearCategory(); return;
+  }
+  activeCategory = name;
+  // update sidebar buttons
+  document.querySelectorAll(".sb-pcat-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.cat === name);
+  });
+  document.getElementById("pcat-clear").classList.add("show");
+  // if a tool panel is open, re-fill its fields + show badge
+  showContextBadge(name);
+  fillToolFields(name);
+}
+
+function clearCategory(){
+  activeCategory = null;
+  document.querySelectorAll(".sb-pcat-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("pcat-clear").classList.remove("show");
+  hideContextBadge();
+}
+
+function showContextBadge(name){
+  const b=document.getElementById("ccb"), t=document.getElementById("ccb-text");
+  if(!b||!t)return;
+  t.textContent = name + " preset active — fields auto-filled";
+  b.classList.add("show");
+}
+function hideContextBadge(){
+  const b=document.getElementById("ccb"); if(b) b.classList.remove("show");
+}
+
+function fillToolFields(catName){
+  const on = document.querySelector(".sb-tool.on");
+  if(!on) return;
+  const id = (on.getAttribute("onclick")||"").replace(/goTool\(['"](.+?)['"]\)/,"$1");
+  if(!id) return;
+  // re-render the whole form so preset chips update too
+  goTool(id);
+}
+
+// run on load
+document.addEventListener("DOMContentLoaded", async ()=>{
+  initCategories();
+  setCategory("📺 Shows");
+  // load and inject custom presets
+  try{
+    const cfg=await fetch("/api/config").then(r=>r.json());
+    if(cfg.custom_presets&&cfg.custom_presets.length) injectCustomPresets(cfg.custom_presets);
+  }catch(e){}
+});
 
 // ── NAVIGATION ──────────────────────────────────────────────────────────────
 function goHome(){
@@ -742,12 +1038,48 @@ function goTool(id){
     });
     h+=`</div>`;
   }
+  // chips: category-specific if active, else tool's own presets (e.g. engagement size)
+  const catChips = activeCategory && PC[activeCategory] && PC[activeCategory].chips && PC[activeCategory].chips[id]
+    ? PC[activeCategory].chips[id] : null;
+  const chips = catChips || (t.presets && t.presets.length ? t.presets : null);
+  if(chips){
+    const lbl = catChips ? (PC[activeCategory].label+" Presets") : "Presets";
+    h+=`<div class="preset-row"><span class="preset-lbl">${lbl}</span>`;
+    chips.forEach(p=>{
+      const vals=JSON.stringify(p.v).replace(/"/g,"&quot;");
+      h+=`<button class="preset-chip" onclick="applyPreset(${vals})">${p.l}</button>`;
+    });
+    h+=`</div>`;
+  }
   h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Run ${t.name}</button>`;
   document.getElementById("tf").innerHTML=h;
+  // auto-fill defaults from active category
+  if(activeCategory && PC[activeCategory] && PC[activeCategory].defaults && PC[activeCategory].defaults[id]){
+    showContextBadge(activeCategory);
+    setTimeout(()=>applyPreset(PC[activeCategory].defaults[id]), 0);
+  } else {
+    hideContextBadge();
+  }
   document.getElementById("tp").style.display="none";
   document.getElementById("tr").innerHTML="";
   trun=false;
   document.getElementById("main").scrollTop=0;
+}
+
+let _presetOverride = null;
+
+function applyPreset(vals){
+  // Fill the visible fields with preset values
+  Object.entries(vals).forEach(([k,v])=>{
+    const el = document.getElementById("tf_"+k);
+    if(el) el.value = v;
+  });
+  // Flash the clicked chip
+  const btn = event && event.target;
+  if(btn && btn.classList && btn.classList.contains("preset-chip")){
+    btn.classList.add("preset-chip-active");
+    setTimeout(()=>btn.classList.remove("preset-chip-active"), 600);
+  }
 }
 
 // ── HOME DETECT ──────────────────────────────────────────────────────────────
@@ -815,7 +1147,8 @@ function runTool(id){
   const t=T[id]; if(!t)return;
   trun=true;
   document.getElementById("rbtn").classList.add("busy");
-  const opts={}; t.f.forEach(f=>{const el=document.getElementById(`tf_${f.id}`);if(el)opts[f.id]=el.value.trim();});
+  const opts={};
+  t.f.forEach(f=>{ const el=document.getElementById('tf_'+f.id); if(el) opts[f.id]=el.value.trim()||el.placeholder||"edit"; });
   const tp=document.getElementById("tp"); tp.style.display="block";
   const tpb=document.getElementById("tpb"); tpb.style.width="0%"; tpb.classList.add("ind");
   document.getElementById("tpl").textContent="RUNNING"; document.getElementById("tps").textContent="";
@@ -888,7 +1221,42 @@ async function doStream(url,body,{barEl,lblEl,stEl,resEl,feedId,onDone}){
         else if(m.type==="close") onDone();
       }
     }
-  }catch(e){resEl.innerHTML=errorCard(e.message); onDone();}
+  }catch(e){
+    const msg=e.message.includes('fetch')?'Cannot connect to server — make sure EditorSuite is running via the .exe or .vbs launcher, not opened as a raw HTML file.':e.message;
+    resEl.innerHTML=errorCard(msg); onDone();
+  }
+}
+
+// ── SIDEBAR CUSTOM PRESET ────────────────────────────────────────────────────
+function toggleCustomAdd(){
+  const f=document.getElementById("pcat-add-form");
+  const btn=document.getElementById("pcat-add-btn");
+  const open = f.style.display==="none";
+  f.style.display=open?"flex":"none";
+  btn.style.color=open?"var(--purple)":"";
+  btn.style.borderColor=open?"var(--purple)":"";
+  if(open) document.getElementById("sb_cp_label").focus();
+}
+
+async function sbAddCustomPreset(){
+  const lbl=document.getElementById("sb_cp_label").value.trim();
+  const tag=document.getElementById("sb_cp_tag").value.trim().replace(/^#/,"");
+  if(!lbl||!tag) return;
+  const cfg=await fetch("/api/config").then(r=>r.json());
+  const list=[...(cfg.custom_presets||[]),{l:lbl,v:{hashtag:tag}}];
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:list})});
+  document.getElementById("sb_cp_label").value="";
+  document.getElementById("sb_cp_tag").value="";
+  document.getElementById("pcat-add-form").style.display="none";
+  document.getElementById("pcat-add-btn").style.color="";
+  document.getElementById("pcat-add-btn").style.borderColor="";
+  injectCustomPresets(list);
+  // toast
+  const t=document.createElement("div");
+  t.textContent="✓ "+lbl+" added";
+  t.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--green);font-family:var(--fm);font-size:.76rem;padding:8px 18px;border-radius:8px;z-index:999;pointer-events:none;transition:opacity .4s";
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),400);},1800);
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
@@ -915,7 +1283,54 @@ async function loadSettings(){
       const el=document.getElementById("cfg_"+k);
       if(el) el.checked=!!cfg[k];
     });
+    renderCustomPresets(cfg.custom_presets||[]);
   }catch(e){console.error("loadSettings",e);}
+}
+
+function renderCustomPresets(list){
+  const el=document.getElementById("custom-presets-list"); if(!el)return;
+  if(!list.length){el.innerHTML='<div style="font-family:var(--fm);font-size:.74rem;color:var(--text3)">No custom presets yet.</div>';return;}
+  el.innerHTML=list.map((p,i)=>
+    `<div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">
+      <span style="font-family:var(--fm);font-size:.8rem;flex:1"><b>${x(p.l)}</b> <span style="color:var(--text3)">→ #${x(p.v.hashtag)}</span></span>
+      <button onclick="removeCustomPreset(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.9rem;padding:2px 6px;border-radius:4px;transition:color .15s" onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color=''">✕</button>
+    </div>`
+  ).join("");
+}
+
+let _customPresets=[];
+async function addCustomPreset(){
+  const lbl=document.getElementById("cp_label").value.trim();
+  const tag=document.getElementById("cp_hashtag").value.trim().replace(/^#/,"");
+  if(!lbl||!tag)return;
+  const cfg=await fetch("/api/config").then(r=>r.json());
+  _customPresets=cfg.custom_presets||[];
+  _customPresets.push({l:lbl,v:{hashtag:tag}});
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:_customPresets})});
+  document.getElementById("cp_label").value="";
+  document.getElementById("cp_hashtag").value="";
+  renderCustomPresets(_customPresets);
+  injectCustomPresets(_customPresets);
+}
+
+async function removeCustomPreset(idx){
+  const cfg=await fetch("/api/config").then(r=>r.json());
+  _customPresets=cfg.custom_presets||[];
+  _customPresets.splice(idx,1);
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:_customPresets})});
+  renderCustomPresets(_customPresets);
+  injectCustomPresets(_customPresets);
+}
+
+function injectCustomPresets(list){
+  // Merge custom presets into T so they appear in all hashtag tools
+  const hashTools=["scraper","hfreq","viral","sp_exp","niche"];
+  hashTools.forEach(id=>{
+    if(!T[id]) return;
+    // remove old injected custom presets, add new
+    T[id].presets=(T[id].presets||[]).filter(p=>!p._custom);
+    list.forEach(p=>T[id].presets.push({...p,_custom:true}));
+  });
 }
 
 async function saveSettings(){
@@ -1124,10 +1539,7 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
     fetch("/api/ping",{method:"POST",keepalive:true}).catch(()=>{});
   }, 5000);
 
-  // When tab/window closes, tell server to shut down immediately
-  window.addEventListener("beforeunload", ()=>{
-    navigator.sendBeacon("/api/shutdown", "{}");
-  });
+  // Server shutdown handled by watchdog (15s timeout after last ping)
 })();
 
 // ── MOUSE GLOW — paste card + all tool cards ─────────────────────────────────
@@ -1145,4 +1557,5 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
   // all tool cards — use a delegated approach so dynamically added ones work too
   document.querySelectorAll('.tool-card').forEach(attachGlow);
 })();
+
 </script>

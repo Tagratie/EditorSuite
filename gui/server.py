@@ -1,7 +1,7 @@
 """
 gui/server.py — Flask backend for EditorSuite GUI
 """
-import os, sys, json, queue, threading, webbrowser, time, signal
+import os, sys, json, queue, threading, webbrowser, time, signal, subprocess, subprocess
 from pathlib import Path
 
 ROOT = str(Path(__file__).parent.parent)
@@ -177,36 +177,159 @@ def api_shutdown():
     return jsonify({"ok": True})
 
 
-def _focus_browser():
-    """After opening the browser, bring it to the foreground (Windows)."""
-    import time; time.sleep(2.5)
-    if os.name == "nt":
+def _find_chromium_exe() -> str:
+    """Find any Chromium-based browser on Windows via registry + known paths."""
+    if os.name != "nt":
+        return ""
+    import winreg
+
+    # Registry keys where browsers register their exe path
+    reg_paths = [
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\opera.exe"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\launcher.exe"),  # Opera GX
+        (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
+        (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"),
+        (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\opera.exe"),
+        (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\launcher.exe"),
+    ]
+    for hive, path in reg_paths:
         try:
-            import ctypes
-            # Release foreground lock then find Chrome/Edge/Firefox window
-            ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)
-            ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
-            for cls in ["Chrome_WidgetWin_1", "MozillaWindowClass", "Edge_WidgetWin_1"]:
-                hwnd = ctypes.windll.user32.FindWindowW(cls, None)
-                if hwnd:
-                    ctypes.windll.user32.ShowWindow(hwnd, 9)
-                    ctypes.windll.user32.SetForegroundWindow(hwnd)
-                    break
-        except Exception:
-            pass
+            with winreg.OpenKey(hive, path) as k:
+                exe = winreg.QueryValue(k, None)
+                if exe and os.path.isfile(exe):
+                    return exe
+        except OSError:
+            continue
+
+    # Fallback: hardcoded common paths
+    lappdata = os.environ.get("LOCALAPPDATA", "")
+    pf       = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    pf86     = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    candidates = [
+        os.path.join(lappdata, "Google","Chrome","Application","chrome.exe"),
+        os.path.join(pf,       "Google","Chrome","Application","chrome.exe"),
+        os.path.join(pf86,     "Google","Chrome","Application","chrome.exe"),
+        os.path.join(pf86,     "Microsoft","Edge","Application","msedge.exe"),
+        os.path.join(pf,       "Microsoft","Edge","Application","msedge.exe"),
+        os.path.join(lappdata, "Programs","Opera","launcher.exe"),
+        os.path.join(lappdata, "Programs","Opera GX","launcher.exe"),
+        os.path.join(pf,       "Opera","launcher.exe"),
+        os.path.join(lappdata, "Chromium","Application","chrome.exe"),
+    ]
+    for exe in candidates:
+        if exe and os.path.isfile(exe):
+            return exe
+    return ""
+
+
+def _strip_titlebar(pid: int):
+    """Use pywin32 to remove the OS titlebar — finds window by title, not PID.
+    Chrome/Opera spawn child processes so the window PID never matches proc.pid."""
+    try:
+        import win32gui, win32con
+    except ImportError:
+        return
+
+    import time
+
+    # Wait up to 12s for app window — match ONLY Chromium window classes
+    # so we never accidentally touch Explorer or any other app
+    CHROMIUM_CLASSES = {"Chrome_WidgetWin_1", "OperaWindowClass", "BrowserWindowClass"}
+    hwnd = None
+    for _ in range(60):
+        time.sleep(0.2)
+        found = []
+        def _cb(h, _):
+            if not win32gui.IsWindowVisible(h):
+                return
+            cls = win32gui.GetClassName(h)
+            if cls not in CHROMIUM_CLASSES:
+                return
+            t = win32gui.GetWindowText(h)
+            if "EditorSuite" in t:
+                found.append(h)
+        win32gui.EnumWindows(_cb, None)
+        if found:
+            hwnd = found[0]
+            break
+
+    if not hwnd:
+        print("  [titlebar] window not found — OS bar stays")
+        return
+
+    print(f"  [titlebar] stripping from hwnd={hwnd}")
+
+    # Remove WS_CAPTION (titlebar) + WS_THICKFRAME (resize grip)
+    style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
+    style &= ~(win32con.WS_CAPTION | win32con.WS_THICKFRAME)
+    win32gui.SetWindowLong(hwnd, win32con.GWL_STYLE, style)
+
+    # Remove extended border
+    ex = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+    ex &= ~(win32con.WS_EX_DLGMODALFRAME | win32con.WS_EX_CLIENTEDGE | win32con.WS_EX_STATICEDGE)
+    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex)
+
+    # Force redraw of frame
+    win32gui.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
+        win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
+    win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+
+
+def _launch_app_window(url: str):
+    """Open EditorSuite as a native-looking app window (no tabs, no address bar)."""
+    import time
+    time.sleep(1.4)
+
+    if os.name == "nt":
+        exe = _find_chromium_exe()
+        if exe:
+            # launcher.exe (Opera wrapper) doesn't support --app, find real exe
+            if "launcher.exe" in exe.lower():
+                import glob
+                folder = os.path.dirname(exe)
+                opera_real = next(
+                    (f for f in glob.glob(os.path.join(folder, "*.exe"))
+                     if os.path.basename(f).lower() == "opera.exe"), None)
+                if not opera_real:
+                    for sub in os.listdir(folder):
+                        candidate = os.path.join(folder, sub, "opera.exe")
+                        if os.path.isfile(candidate):
+                            opera_real = candidate; break
+                if opera_real:
+                    exe = opera_real
+
+            proc = subprocess.Popen(
+                [exe, f"--app={url}",
+                 "--window-size=1300,840",
+                 "--window-position=60,30"],
+                creationflags=0x08000000
+            )
+            # Strip the OS titlebar in a background thread
+            threading.Thread(target=_strip_titlebar, args=(proc.pid,), daemon=True).start()
+        else:
+            os.startfile(url)   # last resort
+    elif sys.platform == "darwin":
+        chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        if os.path.isfile(chrome):
+            subprocess.Popen([chrome, f"--app={url}"])
+        else:
+            webbrowser.open(url)
+    else:
+        for b in ("google-chrome", "chromium-browser", "chromium", "opera"):
+            try:
+                subprocess.Popen([b, f"--app={url}"]); return
+            except FileNotFoundError:
+                continue
+        webbrowser.open(url)
 
 
 def start(port: int = 7331, open_browser: bool = True):
     if open_browser:
-        def _open():
-            import time; time.sleep(1.4)
-            url = f"http://127.0.0.1:{port}"
-            if os.name == "nt":
-                os.startfile(url)  # cleanest on Windows — no extra flags, no menu weirdness
-            else:
-                webbrowser.open(url)
-            _focus_browser()
-        threading.Thread(target=_open, daemon=True).start()
+        url = f"http://127.0.0.1:{port}"
+        threading.Thread(target=_launch_app_window, args=(url,), daemon=True).start()
     print(f"\n  EditorSuite GUI  →  http://127.0.0.1:{port}")
     print(f"  Press Ctrl+C to stop.\n")
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

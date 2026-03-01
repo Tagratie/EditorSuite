@@ -17,7 +17,7 @@ from core.browser import new_browser
 
 # ── Shared scraper: raw captions from a hashtag page ─────────────────────────
 
-async def _scrape_captions(hashtag: str, target: int) -> list[str]:
+async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[str]:
     from playwright.async_api import async_playwright
     captions: list[str] = []
     seen: set[str] = set()
@@ -50,6 +50,7 @@ async def _scrape_captions(hashtag: str, target: int) -> list[str]:
         stale = 0
         while len(seen) < target and stale < 8:
             print(f"  {len(seen)}/{target} captions scraped...", end="\r", flush=True)
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.0)

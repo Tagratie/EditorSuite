@@ -14,7 +14,7 @@ from core.browser import new_browser
 from core.filters import check_garbage
 
 
-async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300) -> tuple[dict, set]:
+async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300, progress_cb=None) -> tuple[dict, set]:
     sounds: dict = {}
     seen:   set  = set()
 
@@ -50,6 +50,7 @@ async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300) -> tuple[dict,
         await asyncio.sleep(2)
         stale = 0
         while len(seen) < target and stale < 8:
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(1.8)

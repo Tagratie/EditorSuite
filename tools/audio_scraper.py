@@ -18,7 +18,7 @@ from core.filters import check_garbage, is_funk
 
 # ── Core scraper ──────────────────────────────────────────────────────────────
 
-async def scrape_sounds(hashtag: str, target: int) -> tuple[int, dict]:
+async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[int, dict]:
     """
     Dual-source scrape: hashtag page + search page.
     Returns (videos_seen_count, sounds_dict).
@@ -140,6 +140,7 @@ async def scrape_sounds(hashtag: str, target: int) -> tuple[int, dict]:
         while len(seen) < target and stale < max_stale:
             _flush_print()
             _status(label)
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.0)
@@ -210,8 +211,8 @@ async def scrape_sounds(hashtag: str, target: int) -> tuple[int, dict]:
     return len(seen), sounds
 
 
-async def scrape_for_spotify(hashtag: str, videos: int) -> tuple[int, dict]:
-    return await scrape_sounds(hashtag, videos)
+async def scrape_for_spotify(hashtag: str, videos: int, progress_cb=None) -> tuple[int, dict]:
+    return await scrape_sounds(hashtag, videos, progress_cb=progress_cb)
 
 
 # ── Download helper ───────────────────────────────────────────────────────────
