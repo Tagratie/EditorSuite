@@ -624,6 +624,7 @@ def _spotify(url, opts, log, prog, done, error):
         log(f"[{i}/{len(tracks)}] {title}" + (f" — {artist}" if artist else ""))
         prog(i, len(tracks))
         success = False
+        _cflags = {"creationflags": 0x08000000} if os.name == "nt" else {}
         for q2 in [f"ytmsearch1:{title} {artist}".strip(),
                    f"ytsearch1:{title} {artist}".strip()]:
             r = subprocess.run(["yt-dlp", q2,
@@ -631,7 +632,7 @@ def _spotify(url, opts, log, prog, done, error):
                 "--audio-quality",f"{quality}k","--output",out_tpl,
                 "--no-playlist","--quiet","--no-warnings",
                 "--embed-thumbnail","--add-metadata"],
-                capture_output=True)
+                capture_output=True, **_cflags)
             if r.returncode == 0: success = True; break
         if success: ok_n += 1
         else: fail_n += 1; log(f"  ✗ not found")

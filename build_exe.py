@@ -38,7 +38,7 @@ a = Analysis(
     pathex=[str(ROOT)],
     binaries=[],
     datas=[
-        (str(ROOT / 'gui' / 'static'), 'gui/static'),   # includes favicon.ico
+        (str(ROOT / 'gui' / 'static'), 'gui/static'),
         (str(ROOT / 'gui' / 'detector.py'), 'gui'),
         (str(ROOT / 'gui' / 'runner.py'), 'gui'),
         (str(ROOT / 'gui' / 'server.py'), 'gui'),
@@ -46,6 +46,7 @@ a = Analysis(
         (str(ROOT / 'utils'), 'utils'),
         (str(ROOT / 'ui'), 'ui'),
         (str(ROOT / 'core'), 'core'),
+        (str(ROOT / 'pw_hook.py'), '.'),
     ],
     hiddenimports=[
         'flask', 'flask.json', 'werkzeug', 'jinja2', 'click',
@@ -57,10 +58,11 @@ a = Analysis(
         'rembg',
         'win32gui', 'win32con', 'win32process', 'win32api',
         'pywintypes', 'winreg',
+        'multiprocessing', 'multiprocessing.spawn', 'multiprocessing.forkserver',
     ],
     hookspath=[],
     hooksconfig={{}},
-    runtime_hooks=[],
+    runtime_hooks=[str(ROOT / 'pw_hook.py')],
     excludes=['tkinter', 'matplotlib', 'scipy', 'numpy.testing'],
     noarchive=False,
     optimize=1,
@@ -81,7 +83,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,          # no terminal window
+    console=False,          # no terminal window for end users
     disable_windowed_traceback=False,
     argv_emulation=False,
     icon=str(ROOT / 'gui' / 'static' / 'favicon.ico'),

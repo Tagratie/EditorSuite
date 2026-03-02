@@ -1,7 +1,7 @@
 """
 gui/server.py — Flask backend for EditorSuite GUI
 """
-import os, sys, json, queue, threading, webbrowser, time, signal, subprocess, subprocess
+import os, sys, json, queue, threading, webbrowser, time, signal, subprocess
 from pathlib import Path
 
 ROOT = str(Path(__file__).parent.parent)
@@ -167,6 +167,86 @@ def api_ping():
     _last_ping = time.time()
     return jsonify({"ok": True})
 
+@app.route("/api/browse-folder", methods=["POST"])
+def api_browse_folder():
+    """Open the modern IFileOpenDialog (Vista+ Explorer style, respects dark mode)."""
+    try:
+        import ctypes, ctypes.wintypes, uuid
+        from ctypes import HRESULT
+
+        CLSID_FileOpenDialog = "{DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7}"
+        IID_IFileOpenDialog  = "{D57C7288-D4AD-4768-BE02-9D969532D960}"
+        FOS_PICKFOLDERS      = 0x00000020
+        FOS_FORCEFILESYSTEM  = 0x00000040
+
+        ole32 = ctypes.windll.ole32
+
+        class _GUID(ctypes.Structure):
+            _fields_ = [("Data1",ctypes.c_ulong),("Data2",ctypes.c_ushort),
+                        ("Data3",ctypes.c_ushort),("Data4",ctypes.c_ubyte*8)]
+
+        def _guid(s):
+            u = uuid.UUID(s); b = u.bytes_le; g = _GUID()
+            g.Data1 = int.from_bytes(b[0:4],"little")
+            g.Data2 = int.from_bytes(b[4:6],"little")
+            g.Data3 = int.from_bytes(b[6:8],"little")
+            g.Data4 = (ctypes.c_ubyte*8)(*b[8:]); return g
+
+        ole32.CoInitialize(None)
+        clsid = _guid(CLSID_FileOpenDialog)
+        iid   = _guid(IID_IFileOpenDialog)
+        ptr   = ctypes.c_void_p()
+        hr = ole32.CoCreateInstance(ctypes.byref(clsid), None, 1,
+                                    ctypes.byref(iid), ctypes.byref(ptr))
+        if hr != 0: raise OSError(f"CoCreateInstance failed: {hr:#010x}")
+
+        vt = ctypes.cast(
+            ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))[0],
+            ctypes.POINTER(ctypes.c_void_p))
+
+        GetOptions = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint))(vt[10])
+        SetOptions = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.c_uint)(vt[9])
+        opts = ctypes.c_uint(0)
+        GetOptions(ptr, ctypes.byref(opts))
+        SetOptions(ptr, opts.value | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)
+
+        # Find the app window HWND so the dialog is parented/focused correctly
+        import win32gui
+        app_hwnd = 0
+        def _find_app(h, _):
+            nonlocal app_hwnd
+            if win32gui.IsWindowVisible(h) and "EditorSuite" in win32gui.GetWindowText(h):
+                if win32gui.GetClassName(h) == "Chrome_WidgetWin_1":
+                    app_hwnd = h
+        win32gui.EnumWindows(_find_app, None)
+
+        Show = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.wintypes.HWND)(vt[3])
+        hr   = Show(ptr, app_hwnd)
+
+        path = ""
+        if hr == 0:
+            si = ctypes.c_void_p()
+            GetResult = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p))(vt[20])
+            if GetResult(ptr, ctypes.byref(si)) == 0 and si:
+                si_vt = ctypes.cast(
+                    ctypes.cast(si, ctypes.POINTER(ctypes.c_void_p))[0],
+                    ctypes.POINTER(ctypes.c_void_p))
+                GetDisplayName = ctypes.WINFUNCTYPE(
+                    HRESULT, ctypes.c_void_p, ctypes.c_uint,
+                    ctypes.POINTER(ctypes.c_wchar_p))(si_vt[5])
+                name = ctypes.c_wchar_p()
+                GetDisplayName(si, 0x80058000, ctypes.byref(name))
+                if name.value:
+                    path = name.value
+                    ole32.CoTaskMemFree(name)
+
+        ole32.CoUninitialize()
+        return jsonify({"path": path})
+
+    except Exception as e:
+        return jsonify({"path": "", "error": str(e)})
+
 @app.route("/api/shutdown", methods=["POST"])
 def api_shutdown():
     """Called by beforeunload — graceful shutdown."""
@@ -277,53 +357,67 @@ def _strip_titlebar(pid: int):
         win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
     win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
 
+    # Swap Chrome icon for EditorSuite favicon in taskbar + titlebar
+    try:
+        import win32api, win32con as wc
+        ico = os.path.join(os.path.dirname(__file__), "static", "favicon.ico")
+        if os.path.isfile(ico):
+            LOAD_IMAGE   = 0x0010  # LR_LOADFROMFILE
+            IMAGE_ICON   = 1
+            big  = win32gui.LoadImage(None, ico, IMAGE_ICON, 32, 32, LOAD_IMAGE)
+            small= win32gui.LoadImage(None, ico, IMAGE_ICON, 16, 16, LOAD_IMAGE)
+            win32gui.SendMessage(hwnd, wc.WM_SETICON, 1, big)   # ICON_BIG
+            win32gui.SendMessage(hwnd, wc.WM_SETICON, 0, small) # ICON_SMALL
+            print("  [icon] EditorSuite icon set")
+    except Exception as e:
+        print(f"  [icon] failed: {e}")
+
 
 def _launch_app_window(url: str):
-    """Open EditorSuite as a native-looking app window (no tabs, no address bar)."""
+    """Open EditorSuite as app window — NEVER opens a normal browser tab."""
     import time
     time.sleep(1.4)
 
     if os.name == "nt":
         exe = _find_chromium_exe()
-        if exe:
-            # launcher.exe (Opera wrapper) doesn't support --app, find real exe
-            if "launcher.exe" in exe.lower():
-                import glob
-                folder = os.path.dirname(exe)
-                opera_real = next(
-                    (f for f in glob.glob(os.path.join(folder, "*.exe"))
-                     if os.path.basename(f).lower() == "opera.exe"), None)
-                if not opera_real:
-                    for sub in os.listdir(folder):
-                        candidate = os.path.join(folder, sub, "opera.exe")
-                        if os.path.isfile(candidate):
-                            opera_real = candidate; break
-                if opera_real:
-                    exe = opera_real
-
-            proc = subprocess.Popen(
-                [exe, f"--app={url}",
-                 "--window-size=1300,840",
-                 "--window-position=60,30"],
-                creationflags=0x08000000
-            )
-            # Strip the OS titlebar in a background thread
-            threading.Thread(target=_strip_titlebar, args=(proc.pid,), daemon=True).start()
-        else:
-            os.startfile(url)   # last resort
+        if not exe:
+            print("  [!] No Chrome/Edge/Opera found — open http://127.0.0.1:7331 manually.")
+            return
+        # Resolve launcher.exe (Opera wrapper) to actual opera.exe
+        if "launcher.exe" in exe.lower():
+            import glob
+            folder = os.path.dirname(exe)
+            opera_real = next(
+                (f for f in glob.glob(os.path.join(folder, "*.exe"))
+                 if os.path.basename(f).lower() == "opera.exe"), None)
+            if not opera_real:
+                for sub in os.listdir(folder):
+                    candidate = os.path.join(folder, sub, "opera.exe")
+                    if os.path.isfile(candidate):
+                        opera_real = candidate; break
+            if opera_real:
+                exe = opera_real
+        proc = subprocess.Popen(
+            [exe, f"--app={url}", "--window-size=1300,840", "--window-position=60,30"],
+            creationflags=0x08000000
+        )
+        threading.Thread(target=_strip_titlebar, args=(proc.pid,), daemon=True).start()
     elif sys.platform == "darwin":
-        chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        if os.path.isfile(chrome):
-            subprocess.Popen([chrome, f"--app={url}"])
-        else:
-            webbrowser.open(url)
+        for chrome in [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ]:
+            if os.path.isfile(chrome):
+                subprocess.Popen([chrome, f"--app={url}"])
+                return
+        print("  [!] No Chrome/Edge found — open http://127.0.0.1:7331 manually.")
     else:
-        for b in ("google-chrome", "chromium-browser", "chromium", "opera"):
+        for b in ("google-chrome", "chromium-browser", "chromium", "microsoft-edge"):
             try:
                 subprocess.Popen([b, f"--app={url}"]); return
             except FileNotFoundError:
                 continue
-        webbrowser.open(url)
+        print("  [!] No Chromium browser found — open http://127.0.0.1:7331 manually.")
 
 
 def start(port: int = 7331, open_browser: bool = True):
@@ -332,4 +426,4 @@ def start(port: int = 7331, open_browser: bool = True):
         threading.Thread(target=_launch_app_window, args=(url,), daemon=True).start()
     print(f"\n  EditorSuite GUI  →  http://127.0.0.1:{port}")
     print(f"  Press Ctrl+C to stop.\n")
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    app.run(host="127.0.0.1", port=port, debug=False, threaded=True, use_reloader=False)

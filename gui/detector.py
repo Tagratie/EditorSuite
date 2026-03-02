@@ -45,11 +45,13 @@ def detect(text: str) -> dict:
     if re.search(r'(youtube\.com/watch|youtu\.be/)', t):
         return {"type": "youtube_video",  "label": TYPES["youtube_video"],   "value": t}
 
-    # Spotify
-    if 'spotify.com' in t:
+    # Spotify (spotify.com, open.spotify.com, spotify.link short URLs)
+    if 'spotify.com' in t or 'spotify.link' in t:
         if '/track/'    in t: return {"type": "spotify_track",    "label": TYPES["spotify_track"],    "value": t}
         if '/album/'    in t: return {"type": "spotify_album",    "label": TYPES["spotify_album"],    "value": t}
         if '/playlist/' in t: return {"type": "spotify_playlist", "label": TYPES["spotify_playlist"], "value": t}
+        # spotify.link short URLs don't have a path type — treat as track by default
+        if 'spotify.link' in t: return {"type": "spotify_track", "label": TYPES["spotify_track"], "value": t}
 
     # SoundCloud
     if 'soundcloud.com' in t:

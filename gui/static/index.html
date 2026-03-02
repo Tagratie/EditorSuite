@@ -446,6 +446,38 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 
 
 
+
+/* FIRST-RUN SETUP OVERLAY */
+#setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+#setup-overlay.hidden{display:none}
+#setup-box{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;
+  padding:40px 44px;max-width:480px;width:90%;box-shadow:0 32px 80px rgba(0,0,0,.6)}
+.setup-logo{font-family:var(--fh);font-size:1.3rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.setup-logo span{background:linear-gradient(90deg,var(--cyan),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.setup-h{font-family:var(--fh);font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--text)}
+.setup-sub{font-family:var(--fm);font-size:.8rem;color:var(--text3);line-height:1.6;margin-bottom:28px}
+.setup-lbl{font-family:var(--fm);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text3);margin-bottom:7px;display:block}
+.setup-row{display:flex;gap:8px;margin-bottom:24px}
+.setup-in{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;
+  padding:11px 14px;color:var(--text);font-family:var(--fm);font-size:.84rem;outline:none;
+  transition:border-color .2s}
+.setup-in:focus{border-color:var(--purple)}
+.setup-browse{background:var(--bg4);border:1px solid var(--border2);border-radius:9px;
+  padding:11px 16px;color:var(--text2);font-family:var(--fh);font-size:.78rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.setup-browse:hover{border-color:var(--purple);color:var(--purple)}
+.setup-confirm{width:100%;background:linear-gradient(135deg,var(--purple),var(--pink));
+  border:none;border-radius:10px;padding:14px;color:#fff;font-family:var(--fh);
+  font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s;letter-spacing:.01em}
+.setup-confirm:hover{opacity:.88}
+.setup-confirm:disabled{opacity:.4;cursor:not-allowed}
+.setup-skip{display:block;text-align:center;margin-top:14px;font-family:var(--fm);
+  font-size:.72rem;color:var(--text3);cursor:pointer;transition:color .15s}
+.setup-skip:hover{color:var(--text2)}
+
 /* SIDEBAR PRESET CATEGORIES */
 .sb-pcat-header{padding:12px 20px 8px;display:flex;align-items:center;justify-content:space-between}
 .sb-pcat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase}
@@ -457,6 +489,22 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
   width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);
   display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
 .sb-pcat-add:hover{border-color:var(--purple);color:var(--purple);background:rgba(168,85,247,.1)}
+/* custom preset cards */
+.sb-custom-list{padding:0 12px 10px;display:flex;flex-direction:column;gap:4px}
+.sb-custom-card{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px;border-radius:7px;border:1px solid var(--border2);
+  background:var(--bg2);cursor:pointer;transition:all .15s;position:relative;
+  font-family:var(--fm);font-size:.76rem;color:var(--text)}
+.sb-custom-card:hover{border-color:var(--purple);background:rgba(168,85,247,.06)}
+.sb-custom-card-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-custom-card-tag{color:var(--text3);font-size:.7rem;margin-right:8px}
+.sb-custom-card-del{opacity:0;color:var(--text3);font-size:.8rem;
+  width:18px;height:18px;border-radius:4px;border:none;background:none;
+  cursor:pointer;flex-shrink:0;transition:all .15s;padding:0;line-height:1}
+.sb-custom-card:hover .sb-custom-card-del{opacity:1}
+.sb-custom-card-del:hover{color:#f43f5e;background:rgba(244,63,94,.12)}
+.sb-custom-empty{font-family:var(--fm);font-size:.72rem;color:var(--text3);
+  padding:4px 2px;font-style:italic}
 .sb-pcat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px}
 .sb-pcat-btn{font-family:var(--fm);font-size:.72rem;border-radius:8px;padding:7px 6px;
   cursor:pointer;transition:all .18s;border:1px solid var(--border);color:var(--text3);
@@ -483,6 +531,22 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 </style>
 </head>
 <body>
+
+<!-- FIRST-RUN SETUP OVERLAY -->
+<div id="setup-overlay" class="hidden">
+  <div id="setup-box">
+    <div class="setup-logo">Editor<span>Suite</span></div>
+    <div class="setup-h">Welcome — one quick step</div>
+    <div class="setup-sub">Choose where EditorSuite saves everything: downloaded videos, audio, reports and more. You can change this anytime in Settings.</div>
+    <label class="setup-lbl">Download &amp; Output Folder</label>
+    <div class="setup-row">
+      <input class="setup-in" id="setup-path" placeholder="e.g. C:\Users\You\EditorSuite">
+      <button class="setup-browse" onclick="setupBrowse()">Browse</button>
+    </div>
+    <button class="setup-confirm" id="setup-confirm" onclick="setupSave()">Let's go →</button>
+    <span class="setup-skip" onclick="setupSkip()">Skip for now</span>
+  </div>
+</div>
 
 <nav id="sb">
   <div class="sb-logo">
@@ -512,6 +576,7 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Preset</button>
   </div>
   <div class="sb-pcat-grid" id="pcat-grid"></div>
+  <div class="sb-custom-list" id="sb-custom-list"></div>
   <div class="sb-sep"></div>
   <div class="sb-home on" id="hbtn" onclick="goHome()">
     <div class="sb-home-title">Home</div>
@@ -735,19 +800,6 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
         </div>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-section-title">Custom Presets</div>
-        <div style="font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-bottom:12px;line-height:1.7">
-          Add your own presets. They appear in every hashtag tool alongside the built-in ones.
-        </div>
-        <div id="custom-presets-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input class="settings-in" id="cp_label" placeholder="Label (e.g. My Series)" style="flex:1;min-width:140px">
-          <input class="settings-in" id="cp_hashtag" placeholder="Hashtag (e.g. myshow)" style="flex:2;min-width:180px">
-          <button class="settings-save-btn" style="padding:11px 20px;flex-shrink:0" onclick="addCustomPreset()">+ Add</button>
-        </div>
-      </div>
-
       <div style="display:flex;align-items:center">
         <button class="settings-save-btn" onclick="saveSettings()">Save Settings</button>
         <span class="settings-toast" id="stst">✓ Saved</span>
@@ -879,6 +931,20 @@ const PC = {
       competitor:[{l:"Marvel vs DC",v:{user1:"marvel",user2:"dccomics"}},{l:"Disney vs Universal",v:{user1:"disney",user2:"universalpictures"}},{l:"Marvel vs Star Wars",v:{user1:"marvel",user2:"starwars"}}],
     }
   },
+  "🎭 Creator": {
+    label:"Creator",
+    defaults:{},
+    chips:{
+      scraper:   [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Trending",v:{hashtag:"trending"}}],
+      hfreq:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
+      crosshash: [{l:"Edit + CC + Trans",v:{hashtags:"edit, capcutedit, transition"}},{l:"Edit + Fyp + Trend",v:{hashtags:"videoedit, fyp, trending"}},{l:"Edit + CC + Fyp",v:{hashtags:"edit, capcutedit, fyp"}}],
+      viral:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
+      sp_exp:    [{l:"Edit Music",v:{hashtag:"editmusic"}},{l:"Phonk",v:{hashtag:"phonk"}},{l:"Slowed Reverb",v:{hashtag:"slowedreverb"}},{l:"NCS",v:{hashtag:"ncs"}}],
+      hanalyze:  [{l:"Edit Tags",v:{hashtags:"edit, videoedit, capcutedit, transition, fyp"}},{l:"Phonk Tags",v:{hashtags:"phonk, phonkedit, darkphonk, phonkmusic"}},{l:"Creator Tags",v:{hashtags:"contentcreator, youtuber, tiktokgrowth, fyp"}}],
+      niche:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Phonk",v:{hashtag:"phonk"}}],
+      competitor:[{l:"CapCut vs VN",v:{user1:"capcutapp",user2:"vnvideoeditor"}},{l:"Premiere vs DaVinci",v:{user1:"adobepremiere",user2:"davinciresolve"}},{l:"Edit Creators",v:{user1:"zach.king",user2:"khaby.lame"}}],
+    }
+  },
   "🎌 Anime": {
     label:"Anime",
     defaults:{
@@ -942,6 +1008,15 @@ const TP = {
     "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
     "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"JJK",v:{hashtag:"jujutsukaisen"}}],
   },
+  "🎭 Creator": {
+    scraper:   [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Trending",v:{hashtag:"trending"}}],
+    hfreq:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
+    crosshash: [{l:"Edit + CC + Trans",v:{hashtags:"edit, capcutedit, transition"}},{l:"Edit + Fyp + Trend",v:{hashtags:"videoedit, fyp, trending"}},{l:"Edit + CC + Fyp",v:{hashtags:"edit, capcutedit, fyp"}}],
+    viral:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
+    sp_exp:    [{l:"Edit Music",v:{hashtag:"editmusic"}},{l:"Phonk",v:{hashtag:"phonk"}},{l:"Slowed Reverb",v:{hashtag:"slowedreverb"}},{l:"NCS",v:{hashtag:"ncs"}}],
+    hanalyze:  [{l:"Edit Tags",v:{hashtags:"edit, videoedit, capcutedit, transition, fyp"}},{l:"Phonk",v:{hashtags:"phonk, phonkedit, darkphonk, phonkmusic"}},{l:"Creator Tags",v:{hashtags:"contentcreator, youtuber, tiktokgrowth, fyp"}}],
+    niche:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Phonk",v:{hashtag:"phonk"}}],
+  },
 };
 
 let activeCategory = null;
@@ -999,11 +1074,13 @@ function fillToolFields(catName){
 document.addEventListener("DOMContentLoaded", async ()=>{
   initCategories();
   setCategory("📺 Shows");
-  // load and inject custom presets
+  // load custom presets into sidebar cards + inject into tools
   try{
-    const cfg=await fetch("/api/config").then(r=>r.json());
-    if(cfg.custom_presets&&cfg.custom_presets.length) injectCustomPresets(cfg.custom_presets);
-  }catch(e){}
+    const cfg = await fetch("/api/config").then(r=>r.json());
+    _customPresets = cfg.custom_presets || [];
+    renderSidebarCustomPresets(_customPresets);
+    if(_customPresets.length) injectCustomPresets(_customPresets);
+  }catch(e){ renderSidebarCustomPresets([]); }
 });
 
 // ── NAVIGATION ──────────────────────────────────────────────────────────────
@@ -1053,13 +1130,7 @@ function goTool(id){
   }
   h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Run ${t.name}</button>`;
   document.getElementById("tf").innerHTML=h;
-  // auto-fill defaults from active category
-  if(activeCategory && PC[activeCategory] && PC[activeCategory].defaults && PC[activeCategory].defaults[id]){
-    showContextBadge(activeCategory);
-    setTimeout(()=>applyPreset(PC[activeCategory].defaults[id]), 0);
-  } else {
-    hideContextBadge();
-  }
+  if(activeCategory){ showContextBadge(activeCategory); } else { hideContextBadge(); }
   document.getElementById("tp").style.display="none";
   document.getElementById("tr").innerHTML="";
   trun=false;
@@ -1097,7 +1168,7 @@ async function doDetect(txt){
 
 function setChip(d){
   const dc=document.getElementById("dc"),dl=document.getElementById("dlbl"),gb=document.getElementById("gb");
-  if(!d||!d.type){dc.className="det-chip";gb.className="go-btn";return}
+  if(!d||!d.type||d.type==="unknown"){dc.className="det-chip";gb.className="go-btn";return}
   const cm={tiktok_video:"dl",tiktok_profile:"dl",youtube_video:"dl",youtube_playlist:"dl",
     spotify_track:"mu",spotify_album:"mu",spotify_playlist:"mu",soundcloud:"mu",hashtag:"sc2"}[d.type]||"un";
   const ic={tiktok_video:"▶ ",tiktok_profile:"👤 ",youtube_video:"▶ ",youtube_playlist:"📋 ",
@@ -1124,7 +1195,7 @@ function ex(t){mi.value=t;mi.focus();doDetect(t);}
 
 // ── RUN HOME ─────────────────────────────────────────────────────────────────
 function runHome(){
-  if(!det||!det.type||hrun)return;
+  if(!det||!det.type||det.type==="unknown"||hrun)return;
   hrun=true;
   const gb=document.getElementById("gb"); gb.className="go-btn show busy"; gb.textContent="Running...";
   const hp=document.getElementById("hp"); hp.classList.add("show");
@@ -1137,7 +1208,19 @@ function runHome(){
   doStream("/api/run",{detected:det,options:opts},{
     barEl:hpb,lblEl:document.getElementById("hpl"),stEl:document.getElementById("hps"),
     resEl:document.getElementById("hr"),feedId:"hlf",
-    onDone:()=>{hrun=false;const g=document.getElementById("gb");g.className=det?"go-btn show":"go-btn";g.textContent="Run";}
+    onDone:()=>{
+    hrun=false;
+    // Clear the paste bar so user can drop in something new
+    const mi=document.getElementById("mi");
+    if(mi) mi.value="";
+    det=null;
+    setChip(null);
+    // Fade out progress bar after a short delay
+    const hp=document.getElementById("hp");
+    setTimeout(()=>{ if(hp) hp.classList.remove("show"); }, 2000);
+    const g=document.getElementById("gb");
+    g.className="go-btn"; g.textContent="Run";
+  }
   });
 }
 
@@ -1239,18 +1322,19 @@ function toggleCustomAdd(){
 }
 
 async function sbAddCustomPreset(){
-  const lbl=document.getElementById("sb_cp_label").value.trim();
-  const tag=document.getElementById("sb_cp_tag").value.trim().replace(/^#/,"");
-  if(!lbl||!tag) return;
-  const cfg=await fetch("/api/config").then(r=>r.json());
-  const list=[...(cfg.custom_presets||[]),{l:lbl,v:{hashtag:tag}}];
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:list})});
+  const lbl = document.getElementById("sb_cp_label").value.trim();
+  const tag  = document.getElementById("sb_cp_tag").value.trim().replace(/^#/,"");
+  if(!lbl || !tag) return;
+  _customPresets.push({l:lbl, v:{hashtag:tag}});
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({custom_presets:_customPresets})});
   document.getElementById("sb_cp_label").value="";
   document.getElementById("sb_cp_tag").value="";
   document.getElementById("pcat-add-form").style.display="none";
   document.getElementById("pcat-add-btn").style.color="";
   document.getElementById("pcat-add-btn").style.borderColor="";
-  injectCustomPresets(list);
+  renderSidebarCustomPresets(_customPresets);
+  injectCustomPresets(_customPresets);
   // toast
   const t=document.createElement("div");
   t.textContent="✓ "+lbl+" added";
@@ -1283,53 +1367,48 @@ async function loadSettings(){
       const el=document.getElementById("cfg_"+k);
       if(el) el.checked=!!cfg[k];
     });
-    renderCustomPresets(cfg.custom_presets||[]);
+
   }catch(e){console.error("loadSettings",e);}
 }
 
-function renderCustomPresets(list){
-  const el=document.getElementById("custom-presets-list"); if(!el)return;
-  if(!list.length){el.innerHTML='<div style="font-family:var(--fm);font-size:.74rem;color:var(--text3)">No custom presets yet.</div>';return;}
-  el.innerHTML=list.map((p,i)=>
-    `<div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px">
-      <span style="font-family:var(--fm);font-size:.8rem;flex:1"><b>${x(p.l)}</b> <span style="color:var(--text3)">→ #${x(p.v.hashtag)}</span></span>
-      <button onclick="removeCustomPreset(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.9rem;padding:2px 6px;border-radius:4px;transition:color .15s" onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color=''">✕</button>
+let _customPresets = [];
+
+function renderSidebarCustomPresets(list){
+  const el = document.getElementById("sb-custom-list");
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = '<div class="sb-custom-empty">No custom presets yet.<br>Hit + to add one.</div>';
+    return;
+  }
+  el.innerHTML = list.map((p,i) =>
+    `<div class="sb-custom-card" onclick="applyCustomPreset(${i})">
+      <span class="sb-custom-card-name">${x(p.l)}</span>
+      <span class="sb-custom-card-tag">#${x(p.v.hashtag)}</span>
+      <button class="sb-custom-card-del" onclick="event.stopPropagation();removeCustomPreset(${i})" title="Remove">✕</button>
     </div>`
   ).join("");
 }
 
-let _customPresets=[];
-async function addCustomPreset(){
-  const lbl=document.getElementById("cp_label").value.trim();
-  const tag=document.getElementById("cp_hashtag").value.trim().replace(/^#/,"");
-  if(!lbl||!tag)return;
-  const cfg=await fetch("/api/config").then(r=>r.json());
-  _customPresets=cfg.custom_presets||[];
-  _customPresets.push({l:lbl,v:{hashtag:tag}});
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:_customPresets})});
-  document.getElementById("cp_label").value="";
-  document.getElementById("cp_hashtag").value="";
-  renderCustomPresets(_customPresets);
-  injectCustomPresets(_customPresets);
+function applyCustomPreset(idx){
+  const p = _customPresets[idx];
+  if(!p) return;
+  applyPreset(p.v);
 }
 
 async function removeCustomPreset(idx){
-  const cfg=await fetch("/api/config").then(r=>r.json());
-  _customPresets=cfg.custom_presets||[];
-  _customPresets.splice(idx,1);
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({custom_presets:_customPresets})});
-  renderCustomPresets(_customPresets);
+  _customPresets.splice(idx, 1);
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({custom_presets:_customPresets})});
+  renderSidebarCustomPresets(_customPresets);
   injectCustomPresets(_customPresets);
 }
 
 function injectCustomPresets(list){
-  // Merge custom presets into T so they appear in all hashtag tools
   const hashTools=["scraper","hfreq","viral","sp_exp","niche"];
   hashTools.forEach(id=>{
     if(!T[id]) return;
-    // remove old injected custom presets, add new
-    T[id].presets=(T[id].presets||[]).filter(p=>!p._custom);
-    list.forEach(p=>T[id].presets.push({...p,_custom:true}));
+    T[id].presets = (T[id].presets||[]).filter(p=>!p._custom);
+    list.forEach(p => T[id].presets.push({...p, _custom:true}));
   });
 }
 
@@ -1558,4 +1637,64 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
   document.querySelectorAll('.tool-card').forEach(attachGlow);
 })();
 
+
+// ── FIRST-RUN SETUP ──────────────────────────────────────────────────────────
+async function checkFirstRun(){
+  try{
+    const cfg = await fetch("/api/config").then(r=>r.json());
+    // Show setup if root_dir is empty or still the default script-relative path
+    const isDefault = !cfg.root_dir ||
+      cfg.root_dir.includes("EditorSuite_Output") ||
+      cfg.root_dir.includes("editorsuite");
+    if(isDefault){
+      document.getElementById("setup-overlay").classList.remove("hidden");
+    }
+  }catch(e){}
+}
+
+async function setupBrowse(){
+  const btn = document.querySelector(".setup-browse");
+  btn.textContent = "..."; btn.disabled = true;
+  try{
+    const r = await fetch("/api/browse-folder", {method:"POST"});
+    const d = await r.json();
+    if(d.path){
+      document.getElementById("setup-path").value = d.path;
+      document.getElementById("setup-confirm").disabled = false;
+    }
+  }catch(e){}
+  btn.textContent = "Browse"; btn.disabled = false;
+}
+
+async function setupSave(){
+  const path = document.getElementById("setup-path").value.trim();
+  if(!path) return;
+  const btn = document.getElementById("setup-confirm");
+  btn.disabled = true; btn.textContent = "Saving...";
+  try{
+    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({root_dir: path})});
+    document.getElementById("setup-overlay").classList.add("hidden");
+  }catch(e){
+    btn.disabled = false; btn.textContent = "Let's go →";
+  }
+}
+
+function setupSkip(){
+  document.getElementById("setup-overlay").classList.add("hidden");
+}
+
+// Validate path input — enable button only when something is typed
+document.addEventListener("DOMContentLoaded", ()=>{
+  checkFirstRun();
+  const inp = document.getElementById("setup-path");
+  const btn = document.getElementById("setup-confirm");
+  if(inp && btn){
+    inp.addEventListener("input", ()=>{
+      btn.disabled = !inp.value.trim();
+    });
+    // Allow Enter key to confirm
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter" && inp.value.trim()) setupSave(); });
+  }
+});
 </script>
