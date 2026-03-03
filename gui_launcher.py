@@ -16,61 +16,53 @@ if __name__ == "__main__":
         _sock.bind(("127.0.0.1", PORT))
         _sock.setblocking(False)
     except OSError:
-        print("  EditorSuite already running.")
         sys.exit(0)
 
-    # ── Auto-install pip packages ─────────────────────────────────────────────
-    # Determine if running as frozen exe — suppress console output if so
-    _frozen = getattr(sys, "frozen", False)
-    _devnull = subprocess.DEVNULL if _frozen else None
+    # ── Subprocess flags — hide any CMD windows on Windows ───────────────────
+    _frozen  = getattr(sys, "frozen", False)
+    _devnull = subprocess.DEVNULL
+    _nownd   = {"creationflags": 0x08000000} if os.name == "nt" else {}  # CREATE_NO_WINDOW
 
+    # ── Auto-install pip packages ─────────────────────────────────────────────
     for pkg, imp in [("flask", "flask"), ("pywin32", "win32gui"), ("playwright", "playwright")]:
         try:
             __import__(imp)
         except ImportError:
-            if not _frozen:
-                print(f"  Installing {pkg} (one-time)...")
-            subprocess.run([sys.executable, "-m", "pip", "install", pkg, "--quiet"],
-                           stdout=_devnull, stderr=_devnull)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", pkg, "--quiet"],
+                stdout=_devnull, stderr=_devnull, **_nownd)
 
-    # ── Playwright: check install location from dry-run, install if missing ───
+    # ── Playwright: check install location, install Chromium if missing ───────
     def _chromium_missing() -> bool:
         try:
             r = subprocess.run(
                 [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"],
-                capture_output=True, text=True, timeout=20
+                capture_output=True, text=True, timeout=20, **_nownd
             )
-            # Parse "Install location: /some/path/chromium-XXXX"
             m = re.search(r"Install location:\s+(.+)", r.stdout)
             if not m:
-                return False  # can't parse — assume ok, don't block startup
-            install_path = pathlib.Path(m.group(1).strip())
-            return not install_path.exists()
+                return False
+            return not pathlib.Path(m.group(1).strip()).exists()
         except Exception:
-            return False  # on any error, don't block startup
+            return False
 
     if _chromium_missing():
-        if not _frozen:
-            print("  Installing Playwright Chromium (one-time, ~150 MB)...")
         subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
-            stdout=_devnull, stderr=_devnull
+            stdout=_devnull, stderr=_devnull, **_nownd
         )
-        if not _frozen:
-            print("  [✓] Done.")
 
     _sock.close()
 
-    # ── Point Playwright to system-installed browsers (critical when frozen as .exe) ──
-    # PyInstaller extracts to a temp dir; without this Playwright looks there for
-    # chromium and fails. PLAYWRIGHT_BROWSERS_PATH redirects it to the real install.
+    # ── Point Playwright to system-installed browsers (critical for .exe) ─────
     ms_playwright = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ms-playwright")
     if os.path.isdir(ms_playwright):
         os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", ms_playwright)
     else:
-        # First run or non-standard install — run install now to populate it
-        print("  Playwright browsers not found — installing now...")
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            stdout=_devnull, stderr=_devnull, **_nownd
+        )
         if os.path.isdir(ms_playwright):
             os.environ["PLAYWRIGHT_BROWSERS_PATH"] = ms_playwright
 

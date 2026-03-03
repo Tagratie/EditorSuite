@@ -18,7 +18,7 @@
   --fh:"Space Grotesk",sans-serif;--fm:"JetBrains Mono",monospace;
   --cat-scraper:#ff3b7a;--cat-analytics:#a855f7;--cat-dl:#00dfc0;--cat-studio:#f59e0b;
 }
-body{background:var(--bg);color:var(--text);font-family:var(--fh);height:100vh;overflow:hidden;display:flex}
+html,body{margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:var(--fh);height:100vh;overflow:hidden;display:flex}
 body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat:repeat;background-size:128px}
@@ -27,8 +27,8 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 #sb{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);
   height:100vh;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;
   position:relative;z-index:10;flex-shrink:0}
-#sb::-webkit-scrollbar{width:3px}
-#sb::-webkit-scrollbar-thumb{background:var(--border3)}
+#sb::-webkit-scrollbar{display:none}
+#sb{-ms-overflow-style:none;scrollbar-width:none}
 #sb::after{content:"";display:block;height:36px;flex-shrink:0}
 .sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
 .sb-logo-text{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
@@ -67,8 +67,8 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 
 /* MAIN */
 #main{flex:1;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1}
-#main::-webkit-scrollbar{width:5px}
-#main::-webkit-scrollbar-thumb{background:var(--border3)}
+#main::-webkit-scrollbar{display:none}
+#main{-ms-overflow-style:none;scrollbar-width:none}
 .panel{display:none;min-height:100%}
 .panel.on{display:block}
 
@@ -1618,7 +1618,10 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
     fetch("/api/ping",{method:"POST",keepalive:true}).catch(()=>{});
   }, 5000);
 
-  // Server shutdown handled by watchdog (15s timeout after last ping)
+  // Kill server immediately when window closes — don't wait 15s for watchdog
+  window.addEventListener("beforeunload", ()=>{
+    navigator.sendBeacon("/api/shutdown");
+  });
 })();
 
 // ── MOUSE GLOW — paste card + all tool cards ─────────────────────────────────
@@ -1642,11 +1645,8 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
 async function checkFirstRun(){
   try{
     const cfg = await fetch("/api/config").then(r=>r.json());
-    // Show setup if root_dir is empty or still the default script-relative path
-    const isDefault = !cfg.root_dir ||
-      cfg.root_dir.includes("EditorSuite_Output") ||
-      cfg.root_dir.includes("editorsuite");
-    if(isDefault){
+    // Only show if user has never explicitly completed setup
+    if(!cfg.setup_complete){
       document.getElementById("setup-overlay").classList.remove("hidden");
     }
   }catch(e){}
@@ -1673,15 +1673,19 @@ async function setupSave(){
   btn.disabled = true; btn.textContent = "Saving...";
   try{
     await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({root_dir: path})});
+      body:JSON.stringify({root_dir: path, setup_complete: true})});
     document.getElementById("setup-overlay").classList.add("hidden");
   }catch(e){
     btn.disabled = false; btn.textContent = "Let's go →";
   }
 }
 
-function setupSkip(){
+async function setupSkip(){
   document.getElementById("setup-overlay").classList.add("hidden");
+  try{
+    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({setup_complete:true})});
+  }catch(e){}
 }
 
 // Validate path input — enable button only when something is typed

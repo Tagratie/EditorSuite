@@ -16,10 +16,10 @@ app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"))
 
 # ── Heartbeat watchdog — kills process when browser tab is closed ──────────────
 _last_ping = time.time()
-_PING_TIMEOUT = 15   # seconds of silence before shutdown
+_PING_TIMEOUT = 4    # seconds before watchdog kills if no ping
 
 def _watchdog():
-    time.sleep(20)   # grace period at startup
+    time.sleep(12)   # grace period at startup
     while True:
         time.sleep(5)
         if time.time() - _last_ping > _PING_TIMEOUT:
@@ -249,10 +249,9 @@ def api_browse_folder():
 
 @app.route("/api/shutdown", methods=["POST"])
 def api_shutdown():
-    """Called by beforeunload — graceful shutdown."""
     def _kill():
-        time.sleep(0.3)
-        os.kill(os.getpid(), signal.SIGTERM)
+        time.sleep(0.15)
+        os._exit(0)  # instant — no cleanup chain
     threading.Thread(target=_kill, daemon=True).start()
     return jsonify({"ok": True})
 
@@ -305,30 +304,24 @@ def _find_chromium_exe() -> str:
 
 
 def _strip_titlebar(pid: int):
-    """Use pywin32 to remove the OS titlebar — finds window by title, not PID.
-    Chrome/Opera spawn child processes so the window PID never matches proc.pid."""
+    """Style window with dark rounded DWM frame and set custom icon."""
     try:
         import win32gui, win32con
     except ImportError:
         return
 
-    import time
+    import time, ctypes
 
-    # Wait up to 12s for app window — match ONLY Chromium window classes
-    # so we never accidentally touch Explorer or any other app
     CHROMIUM_CLASSES = {"Chrome_WidgetWin_1", "OperaWindowClass", "BrowserWindowClass"}
+
     hwnd = None
     for _ in range(60):
         time.sleep(0.2)
         found = []
         def _cb(h, _):
-            if not win32gui.IsWindowVisible(h):
-                return
-            cls = win32gui.GetClassName(h)
-            if cls not in CHROMIUM_CLASSES:
-                return
-            t = win32gui.GetWindowText(h)
-            if "EditorSuite" in t:
+            if not win32gui.IsWindowVisible(h): return
+            if win32gui.GetClassName(h) not in CHROMIUM_CLASSES: return
+            if "EditorSuite" in win32gui.GetWindowText(h):
                 found.append(h)
         win32gui.EnumWindows(_cb, None)
         if found:
@@ -336,41 +329,38 @@ def _strip_titlebar(pid: int):
             break
 
     if not hwnd:
-        print("  [titlebar] window not found — OS bar stays")
         return
 
-    print(f"  [titlebar] stripping from hwnd={hwnd}")
+    # ── DWM: dark mode + rounded corners + matching border/caption color ──────
+    try:
+        dwm = ctypes.windll.dwmapi
+        # Dark titlebar
+        dwm.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
+        # Rounded corners (Win11) — DWMWCP_ROUND = 2
+        dwm.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
+        # Border color matches app bg (#14141a → BGR: 0x001a1414)
+        dwm.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(ctypes.c_int(0x001a1414)), 4)
+        # Caption (titlebar) color — slightly lighter dark
+        dwm.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(ctypes.c_int(0x00100d0d)), 4)
+        # Caption text color — off-white
+        dwm.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(ctypes.c_int(0x00f0f0f4)), 4)
+    except Exception:
+        pass
 
-    # Remove WS_CAPTION (titlebar) + WS_THICKFRAME (resize grip)
-    style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
-    style &= ~(win32con.WS_CAPTION | win32con.WS_THICKFRAME)
-    win32gui.SetWindowLong(hwnd, win32con.GWL_STYLE, style)
-
-    # Remove extended border
-    ex = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-    ex &= ~(win32con.WS_EX_DLGMODALFRAME | win32con.WS_EX_CLIENTEDGE | win32con.WS_EX_STATICEDGE)
-    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex)
-
-    # Force redraw of frame
-    win32gui.SetWindowPos(hwnd, None, 0, 0, 0, 0,
-        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
-        win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
+    # Keep normal resizable frame so Windows snapping / drag-to-top fullscreen work
     win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
 
-    # Swap Chrome icon for EditorSuite favicon in taskbar + titlebar
+    # ── Custom icon ───────────────────────────────────────────────────────────
     try:
-        import win32api, win32con as wc
+        import win32con as wc
         ico = os.path.join(os.path.dirname(__file__), "static", "favicon.ico")
         if os.path.isfile(ico):
-            LOAD_IMAGE   = 0x0010  # LR_LOADFROMFILE
-            IMAGE_ICON   = 1
-            big  = win32gui.LoadImage(None, ico, IMAGE_ICON, 32, 32, LOAD_IMAGE)
-            small= win32gui.LoadImage(None, ico, IMAGE_ICON, 16, 16, LOAD_IMAGE)
-            win32gui.SendMessage(hwnd, wc.WM_SETICON, 1, big)   # ICON_BIG
-            win32gui.SendMessage(hwnd, wc.WM_SETICON, 0, small) # ICON_SMALL
-            print("  [icon] EditorSuite icon set")
-    except Exception as e:
-        print(f"  [icon] failed: {e}")
+            big   = win32gui.LoadImage(None, ico, 1, 32, 32, 0x0010)
+            small = win32gui.LoadImage(None, ico, 1, 16, 16, 0x0010)
+            win32gui.SendMessage(hwnd, wc.WM_SETICON, 1, big)
+            win32gui.SendMessage(hwnd, wc.WM_SETICON, 0, small)
+    except Exception:
+        pass
 
 
 def _launch_app_window(url: str):

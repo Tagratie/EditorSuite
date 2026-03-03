@@ -2,7 +2,7 @@
   "my_username": "TagratieFx",
   "theme": "ocean",
   "logo_style": "big",
-  "root_dir": "C:\\Users\\Tagratie\\Videos\\editorsuite\\EditorSuite_Output",
+  "root_dir": "C:\\Users\\Tagratie\\Videos\\ES OUTPUT TEST",
   "dir_sounds": "",
   "dir_hashtags": "",
   "dir_viral": "",
@@ -25,5 +25,6 @@
   "confirm_on_exit": false,
   "spotify_client_id": "",
   "spotify_client_secret": "",
-  "playwright_ready": true
+  "playwright_ready": true,
+  "setup_complete": true
 }
