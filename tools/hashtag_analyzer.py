@@ -42,7 +42,8 @@ async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[
             except Exception:
                 pass
 
-        page = await ctx.new_page()
+        pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
                         wait_until="domcontentloaded", timeout=30000)
@@ -103,10 +104,11 @@ def tool_caption():
 
 # ── Tool 2: Hashtag Performance Analyzer ─────────────────────────────────────
 
-async def _scrape_one_tag(pw, tag: str) -> tuple[str, dict]:
+async def _scrape_one_tag(ctx, tag: str) -> tuple[str, dict]:
+    """Scrape one hashtag page using an existing browser context (new tab)."""
+    import random
     result = {"views": 0, "videos": 0, "top_views": []}
     seen: set[str] = set()
-    browser, ctx = await new_browser(pw, mute=True)
 
     async def on_resp(response):
         if "item_list" not in response.url:
@@ -129,15 +131,19 @@ async def _scrape_one_tag(pw, tag: str) -> tuple[str, dict]:
 
     page = await ctx.new_page()
     page.on("response", on_resp)
-    await page.goto(f"https://www.tiktok.com/tag/{tag}",
-                    wait_until="domcontentloaded", timeout=30000)
-    await asyncio.sleep(2)
-    for _ in range(8):
-        print(f"  [~] #{tag}  |  {result['videos']} videos", end="\r", flush=True)
-        await page.evaluate("window.scrollBy(0, 2000)")
-        await asyncio.sleep(1.0)
+    try:
+        await page.goto(f"https://www.tiktok.com/tag/{tag}",
+                        wait_until="domcontentloaded", timeout=30000)
+        await asyncio.sleep(2)
+        stale = 0
+        for _ in range(12):
+            print(f"  [~] #{tag}  |  {result['videos']} videos", end="\r", flush=True)
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await asyncio.sleep(1.5 + random.random() * 0.8)
+    except Exception:
+        pass
     clear_line()
-    await browser.close()
+    await page.close()
 
     tv = sorted(result["top_views"], reverse=True)
     result["avg"]     = result["views"] // max(result["videos"], 1)
@@ -146,10 +152,17 @@ async def _scrape_one_tag(pw, tag: str) -> tuple[str, dict]:
 
 
 async def _analyze_hashtags(tags: list[str]) -> dict:
+    """Scrape all tags sequentially in a single browser — no parallel browsers."""
     from playwright.async_api import async_playwright
+    results = []
     async with async_playwright() as pw:
-        tasks   = [_scrape_one_tag(pw, tag) for tag in tags]
-        results = await asyncio.gather(*tasks)
+        browser, ctx = await new_browser(pw, mute=True)
+        try:
+            for tag in tags:
+                result = await _scrape_one_tag(ctx, tag)
+                results.append(result)
+        finally:
+            await browser.close()
     return dict(results)
 
 

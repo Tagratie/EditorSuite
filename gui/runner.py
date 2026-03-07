@@ -2,7 +2,7 @@
 gui/runner.py
 All 21 EditorSuite tools fully wired — no CLI fallback.
 """
-import os, sys, re, queue, threading, subprocess, asyncio
+import os, sys, re, queue, threading, subprocess, asyncio, shutil
 from pathlib import Path
 
 ROOT = str(Path(__file__).parent.parent)
@@ -157,6 +157,13 @@ def _dispatch(kind, value, opts, log, prog, res, done, error):
         opts.setdefault("audio_quality", opts.get("quality","320"))
         return _spotify(url, opts, log, prog, done, error)
 
+    if kind == "dl_song":
+        title  = opts.get("title","").strip()
+        artist = opts.get("artist","").strip()
+        if not title:
+            return error("Enter a song title.")
+        return _dl_song(title, artist, opts, log, prog, done, error)
+
     if kind == "dl_audio":
         inp = opts.get("input","").strip()
         return (error("Enter a file path or URL.") if not inp else
@@ -243,19 +250,23 @@ def _cross_hashtag(tags, opts, log, prog, res, done, error):
     all_sounds = {}
 
     async def _run():
+        from core.browser import new_browser
         async with async_playwright() as pw:
-            for i, tag in enumerate(tags, 1):
-                log(f"  [{i}/{len(tags)}] Scraping #{tag}...")
-                # progress within this tag's scroll
-                pcb = lambda seen, total, _i=i, _n=len(tags): prog(
-                    int(((_i-1) + seen/max(total,1)) * 100), _n * 100)
-                sounds, _ = await _scrape_tag_sounds(pw, tag, target, progress_cb=pcb)
-                for sid, s in sounds.items():
-                    if sid in all_sounds:
-                        all_sounds[sid]["count"] += s["count"]
-                        all_sounds[sid]["tags"].add(tag)
-                    else:
-                        all_sounds[sid] = {**s, "tags": {tag}}
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                for i, tag in enumerate(tags, 1):
+                    log(f"  [{i}/{len(tags)}] Scraping #{tag}...")
+                    pcb = lambda seen, total, _i=i, _n=len(tags): prog(
+                        int(((_i-1) + seen/max(total,1)) * 100), _n * 100)
+                    sounds, _ = await _scrape_tag_sounds(ctx, tag, target, progress_cb=pcb)
+                    for sid, s in sounds.items():
+                        if sid in all_sounds:
+                            all_sounds[sid]["count"] += s["count"]
+                            all_sounds[sid]["tags"].add(tag)
+                        else:
+                            all_sounds[sid] = {**s, "tags": {tag}}
+            finally:
+                await browser.close()
 
     try:
         asyncio.run(_run())
@@ -298,8 +309,8 @@ def _trending(opts, log, prog, res, done, error):
     except Exception as e:
         return error(f"Scrape failed: {e}")
 
-    kept = sorted([s for s in sounds.values() if not s.get("reason")],
-                  key=lambda x: x["count"], reverse=True)
+    # _scrape_trending already applies garbage filters and returns a ranked list.
+    kept = list(sounds or [])
     log(f"Found {len(kept)} trending sounds, {len(videos)} trending videos")
     res({"type":"trending","sounds":kept[:15],"videos":videos[:15]})
     done(f"{len(kept)} trending sounds · {len(videos)} trending videos")
@@ -384,9 +395,14 @@ def _competitor(u1, u2, opts, log, res, done, error):
     log(f"Scraping @{u1} and @{u2}...")
 
     async def _run():
+        from core.browser import new_browser
         async with async_playwright() as pw:
-            _, posts1 = await _scrape_profile(pw, u1)
-            _, posts2 = await _scrape_profile(pw, u2)
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                _, posts1 = await _scrape_profile(ctx, u1)
+                _, posts2 = await _scrape_profile(ctx, u2)
+            finally:
+                await browser.close()
             return posts1, posts2
 
     try:
@@ -411,8 +427,13 @@ def _best_time(username, opts, log, res, done, error):
     log(f"Scraping @{username} posting history...")
 
     async def _run():
+        from core.browser import new_browser
         async with async_playwright() as pw:
-            _, posts = await _scrape_profile(pw, username)
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                _, posts = await _scrape_profile(ctx, username)
+            finally:
+                await browser.close()
             return posts
 
     try:
@@ -640,6 +661,31 @@ def _spotify(url, opts, log, prog, done, error):
     done(f"{ok_n}/{len(tracks)} tracks downloaded → {_dirs.DIR_AUDIO}", path=_dirs.DIR_AUDIO)
 
 
+def _dl_song(title, artist, opts, log, prog, done, error):
+    """
+    Download a single song using the same YouTube Music search flow as the
+    Spotify downloader, but without needing a Spotify URL.
+    """
+    try:
+        from tools.music_downloader import _dl_tracks
+    except Exception as e:
+        return error(f"Music downloader not available: {e}")
+
+    quality = opts.get("audio_quality", opts.get("quality","320"))
+    os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
+
+    desc = f"{title}" + (f" — {artist}" if artist else "")
+    log(f"Downloading song: {desc}")
+    prog(0, 1)
+
+    ok_n, fail_n = _dl_tracks([{"title": title, "artist": artist}], quality, _dirs.DIR_AUDIO)
+    if ok_n:
+        prog(1, 1)
+        done(f"1/1 tracks downloaded → {_dirs.DIR_AUDIO}", path=_dirs.DIR_AUDIO)
+    else:
+        error("Song could not be downloaded from YouTube Music.")
+
+
 def _soundcloud(url, opts, log, done, error):
     q = opts.get("quality", opts.get("audio_quality","320"))
     os.makedirs(_dirs.DIR_AUDIO, exist_ok=True)
@@ -679,41 +725,34 @@ def _audio_extract(inp, opts, log, done, error):
 # =============================================================================
 
 def _compress(inp, opts, log, done, error):
-    if not os.path.exists(inp):
-        return error(f"File not found: {inp}")
-    out_dir = _dirs.DIR_COMPRESS
-    os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, Path(inp).stem+"_compressed.mp4")
-    log(f"Compressing: {Path(inp).name}")
-    # Try HandBrakeCLI first, fall back to ffmpeg
-    hb = shutil.which("HandBrakeCLI") or shutil.which("handbrakecli")
-    if hb:
-        cmd = [hb,"-i",inp,"-o",out,"--preset","Fast 1080p30","--optimize"]
-    else:
-        cmd = ["ffmpeg","-y","-i",inp,"-vcodec","libx264","-crf","26",
-               "-preset","medium","-acodec","aac","-b:a","128k",out,"-stats","-hide_banner"]
-    _stream_cmd(cmd, log)
-    done(f"Saved: {out}", path=out)
+    """Route to the GUI compressor — handles preset cards, output folder, custom HB presets."""
+    import queue as _q, threading as _th
+    from tools.compressor import run_gui_compress
+    ql = _q.Queue()
+    _th.Thread(target=run_gui_compress, args=(opts, ql), daemon=True).start()
+    while True:
+        item = ql.get()
+        if item is None: break
+        t = item.get("type","")
+        if   t == "log":   log(item.get("text",""))
+        elif t == "done":  done(item.get("text",""), item.get("path",""))
+        elif t == "error": error(item.get("text",""))
 
 
 def _bulk_compress(folder, opts, log, prog, done, error):
-    if not os.path.isdir(folder):
-        return error(f"Folder not found: {folder}")
-    exts  = {".mp4",".mov",".avi",".mkv",".webm",".m4v"}
-    files = [f for f in Path(folder).iterdir() if f.suffix.lower() in exts]
-    if not files: return error("No video files found.")
-    out_dir = _dirs.DIR_COMPRESS
-    os.makedirs(out_dir, exist_ok=True)
-    log(f"Found {len(files)} video(s) — compressing...")
-    for i,f in enumerate(files, 1):
-        prog(i, len(files))
-        log(f"[{i}/{len(files)}] {f.name}")
-        out = os.path.join(out_dir, f.stem+"_compressed.mp4")
-        cmd = ["ffmpeg","-y","-i",str(f),"-vcodec","libx264","-crf","26",
-               "-preset","medium","-acodec","aac","-b:a","128k",out,
-               "-loglevel","error","-hide_banner"]
-        subprocess.run(cmd, capture_output=True, creationflags=0x08000000 if os.name=="nt" else 0)
-    done(f"{len(files)} videos compressed → {out_dir}", path=out_dir)
+    """Route to the GUI bulk compressor — handles preset cards and output folder."""
+    import queue as _q, threading as _th
+    from tools.compressor import run_gui_bulk_compress
+    ql = _q.Queue()
+    _th.Thread(target=run_gui_bulk_compress, args=(opts, ql), daemon=True).start()
+    while True:
+        item = ql.get()
+        if item is None: break
+        t = item.get("type","")
+        if   t == "log":      log(item.get("text",""))
+        elif t == "progress": prog(item.get("value",0), item.get("total",1))
+        elif t == "done":     done(item.get("text",""), item.get("path",""))
+        elif t == "error":    error(item.get("text",""))
 
 
 def _bg_remove(inp, opts, log, prog, done, error):

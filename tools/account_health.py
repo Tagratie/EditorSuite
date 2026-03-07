@@ -86,7 +86,8 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
                 except Exception:
                     pass
 
-        page = await ctx.new_page()
+        pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/@{username}",
                         wait_until="domcontentloaded", timeout=30000)
@@ -97,12 +98,15 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
         # TikTok profile pages load ~20 posts initially then require scrolling
         # to trigger more /api/post/item_list calls. We scroll + wait for
         # new network responses, and also try clicking any "load more" elements.
+        import random as _r
         last_count = 0
         stale      = 0
-        while len(seen) < max_posts and stale < 10:
+        while len(seen) < max_posts and stale < 16:
             print(f"  Loaded {len(seen)} posts...", end="\r", flush=True)
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
+            await _a.sleep(0.3 + _r.random() * 0.3)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await _a.sleep(3.0)
+            await _a.sleep(1.8 + _r.random() * 1.2)
 
             # Try clicking any visible "load more" / skeleton buttons
             for sel in [
@@ -121,6 +125,8 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
 
             if len(seen) == last_count:
                 stale += 1
+                if stale < 16:
+                    await _a.sleep(2.5 + _r.random() * 1.5)
             else:
                 stale = 0
             last_count = len(seen)

@@ -48,19 +48,26 @@ async def _scrape_viral(hashtag: str, target: int, progress_cb=None) -> list[dic
             except Exception:
                 pass
 
-        page = await ctx.new_page()
+        pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
                         wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
+        import random
         stale = 0
-        while len(seen) < target and stale < 8:
+        while len(seen) < target and stale < 14:
             print(f"  {len(seen)}/{target} videos...", end="\r", flush=True)
             if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
+            await asyncio.sleep(0.3 + random.random() * 0.3)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(2.0)
-            stale = stale + 1 if await page.evaluate("document.body.scrollHeight") == prev_h else 0
+            await asyncio.sleep(1.8 + random.random() * 1.2)
+            new_h = await page.evaluate("document.body.scrollHeight")
+            stale = stale + 1 if new_h == prev_h else 0
+            if new_h == prev_h and stale < 14:
+                await asyncio.sleep(2.0 + random.random() * 1.5)
         await browser.close()
 
     clear_line()

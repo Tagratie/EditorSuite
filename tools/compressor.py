@@ -11,6 +11,85 @@ from utils.helpers import ok, info, err, warn, divider, prompt, back_to_menu
 from utils import dirs as _dirs
 
 
+# ── Preset card ID → HandBrake settings ──────────────────────────────────────
+# Maps the frontend preset card IDs to (preset_name, fallback_encoder_args)
+# fallback_encoder_args are used when no preset file is supplied so HandBrake
+# always gets explicit quality settings as a safety net.
+
+_PRESET_MAP = {
+    "tiktok": {
+        "name":    "Fast 720p30",
+        "encoder": "x264",
+        "quality": "26",
+        "res":     "--maxWidth 1280 --maxHeight 720",
+        "audio":   "av_aac", "ab": "128",
+    },
+    "instagram": {
+        "name":    "HQ 1080p30 Surround",
+        "encoder": "x264",
+        "quality": "22",
+        "res":     "--maxWidth 1920 --maxHeight 1080",
+        "audio":   "av_aac", "ab": "192",
+    },
+    "discord": {
+        "name":    "Fast 720p30",
+        "encoder": "x264",
+        "quality": "28",
+        "res":     "--maxWidth 1280 --maxHeight 720",
+        "audio":   "av_aac", "ab": "128",
+        "extra":   ["--vb", "0", "--ab", "128"],   # keeps under 25 MB for typical clips
+    },
+    "web": {
+        "name":    "Fast 720p30",
+        "encoder": "x264",
+        "quality": "23",
+        "res":     "--maxWidth 1280 --maxHeight 720",
+        "audio":   "av_aac", "ab": "128",
+    },
+    "hq": {
+        "name":    "HQ 1080p30 Surround",
+        "encoder": "x265",
+        "quality": "18",
+        "res":     "--maxWidth 1920 --maxHeight 1080",
+        "audio":   "av_aac", "ab": "192",
+    },
+    "ultra": {
+        "name":    "Very Fast 480p30",
+        "encoder": "x264",
+        "quality": "30",
+        "res":     "--maxWidth 854 --maxHeight 480",
+        "audio":   "av_aac", "ab": "96",
+    },
+}
+
+
+def _fallback_cmd(hb, src, dst, preset_id):
+    """Build a HandBrake command using explicit encoder flags (no preset file needed)."""
+    p = _PRESET_MAP.get(preset_id, _PRESET_MAP["web"])
+    cmd = [
+        hb, "-i", src, "-o", dst,
+        "--encoder",  p["encoder"],
+        "--quality",  p["quality"],
+        "--aencoder", p["audio"],
+        "--ab",       p["ab"],
+        "--optimize", "--format", "av_mp4",
+    ]
+    # Resolution flags are space-separated strings — split them in
+    for flag in p["res"].split():
+        cmd.append(flag)
+    return cmd
+
+
+def _preset_cmd(hb, src, dst, preset_id, preset_file=None):
+    """Build a HandBrake command using a named preset (+ optional import file)."""
+    p    = _PRESET_MAP.get(preset_id, _PRESET_MAP["web"])
+    name = p["name"]
+    cmd  = [hb, "-i", src, "-o", dst, "--preset", name, "--optimize"]
+    if preset_file and os.path.isfile(preset_file):
+        cmd += ["--preset-import-file", preset_file]
+    return cmd
+
+
 # ── HandBrake helpers ─────────────────────────────────────────────────────────
 
 def _find_handbrake() -> str | None:
@@ -68,7 +147,170 @@ def _pick_preset(saved: list[tuple], default_name: str = "Best") -> tuple[str | 
     return None, prompt("Preset name", default_name)
 
 
-# ── Tool 6: Single Video Compressor ──────────────────────────────────────────
+# ── GUI runner helpers ────────────────────────────────────────────────────────
+
+def _is_custom_preset_path(preset_id: str) -> bool:
+    """True when the frontend sent a file path instead of a built-in preset ID."""
+    return preset_id and preset_id not in _PRESET_MAP and (
+        preset_id.lower().endswith(".json") or os.sep in preset_id or "/" in preset_id
+    )
+
+
+def _run_compress_single(src, dst, preset_id, hb, q):
+    """Compress one file, push log/done/error events to queue q."""
+    import subprocess
+
+    def log(msg):  q.put({"type": "log",  "text": msg})
+    def done(msg, path=""): q.put({"type": "done", "text": msg, "path": path})
+    def error(msg): q.put({"type": "error","text": msg})
+
+    log(f"Input:  {os.path.basename(src)}")
+    log(f"Output: {os.path.basename(dst)}")
+    log(f"Preset: {preset_id}")
+
+    # Custom .json preset file path supplied directly
+    if _is_custom_preset_path(preset_id):
+        preset_file = preset_id
+        # Try to read the first preset name from the file
+        try:
+            data = json.load(open(preset_file, encoding="utf-8"))
+            pl   = data.get("PresetList") or []
+            name = (pl[0].get("PresetName") or pl[0].get("name") or "Custom") if pl else "Custom"
+        except Exception:
+            name = "Custom"
+        cmd = [hb, "-i", src, "-o", dst,
+               "--preset", name, "--preset-import-file", preset_file, "--optimize"]
+        log(f"Using custom preset file: {os.path.basename(preset_file)} ({name})")
+    else:
+        # Built-in preset card ID
+        cmd = _preset_cmd(hb, src, dst, preset_id)
+        log(f"Using preset: {_PRESET_MAP.get(preset_id, {}).get('name', preset_id)}")
+
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    ret = subprocess.run(cmd, capture_output=True)
+
+    # Fallback to explicit encoder flags if preset failed or output is missing
+    if ret.returncode != 0 or not os.path.exists(dst) or os.path.getsize(dst) < 1000:
+        log("⚠ Preset failed — retrying with direct encoder settings...")
+        if _is_custom_preset_path(preset_id):
+            # Can't fall back for custom presets — report error
+            error(f"Compression failed. Check your preset file is valid HandBrake JSON.")
+            return False
+        fallback = _fallback_cmd(hb, src, dst, preset_id)
+        ret2 = subprocess.run(fallback, capture_output=True)
+        if ret2.returncode != 0 or not os.path.exists(dst) or os.path.getsize(dst) < 1000:
+            error("Compression failed even with fallback settings.")
+            return False
+
+    orig_mb = os.path.getsize(src) / 1024 / 1024
+    comp_mb = os.path.getsize(dst) / 1024 / 1024
+    pct     = (1 - comp_mb / orig_mb) * 100 if orig_mb else 0
+    log(f"✓ {orig_mb:.1f} MB → {comp_mb:.1f} MB ({pct:.0f}% smaller)")
+    return True
+
+
+# ── GUI entry points (called by gui/runner.py) ────────────────────────────────
+
+def run_gui_compress(options: dict, q):
+    """
+    GUI single-file compress.
+    options: {input, output, preset}
+    """
+    import subprocess
+
+    def log(msg):   q.put({"type": "log",  "text": msg})
+    def done(msg, path=""): q.put({"type": "done", "text": msg, "path": path}); q.put(None)
+    def error(msg): q.put({"type": "error","text": msg}); q.put(None)
+
+    hb = _find_handbrake()
+    if not hb:
+        error("HandBrakeCLI not found. Download from handbrake.fr/downloads2.php")
+        return
+
+    src       = options.get("input",  "").strip().strip("\"'")
+    out_dir   = options.get("output", "").strip().strip("\"'")
+    preset_id = options.get("preset", "web").strip()
+
+    if not src or not os.path.isfile(src):
+        error(f"Video file not found: {src or '(none given)'}"); return
+
+    # Resolve output path
+    if out_dir and os.path.isdir(out_dir):
+        base = os.path.splitext(os.path.basename(src))[0]
+        dst  = os.path.join(out_dir, base + "_compressed.mp4")
+    else:
+        base, _ = os.path.splitext(src)
+        dst     = base + "_compressed.mp4"
+
+    ok = _run_compress_single(src, dst, preset_id, hb, q)
+    if ok:
+        done(f"Saved to {dst}", dst)
+    # error already pushed inside _run_compress_single on failure
+
+
+def run_gui_bulk_compress(options: dict, q):
+    """
+    GUI bulk compress — every video in a folder.
+    options: {folder, output, preset}
+    """
+    def log(msg):   q.put({"type": "log",  "text": msg})
+    def done(msg, path=""): q.put({"type": "done", "text": msg, "path": path}); q.put(None)
+    def error(msg): q.put({"type": "error","text": msg}); q.put(None)
+
+    hb = _find_handbrake()
+    if not hb:
+        error("HandBrakeCLI not found. Download from handbrake.fr/downloads2.php")
+        return
+
+    folder    = options.get("folder", "").strip().strip("\"'")
+    out_dir   = options.get("output", "").strip().strip("\"'")
+    preset_id = options.get("preset", "web").strip()
+
+    if not folder or not os.path.isdir(folder):
+        error(f"Folder not found: {folder or '(none given)'}"); return
+
+    VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv", ".m4v"}
+    videos = [
+        f for f in os.listdir(folder)
+        if os.path.splitext(f)[1].lower() in VIDEO_EXTS
+        and "_compressed" not in f
+    ]
+    if not videos:
+        error("No video files found in that folder."); return
+
+    # Resolve output directory
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    else:
+        out_dir = os.path.join(folder, "compressed")
+        os.makedirs(out_dir, exist_ok=True)
+
+    log(f"Found {len(videos)} videos → output: {out_dir}")
+    log(f"Preset: {preset_id}")
+
+    failed  = []
+    success = 0
+    for i, fname in enumerate(videos, 1):
+        src  = os.path.join(folder, fname)
+        base = os.path.splitext(fname)[0]
+        dst  = os.path.join(out_dir, base + "_compressed.mp4")
+
+        q.put({"type": "progress", "value": i - 1, "total": len(videos), "track": fname})
+        log(f"[{i}/{len(videos)}] {fname[:60]}...")
+
+        if _run_compress_single(src, dst, preset_id, hb, q):
+            success += 1
+        else:
+            failed.append(fname)
+
+    q.put({"type": "progress", "value": len(videos), "total": len(videos)})
+    summary = f"Done — {success}/{len(videos)} compressed."
+    if failed:
+        summary += f" Failed: {', '.join(failed[:3])}{'…' if len(failed) > 3 else ''}"
+    done(summary, out_dir)
+
+
+# ── Tool 6: Single Video Compressor (terminal / menu mode) ───────────────────
 
 def tool_compress():
     import subprocess
@@ -140,7 +382,7 @@ def tool_compress():
     back_to_menu()
 
 
-# ── Tool 20: Bulk Video Compressor ────────────────────────────────────────────
+# ── Tool 20: Bulk Video Compressor (terminal / menu mode) ────────────────────
 
 def tool_bulkcompress():
     import subprocess

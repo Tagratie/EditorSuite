@@ -24,14 +24,13 @@ def _live_post_line(p: dict, avg: int, col: str) -> str:
             f"{p['likes']:>8,} {p['shares']:>8,}  {_T.DIM}{s}{_T.R}")
 
 
-async def _scrape_profile(pw, username: str,
+async def _scrape_profile(ctx, username: str,
                            live_col: str | None = None,
                            live_avg_ref: list | None = None) -> tuple[str, list]:
+    """Scrape a profile using an existing browser context (new tab)."""
     posts: list[dict] = []
     seen:  set[str]   = set()
     has_more          = True
-
-    browser, ctx = await new_browser(pw, mute=True)
 
     async def on_resp(response):
         nonlocal has_more
@@ -60,7 +59,8 @@ async def _scrape_profile(pw, username: str,
         except Exception:
             pass
 
-    page = await ctx.new_page()
+    pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
     page.on("response", on_resp)
     await page.goto(f"https://www.tiktok.com/@{username}",
                     wait_until="domcontentloaded", timeout=30000)
@@ -106,7 +106,7 @@ async def _scrape_profile(pw, username: str,
             print(_live_post_line(posts[printed], avg, live_col), flush=True)
             printed += 1
 
-    await browser.close()
+    await page.close()
     ok(f"@{username}: {len(posts)} posts  ({total_scrolls} scrolls)")
     return username, posts
 
@@ -170,19 +170,22 @@ def tool_ct():
     if not comp_user:
         err("No competitor username."); back_to_menu(); return
 
-    from playwright.async_api import async_playwright
-
     async def scrape_sequential():
+        from playwright.async_api import async_playwright
         async with async_playwright() as pw:
-            divider(f"LIVE  @{my_user}")
-            print(f"  {'Date':<18} {'Views':>10} {'Likes':>8} {'Shares':>8}  Sound")
-            print(f"  {'-'*18} {'-'*10} {'-'*8} {'-'*8}  {'-'*33}")
-            _, my_posts = await _scrape_profile(pw, my_user, live_col=_T.GREEN, live_avg_ref=[0])
-            print()
-            divider(f"LIVE  @{comp_user}")
-            print(f"  {'Date':<18} {'Views':>10} {'Likes':>8} {'Shares':>8}  Sound")
-            print(f"  {'-'*18} {'-'*10} {'-'*8} {'-'*8}  {'-'*33}")
-            _, comp_posts = await _scrape_profile(pw, comp_user, live_col=_T.YELLOW, live_avg_ref=[0])
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                divider(f"LIVE  @{my_user}")
+                print(f"  {'Date':<18} {'Views':>10} {'Likes':>8} {'Shares':>8}  Sound")
+                print(f"  {'-'*18} {'-'*10} {'-'*8} {'-'*8}  {'-'*33}")
+                _, my_posts = await _scrape_profile(ctx, my_user, live_col=_T.GREEN, live_avg_ref=[0])
+                print()
+                divider(f"LIVE  @{comp_user}")
+                print(f"  {'Date':<18} {'Views':>10} {'Likes':>8} {'Shares':>8}  Sound")
+                print(f"  {'-'*18} {'-'*10} {'-'*8} {'-'*8}  {'-'*33}")
+                _, comp_posts = await _scrape_profile(ctx, comp_user, live_col=_T.YELLOW, live_avg_ref=[0])
+            finally:
+                await browser.close()
         return my_posts, comp_posts
 
     print()

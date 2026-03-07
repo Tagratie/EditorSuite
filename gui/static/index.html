@@ -195,7 +195,7 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .settings-toast.show{opacity:1}
 
 /* PROGRESS BAR (slim, no terminal) */
-.run-progress{padding:20px 40px 0;max-width:760px;display:none}
+.run-progress{padding:20px 40px 0;display:none}
 .run-progress.show{display:block}
 .rp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .rp-label{font-family:var(--fm);font-size:.7rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
@@ -206,7 +206,7 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 @keyframes rpanim{0%{transform:translateX(-200%)}100%{transform:translateX(500%)} }
 
 /* RESULT AREA */
-.result-area{padding:24px 40px 60px;max-width:900px}
+.result-area{padding:24px 40px 60px}
 
 /* TOOL GRID */
 .tools-area{padding:32px 40px 60px}
@@ -240,8 +240,16 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .studio .tool-card-tag{background:rgba(245,158,11,.15);color:var(--cat-studio)}
 
 /* TOOL PANEL */
-#pt2{padding:0}
-.tool-panel-inner{padding:40px;max-width:820px}
+#pt2{padding:0;display:flex;flex-direction:column}
+.tool-panel-inner{display:flex;flex:1;min-height:100vh;max-width:none}
+.tpi-left{width:520px;min-width:420px;flex-shrink:0;padding:40px;border-right:1px solid var(--border);overflow-y:auto;height:100vh;box-sizing:border-box}
+.tpi-left::-webkit-scrollbar{display:none}
+.tpi-left{-ms-overflow-style:none;scrollbar-width:none}
+.tpi-right{flex:1;overflow-y:auto;height:100vh;box-sizing:border-box;background:var(--bg)}
+.tpi-right::-webkit-scrollbar{display:none}
+.tpi-right{-ms-overflow-style:none;scrollbar-width:none}
+.tpi-right:has(#tr:empty){display:flex;align-items:center;justify-content:center}
+.tpi-right:has(#tr:empty)::after{content:"Results will appear here";font-family:var(--fm);font-size:.78rem;color:var(--text3);opacity:.4;letter-spacing:.04em}
 .t-back{display:inline-flex;align-items:center;gap:7px;font-family:var(--fm);font-size:.74rem;
   color:var(--text3);cursor:pointer;margin-bottom:28px;transition:color .2s;
   border:1px solid var(--border);padding:6px 12px;border-radius:6px;background:var(--bg2)}
@@ -254,8 +262,8 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .studio .t-cat-badge{background:rgba(245,158,11,.12);color:var(--cat-studio)}
 .t-icon-big{font-size:2rem;margin-bottom:10px;display:block}
 .t-title{font-size:1.8rem;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
-.t-sub{font-size:.92rem;color:var(--text2);font-weight:400;margin-bottom:32px;max-width:480px;line-height:1.6}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;max-width:580px}
+.t-sub{font-size:.92rem;color:var(--text2);font-weight:400;margin-bottom:32px;line-height:1.6}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
 .form-row.single{grid-template-columns:1fr}
 .form-field{display:flex;flex-direction:column;gap:6px}
 .form-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.06em}
@@ -283,7 +291,7 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 
 /* ═══ RESULT CARD STYLES ═══ */
 @keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeup .3s ease;margin-bottom:16px}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:0;overflow:hidden;animation:fadeup .3s ease;margin-bottom:0;border-left:none;border-right:none}
 .card-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
 .card-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
 .card-meta{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
@@ -324,6 +332,15 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .s-bar-wrap{width:100px;height:3px;background:var(--bg4);border-radius:3px;flex-shrink:0}
 .s-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:3px;transition:width .6s .1s}
 .s-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text2);width:42px;text-align:right;flex-shrink:0}
+
+/* sound row download button */
+.s-dl-btn{flex-shrink:0;min-width:100px;width:100px;text-align:center;background:none;border:1px solid var(--border2);border-radius:6px;
+  color:var(--text3);font-size:.68rem;font-family:var(--fm);padding:3px 8px;cursor:pointer;
+  transition:all .15s;white-space:nowrap;opacity:0}
+.s-row:hover .s-dl-btn{opacity:1}
+.s-dl-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,245,212,.07)}
+.s-dl-btn.busy{border-color:var(--purple);color:var(--purple);opacity:1;cursor:default}
+.s-dl-btn.done{border-color:var(--green);color:var(--green);opacity:1;cursor:default}
 
 /* hashtag freq bars */
 .hf-row{display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);transition:background .15s}
@@ -513,12 +530,20 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .sb-pcat-btn:hover{border-color:var(--border3);color:var(--text2);background:var(--bg3)}
 .sb-pcat-btn.active{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.5);
   color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.12)}
+/* custom category button — has a delete ✕ inside */
+.sb-pcat-btn-custom{position:relative;padding-right:20px}
+.sb-pcat-del{position:absolute;top:50%;right:4px;transform:translateY(-50%);
+  font-size:.6rem;opacity:0;color:var(--text3);line-height:1;
+  border-radius:3px;padding:1px 3px;transition:all .15s}
+.sb-pcat-btn-custom:hover .sb-pcat-del{opacity:1}
+.sb-pcat-del:hover{color:var(--red)!important;background:rgba(244,63,94,.15)}
 /* active category banner inside tool panel */
 .cat-context-badge{display:none;align-items:center;gap:8px;margin-bottom:18px;
   background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);
-  border-radius:8px;padding:8px 14px;font-family:var(--fm);font-size:.76rem;color:var(--purple)}
-.cat-context-badge.show{display:flex}
-.cat-context-badge span{flex:1}
+  border-radius:8px;padding:8px 14px;font-family:var(--fm);font-size:.76rem;color:var(--purple);
+  max-width:580px;align-self:flex-start}
+.cat-context-badge.show{display:inline-flex}
+.cat-context-badge span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-context-x{cursor:pointer;opacity:.6;font-size:.9rem;transition:opacity .15s}
 .cat-context-x:hover{opacity:1}
 
@@ -528,12 +553,47 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
 .trend-col:last-child{border-right:none}
 .trend-col-hdr{padding:12px 16px;font-family:var(--fm);font-size:.68rem;color:var(--text3);
   letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+
+/* BROWSE BUTTON — attached to path inputs */
+.browse-row{display:flex;gap:8px;align-items:stretch}
+.browse-row .form-in{flex:1}
+.browse-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:9px;
+  color:var(--text2);font-family:var(--fh);font-size:.78rem;font-weight:600;
+  padding:0 16px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.browse-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.browse-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* COMPRESSOR PRESET CARDS */
+.preset-cards-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.preset-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:10px;margin-bottom:20px;max-width:720px}
+.preset-card{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
+  padding:16px;cursor:pointer;transition:all .18s;position:relative}
+.preset-card:hover{border-color:var(--border3);background:var(--bg3);transform:translateY(-1px)}
+.preset-card.selected{border-color:var(--amber);background:rgba(245,158,11,.08);
+  box-shadow:0 0 0 1px var(--amber)}
+.preset-card-icon{font-size:1.5rem;margin-bottom:8px;display:block}
+.preset-card-name{font-size:.88rem;font-weight:600;margin-bottom:4px}
+.preset-card-desc{font-size:.72rem;color:var(--text2);line-height:1.45}
+.preset-card-check{position:absolute;top:10px;right:10px;font-size:.75rem;
+  color:var(--amber);opacity:0;transition:opacity .15s}
+.preset-card.selected .preset-card-check{opacity:1}
+/* "Add own" dashed card */
+.preset-card-add{border-style:dashed;border-color:rgba(245,158,11,.3);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  min-height:110px}
+.preset-card-add:hover{border-color:var(--amber);background:rgba(245,158,11,.06)}
+.preset-card-del{position:absolute;top:8px;right:8px;opacity:0;background:none;border:none;
+  color:var(--text3);font-size:.8rem;cursor:pointer;padding:2px 5px;border-radius:4px;transition:all .15s}
+.preset-card:hover .preset-card-del{opacity:1}
+.preset-card-del:hover{color:var(--red);background:rgba(244,63,94,.12)}
 </style>
 </head>
 <body>
 
 <!-- FIRST-RUN SETUP OVERLAY -->
-<div id="setup-overlay" class="hidden">
+<div id="setup-overlay">
   <div id="setup-box">
     <div class="setup-logo">Editor<span>Suite</span></div>
     <div class="setup-h">Welcome — one quick step</div>
@@ -567,16 +627,15 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       <span class="sb-pcat-add" id="pcat-add-btn" onclick="toggleCustomAdd()" title="Add custom preset">+</span>
     </div>
   </div>
-  <!-- inline custom preset add form — hidden by default -->
+  <!-- inline custom category add form — hidden by default -->
   <div id="pcat-add-form" style="display:none;padding:0 12px 10px;flex-direction:column;gap:6px">
-    <input class="settings-in" id="sb_cp_label" placeholder="Label" style="font-size:.76rem;padding:7px 10px">
-    <input class="settings-in" id="sb_cp_tag"   placeholder="#hashtag" style="font-size:.76rem;padding:7px 10px">
-    <button onclick="sbAddCustomPreset()" style="background:var(--purple);color:#fff;border:none;border-radius:7px;
+    <input class="settings-in" id="sb_cp_label" placeholder="Category name (e.g. Gaming)" style="font-size:.76rem;padding:7px 10px" autocomplete="off" spellcheck="false">
+    <input class="settings-in" id="sb_cp_tag"   placeholder="#tag1, #tag2, #tag3..." style="font-size:.76rem;padding:7px 10px" autocomplete="off" spellcheck="false">
+    <button onclick="sbAddCustomCategory()" style="background:var(--purple);color:#fff;border:none;border-radius:7px;
       font-family:var(--fh);font-size:.76rem;font-weight:700;padding:7px;cursor:pointer;transition:opacity .2s"
-      onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Preset</button>
+      onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Category</button>
   </div>
   <div class="sb-pcat-grid" id="pcat-grid"></div>
-  <div class="sb-custom-list" id="sb-custom-list"></div>
   <div class="sb-sep"></div>
   <div class="sb-home on" id="hbtn" onclick="goHome()">
     <div class="sb-home-title">Home</div>
@@ -697,22 +756,28 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
   <!-- TOOL PANEL -->
   <div class="panel" id="pt2">
     <div class="tool-panel-inner" id="tpi">
-      <div class="t-back" onclick="goHome()">← Back</div>
-      <div class="t-cat-badge" id="tcb"></div>
-      <span class="t-icon-big" id="tic"></span>
-      <div class="t-title" id="tt"></div>
-      <div class="t-sub" id="ts"></div>
-      <div class="cat-context-badge" id="ccb">
-        <span id="ccb-text"></span>
-        <span class="cat-context-x" onclick="clearCategory()">✕</span>
+      <!-- LEFT: header + form + progress -->
+      <div class="tpi-left">
+        <div class="t-back" onclick="goHome()">← Back</div>
+        <div class="t-cat-badge" id="tcb"></div>
+        <span class="t-icon-big" id="tic"></span>
+        <div class="t-title" id="tt"></div>
+        <div class="t-sub" id="ts"></div>
+        <div class="cat-context-badge" id="ccb">
+          <span id="ccb-text"></span>
+          <span class="cat-context-x" onclick="clearCategory()">✕</span>
+        </div>
+        <div id="tf"></div>
+        <div id="tp">
+          <div class="rp-top" style="margin-bottom:8px"><span class="rp-label" id="tpl">RUNNING</span><span class="rp-status" id="tps"></span></div>
+          <div class="rp-track" style="margin-bottom:0"><div class="rp-bar ind" id="tpb"></div></div>
+          <div class="live-feed" id="tlf" style="margin-top:8px"><div class="lf-line" id="tlf0"></div><div class="lf-line" id="tlf1"></div><div class="lf-line" id="tlf2"></div></div>
+        </div>
       </div>
-      <div id="tf"></div>
-      <div id="tp">
-        <div class="rp-top" style="margin-bottom:8px"><span class="rp-label" id="tpl">RUNNING</span><span class="rp-status" id="tps"></span></div>
-        <div class="rp-track" style="margin-bottom:0"><div class="rp-bar ind" id="tpb"></div></div>
-        <div class="live-feed" id="tlf" style="margin-top:8px"><div class="lf-line" id="tlf0"></div><div class="lf-line" id="tlf1"></div><div class="lf-line" id="tlf2"></div></div>
+      <!-- RIGHT: results -->
+      <div class="tpi-right">
+        <div class="tool-result" id="tr"></div>
       </div>
-      <div class="tool-result" id="tr"></div>
     </div>
   </div>
   <!-- SETTINGS PANEL -->
@@ -863,13 +928,39 @@ const T={
   dl_spotify:{cat:"downloaders",cl:"DOWNLOADERS",name:"Spotify / SoundCloud DL",sub:"Track, album, or playlist as MP3",
     f:[{id:"url",l:"SPOTIFY OR SOUNDCLOUD URL",p:"https://open.spotify.com/track/..."},{id:"quality",l:"AUDIO QUALITY",s:["320","256","192","128"]}]},
   dl_audio:{cat:"downloaders",cl:"DOWNLOADERS",name:"Audio Extractor",sub:"MP3 from a local file or URL",
-    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\video.mp4 or https://..."},{id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
+    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\\video.mp4 or https://...",browse:"file",
+        browseFilters:[{name:"Video / Audio",exts:"*.mp4;*.mkv;*.mov;*.avi;*.mp3;*.wav;*.flac"},{name:"All Files",exts:"*.*"}]},
+       {id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
   compress:{cat:"studio",cl:"STUDIO",name:"Video Compressor",sub:"Compress a single video with HandBrake",
-    f:[{id:"input",l:"VIDEO FILE PATH",p:"C:\\Videos\\clip.mp4"}]},
+    f:[
+      {id:"input",l:"VIDEO FILE",p:"C:\\Videos\\clip.mp4",browse:"file",
+        browseFilters:[{name:"Video Files",exts:"*.mp4;*.mkv;*.mov;*.avi;*.wmv;*.m4v"},{name:"All Files",exts:"*.*"}]},
+      {id:"output",l:"OUTPUT FOLDER",p:"C:\\Compressed\\",browse:"folder"},
+      {id:"preset",l:"COMPRESSION PRESET",type:"preset-cards",cards:[
+        {id:"tiktok",  icon:"📱",name:"TikTok",    desc:"720p · ≤ 30 MB · fast encode"},
+        {id:"instagram",icon:"📸",name:"Instagram", desc:"1080p · balanced quality"},
+        {id:"discord", icon:"💬",name:"Discord",   desc:"< 25 MB · 720p · web-optimised"},
+        {id:"web",     icon:"🌐",name:"Web Fast",  desc:"720p · CRF 23 · small file"},
+        {id:"hq",      icon:"🎬",name:"High Quality",desc:"1080p · CRF 18 · large file"},
+        {id:"ultra",   icon:"🗜",name:"Ultra Small",desc:"480p · max compression"},
+      ]}
+    ]},
   bulk_comp:{cat:"studio",cl:"STUDIO",name:"Bulk Compressor",sub:"Compress every video in a folder",
-    f:[{id:"folder",l:"FOLDER PATH",p:"C:\\Videos\\"}]},
+    f:[
+      {id:"folder",l:"INPUT FOLDER",p:"C:\\Videos\\",browse:"folder"},
+      {id:"output",l:"OUTPUT FOLDER",p:"C:\\Compressed\\",browse:"folder"},
+      {id:"preset",l:"COMPRESSION PRESET",type:"preset-cards",cards:[
+        {id:"tiktok",  icon:"📱",name:"TikTok",    desc:"720p · ≤ 30 MB · fast encode"},
+        {id:"instagram",icon:"📸",name:"Instagram", desc:"1080p · balanced quality"},
+        {id:"discord", icon:"💬",name:"Discord",   desc:"< 25 MB · 720p · web-optimised"},
+        {id:"web",     icon:"🌐",name:"Web Fast",  desc:"720p · CRF 23 · small file"},
+        {id:"hq",      icon:"🎬",name:"High Quality",desc:"1080p · CRF 18 · large file"},
+        {id:"ultra",   icon:"🗜",name:"Ultra Small",desc:"480p · max compression"},
+      ]}
+    ]},
   bg_rem:{cat:"studio",cl:"STUDIO",name:"Background Remover",sub:"AI background removal — single image or batch",
-    f:[{id:"input",l:"FILE OR FOLDER PATH",p:"C:\\image.png"}]},
+    f:[{id:"input",l:"FILE OR FOLDER PATH",p:"C:\\image.png",browse:"file_or_folder",
+        browseFilters:[{name:"Images",exts:"*.png;*.jpg;*.jpeg;*.webp;*.bmp"},{name:"All Files",exts:"*.*"}]}]},
   calendar:{cat:"studio",cl:"STUDIO",name:"Posting Calendar",sub:"Generate a posting schedule from your data",
     f:[{id:"posts_per_week",l:"POSTS PER WEEK",s:["3","5","7","2","1"]},{id:"start_date",l:"START DATE",p:"2025-01-01"}]},
 };
@@ -878,7 +969,7 @@ const ICONS={scraper:"🎵",hfreq:"#",crosshash:"⟁",viral:"🔥",trending:"�
   hanalyze:"📊",competitor:"⚔️",besttime:"🕐",engagement:"💡",niche:"🗺",growth:"🌱",health:"💪",
   dl_vid:"⬇️",dl_prof:"👤",dl_spotify:"🎧",dl_audio:"🎙",compress:"📦",bulk_comp:"🗂",bg_rem:"✂️",calendar:"📅"};
 
-let det=null,hrun=false,trun=false,dtimer=null;
+let det=null,hrun=false,trun=false,dtimer=null,activeToolId=null;
 
 
 // ── PRESET CATEGORIES ────────────────────────────────────────────────────────
@@ -1024,22 +1115,32 @@ let activeCategory = null;
 function initCategories(){
   const grid = document.getElementById("pcat-grid");
   if(!grid) return;
-  grid.innerHTML = Object.keys(PC).map(name =>
+  // Built-in categories
+  const builtIn = Object.keys(PC).map(name =>
     `<button class="sb-pcat-btn" data-cat="${name}" onclick="setCategory('${name}')">${name}</button>`
-  ).join("");
+  );
+  // Custom categories
+  const custom = _customCategories.map((cat, i) =>
+    `<button class="sb-pcat-btn sb-pcat-btn-custom" data-cat="${x(cat.name)}" onclick="setCategory('${x(cat.name)}')" title="Hold to delete">
+      ${x(cat.name)}
+      <span class="sb-pcat-del" onclick="event.stopPropagation();removeCustomCategory(${i})" title="Delete">✕</span>
+    </button>`
+  );
+  grid.innerHTML = [...builtIn, ...custom].join("");
 }
 
 function setCategory(name){
   if(activeCategory === name){
     clearCategory(); return;
   }
+  // Make sure custom category is in PC lookup
+  const custCat = _customCategories.find(c=>c.name===name);
+  if(custCat && !PC[name]) PC[name] = buildCustomCategoryPC(custCat);
   activeCategory = name;
-  // update sidebar buttons
   document.querySelectorAll(".sb-pcat-btn").forEach(b=>{
     b.classList.toggle("active", b.dataset.cat === name);
   });
   document.getElementById("pcat-clear").classList.add("show");
-  // if a tool panel is open, re-fill its fields + show badge
   showContextBadge(name);
   fillToolFields(name);
 }
@@ -1071,16 +1172,10 @@ function fillToolFields(catName){
 }
 
 // run on load
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", ()=>{
   initCategories();
   setCategory("📺 Shows");
-  // load custom presets into sidebar cards + inject into tools
-  try{
-    const cfg = await fetch("/api/config").then(r=>r.json());
-    _customPresets = cfg.custom_presets || [];
-    renderSidebarCustomPresets(_customPresets);
-    if(_customPresets.length) injectCustomPresets(_customPresets);
-  }catch(e){ renderSidebarCustomPresets([]); }
+  // Config loading is handled by checkFirstRun → _loadConfig once server is confirmed ready
 });
 
 // ── NAVIGATION ──────────────────────────────────────────────────────────────
@@ -1105,16 +1200,70 @@ function goTool(id){
   document.getElementById("tt").textContent=t.name;
   document.getElementById("ts").textContent=t.sub;
   let h="";
-  if(t.f.length){
-    h+=`<div class="form-row${t.f.length===1?" single":""}">`;
-    t.f.forEach(f=>{
+  // Separate normal fields from preset-cards fields
+  const normalFields = t.f.filter(f=>f.type!=="preset-cards");
+  const cardFields   = t.f.filter(f=>f.type==="preset-cards");
+  if(normalFields.length){
+    h+=`<div class="form-row${normalFields.length===1?" single":""}">`;
+    normalFields.forEach(f=>{
       h+=`<div class="form-field"><label class="form-lbl">${f.l}</label>`;
-      if(f.s) h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`;
-      else h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
+      if(f.s){
+        h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`;
+      } else if(f.browse){
+        // text input + native Explorer browse button
+        const bfJson = f.browseFilters ? JSON.stringify(f.browseFilters).replace(/"/g,"&quot;") : "[]";
+        const btype  = f.browse; // "file", "folder", "file_or_folder"
+        h+=`<div class="browse-row">`;
+        h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
+        h+=`<button class="browse-btn" onclick="browseInput('tf_${f.id}','${btype}','${bfJson}')">Browse…</button>`;
+        h+=`</div>`;
+      } else {
+        h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
+      }
       h+=`</div>`;
     });
     h+=`</div>`;
   }
+  // Render preset-card grids
+  cardFields.forEach(f=>{
+    h+=`<div style="margin-bottom:20px;max-width:760px">`;
+    h+=`<div class="preset-cards-lbl">${f.l}</div>`;
+    h+=`<div class="preset-cards-grid" id="pcg_${f.id}">`;
+    (f.cards||[]).forEach((c,i)=>{
+      const sel = i===0 ? " selected" : "";
+      h+=`<div class="preset-card${sel}" data-preset-field="tf_${f.id}" data-preset-val="${c.id}"
+        onclick="selectPresetCard(this)">
+        <span class="preset-card-check">✓</span>
+        <span class="preset-card-icon">${c.icon}</span>
+        <div class="preset-card-name">${c.name}</div>
+        <div class="preset-card-desc">${c.desc}</div>
+      </div>`;
+    });
+    // Inject saved custom compressor presets
+    (_customCompPresets||[]).forEach(cp=>{
+      h+=`<div class="preset-card" data-preset-field="tf_${f.id}" data-preset-val="${x(cp.path)}"
+        onclick="selectPresetCard(this)" style="position:relative">
+        <span class="preset-card-check">✓</span>
+        <span class="preset-card-icon">📂</span>
+        <div class="preset-card-name">${x(cp.name)}</div>
+        <div class="preset-card-desc" style="word-break:break-all;font-size:.65rem">${x(cp.path)}</div>
+        <button class="preset-card-del" onclick="event.stopPropagation();removeCompPreset('${x(cp.path)}','tf_${f.id}')" title="Remove">✕</button>
+      </div>`;
+    });
+    // "Add own preset" card
+    h+=`<div class="preset-card preset-card-add" onclick="addCompPreset('tf_${f.id}')">
+      <span class="preset-card-icon" style="font-size:1.8rem;color:var(--amber);opacity:.7">+</span>
+      <div class="preset-card-name" style="color:var(--amber)">Add own preset</div>
+      <div class="preset-card-desc">Browse for a HandBrake preset .json file</div>
+      <button class="browse-btn" style="margin-top:10px;width:100%;font-size:.72rem;padding:6px 0"
+        onclick="event.stopPropagation();addCompPreset('tf_${f.id}')">Browse…</button>
+    </div>`;
+    h+=`</div>`;
+    // Hidden input that holds the selected preset value
+    const defVal = f.cards && f.cards[0] ? f.cards[0].id : "";
+    h+=`<input type="hidden" id="tf_${f.id}" value="${defVal}">`;
+    h+=`</div>`;
+  });
   // chips: category-specific if active, else tool's own presets (e.g. engagement size)
   const catChips = activeCategory && PC[activeCategory] && PC[activeCategory].chips && PC[activeCategory].chips[id]
     ? PC[activeCategory].chips[id] : null;
@@ -1131,9 +1280,16 @@ function goTool(id){
   h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Run ${t.name}</button>`;
   document.getElementById("tf").innerHTML=h;
   if(activeCategory){ showContextBadge(activeCategory); } else { hideContextBadge(); }
-  document.getElementById("tp").style.display="none";
-  document.getElementById("tr").innerHTML="";
-  trun=false;
+  const tpEl=document.getElementById("tp");
+  const trEl=document.getElementById("tr");
+  if(activeToolId === id && trun){
+    if(tpEl) tpEl.style.display="block";
+    // keep existing output / progress when returning to a running tool
+  }else{
+    if(tpEl) tpEl.style.display="none";
+    if(trEl) trEl.innerHTML="";
+    trun=false;
+  }
   document.getElementById("main").scrollTop=0;
 }
 
@@ -1229,6 +1385,7 @@ function runTool(id){
   if(trun)return;
   const t=T[id]; if(!t)return;
   trun=true;
+  activeToolId=id;
   document.getElementById("rbtn").classList.add("busy");
   const opts={};
   t.f.forEach(f=>{ const el=document.getElementById('tf_'+f.id); if(el) opts[f.id]=el.value.trim()||el.placeholder||"edit"; });
@@ -1278,27 +1435,30 @@ async function doStream(url,body,{barEl,lblEl,stEl,resEl,feedId,onDone}){
           pushLog(m.text, cls);
         }
         else if(m.type==="progress"){
-          barEl.classList.remove("ind");
-          barEl.style.width=(m.value/m.total*100).toFixed(1)+"%";
-          stEl.textContent=`${m.value} / ${m.total}`;
-          if(m.track) appendDlItem(resEl,m.track,m.ok);
+          if(barEl){barEl.classList.remove("ind");barEl.style.width=(m.value/m.total*100).toFixed(1)+"%";}
+          if(stEl) stEl.textContent=`${m.value} / ${m.total}`;
+          if(m.track && resEl) appendDlItem(resEl,m.track,m.ok);
         }
         else if(m.type==="result"){
           rd=m.data;
-          renderRes(resEl,rd,"");
+          if(resEl) renderRes(resEl,rd,"");
         }
         else if(m.type==="done"){
-          barEl.classList.remove("ind"); barEl.style.width="100%";
-          lblEl.textContent="DONE"; stEl.textContent="";
+          if(barEl){barEl.classList.remove("ind");barEl.style.width="100%";}
+          if(lblEl) lblEl.textContent="DONE";
+          if(stEl)  stEl.textContent="";
           pushLog("✓ "+m.text,"ok");
-          if(rd) renderRes(resEl,rd,m.text);
-          else if(m.text) resEl.innerHTML=doneCard(m.text,m.path||"");
+          if(resEl){
+            if(rd) renderRes(resEl,rd,m.text);
+            else if(m.text) resEl.innerHTML=doneCard(m.text,m.path||"");
+          }
           onDone();
         }
         else if(m.type==="error"){
-          stEl.textContent=""; lblEl.textContent="ERROR";
+          if(stEl)  stEl.textContent="";
+          if(lblEl) lblEl.textContent="ERROR";
           pushLog("✗ "+m.text,"err");
-          resEl.innerHTML=errorCard(m.text);
+          if(resEl) resEl.innerHTML=errorCard(m.text);
           onDone();
         }
         else if(m.type==="close") onDone();
@@ -1311,36 +1471,120 @@ async function doStream(url,body,{barEl,lblEl,stEl,resEl,feedId,onDone}){
 }
 
 // ── SIDEBAR CUSTOM PRESET ────────────────────────────────────────────────────
-function toggleCustomAdd(){
+// ── CUSTOM CATEGORY ADD FORM ─────────────────────────────────────────────────
+let _customCategories = [];
+
+function _closeAddForm(){
   const f=document.getElementById("pcat-add-form");
   const btn=document.getElementById("pcat-add-btn");
-  const open = f.style.display==="none";
-  f.style.display=open?"flex":"none";
-  btn.style.color=open?"var(--purple)":"";
-  btn.style.borderColor=open?"var(--purple)":"";
-  if(open) document.getElementById("sb_cp_label").focus();
+  if(f) f.style.display="none";
+  if(btn){ btn.style.color=""; btn.style.borderColor=""; }
 }
 
-async function sbAddCustomPreset(){
+function toggleCustomAdd(){
+  const f=document.getElementById("pcat-add-form");
+  const open = f.style.display==="none";
+  if(open){
+    f.style.display="flex";
+    const btn=document.getElementById("pcat-add-btn");
+    if(btn){ btn.style.color="var(--purple)"; btn.style.borderColor="var(--purple)"; }
+    const inp=document.getElementById("sb_cp_label");
+    if(inp) inp.focus();
+    // Close if user clicks anywhere outside the form
+    setTimeout(()=>{
+      function _outsideClick(e){
+        if(!f.contains(e.target) && e.target.id!=="pcat-add-btn"){
+          // Only close if both fields are empty
+          const lbl=(document.getElementById("sb_cp_label")||{}).value||"";
+          const tag=(document.getElementById("sb_cp_tag")||{}).value||"";
+          if(!lbl.trim() && !tag.trim()) _closeAddForm();
+          document.removeEventListener("mousedown",_outsideClick);
+        }
+      }
+      document.addEventListener("mousedown",_outsideClick);
+    },0);
+  } else {
+    _closeAddForm();
+  }
+}
+
+/** Convert a saved custom category {name, hashtags:[]} into a PC-compatible entry */
+function buildCustomCategoryPC(cat){
+  const tags = cat.hashtags || [];
+  const multi = tags.join(", ");
+  const first = tags[0] || "";
+  // Single-hashtag tools get one chip per tag
+  const singleChips = tags.map(t=>({l:"#"+t, v:{hashtag:t}}));
+  // Multi-hashtag tools get an "All" chip + combo chips of every pair
+  const multiChips = [{l:"All", v:{hashtags:multi}}];
+  if(tags.length > 2){
+    // sliding window groups of ~3
+    for(let i=0;i<tags.length-1;i+=2){
+      const slice=tags.slice(i,i+3).join(", ");
+      multiChips.push({l:tags.slice(i,i+3).map(t=>"#"+t).join(" + "), v:{hashtags:slice}});
+    }
+  }
+  const entry = {
+    label: cat.name,
+    defaults:{
+      scraper:{hashtag:first}, hfreq:{hashtag:first}, viral:{hashtag:first},
+      sp_exp:{hashtag:first}, niche:{hashtag:first},
+      crosshash:{hashtags:multi}, hanalyze:{hashtags:multi},
+    },
+    chips:{
+      scraper:singleChips, hfreq:singleChips, viral:singleChips,
+      sp_exp:singleChips, niche:singleChips,
+      crosshash:multiChips, hanalyze:multiChips,
+    }
+  };
+  return entry;
+}
+
+async function sbAddCustomCategory(){
   const lbl = document.getElementById("sb_cp_label").value.trim();
-  const tag  = document.getElementById("sb_cp_tag").value.trim().replace(/^#/,"");
-  if(!lbl || !tag) return;
-  _customPresets.push({l:lbl, v:{hashtag:tag}});
+  const raw  = document.getElementById("sb_cp_tag").value.trim();
+  if(!lbl || !raw) return;
+  const tags = raw.split(",").map(t=>t.trim().replace(/^#/,"")).filter(Boolean);
+  if(!tags.length) return;
+
+  // Prevent duplicate names
+  if(_customCategories.some(c=>c.name.toLowerCase()===lbl.toLowerCase())) {
+    document.getElementById("sb_cp_label").style.borderColor="var(--red)";
+    setTimeout(()=>{ document.getElementById("sb_cp_label").style.borderColor=""; },1500);
+    return;
+  }
+
+  const cat = {name:lbl, hashtags:tags};
+  _customCategories.push(cat);
+  // Don't add to PC here — initCategories renders custom cats separately,
+  // so adding to PC would cause a duplicate. setCategory() lazy-builds PC on first click.
+
   await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_presets:_customPresets})});
+    body:JSON.stringify({custom_categories:_customCategories})});
+
   document.getElementById("sb_cp_label").value="";
   document.getElementById("sb_cp_tag").value="";
-  document.getElementById("pcat-add-form").style.display="none";
-  document.getElementById("pcat-add-btn").style.color="";
-  document.getElementById("pcat-add-btn").style.borderColor="";
-  renderSidebarCustomPresets(_customPresets);
-  injectCustomPresets(_customPresets);
+  _closeAddForm();
+  initCategories();
+
   // toast
   const t=document.createElement("div");
   t.textContent="✓ "+lbl+" added";
   t.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--green);font-family:var(--fm);font-size:.76rem;padding:8px 18px;border-radius:8px;z-index:999;pointer-events:none;transition:opacity .4s";
   document.body.appendChild(t);
   setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),400);},1800);
+}
+
+async function removeCustomCategory(idx){
+  const cat = _customCategories[idx];
+  if(!cat) return;
+  // Deactivate if this was the active category
+  if(activeCategory===cat.name) clearCategory();
+  delete PC[cat.name];
+  _customCategories.splice(idx,1);
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({custom_categories:_customCategories})});
+  initCategories();
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
@@ -1373,21 +1617,7 @@ async function loadSettings(){
 
 let _customPresets = [];
 
-function renderSidebarCustomPresets(list){
-  const el = document.getElementById("sb-custom-list");
-  if(!el) return;
-  if(!list.length){
-    el.innerHTML = '<div class="sb-custom-empty">No custom presets yet.<br>Hit + to add one.</div>';
-    return;
-  }
-  el.innerHTML = list.map((p,i) =>
-    `<div class="sb-custom-card" onclick="applyCustomPreset(${i})">
-      <span class="sb-custom-card-name">${x(p.l)}</span>
-      <span class="sb-custom-card-tag">#${x(p.v.hashtag)}</span>
-      <button class="sb-custom-card-del" onclick="event.stopPropagation();removeCustomPreset(${i})" title="Remove">✕</button>
-    </div>`
-  ).join("");
-}
+function renderSidebarCustomPresets(list){ /* legacy — no-op, categories replaced this */ }
 
 function applyCustomPreset(idx){
   const p = _customPresets[idx];
@@ -1404,7 +1634,7 @@ async function removeCustomPreset(idx){
 }
 
 function injectCustomPresets(list){
-  const hashTools=["scraper","hfreq","viral","sp_exp","niche"];
+  const hashTools=["scraper","hfreq","viral","sp_exp","niche","hanalyze","crosshash"];
   hashTools.forEach(id=>{
     if(!T[id]) return;
     T[id].presets = (T[id].presets||[]).filter(p=>!p._custom);
@@ -1463,7 +1693,10 @@ function rSounds(d,msg){
     const pct=(s.count/mx*100).toFixed(0);
     const rk=i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="s-rank">${i+1}</span>`;
     const rc=i===0?"gold":i===1?"silver":i===2?"bronze":"";
-    return `<div class="s-row"><div class="s-rank ${rc}">${i<3?rk:i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-bar-wrap"><div class="s-bar" style="width:${pct}%"></div></div><div class="s-cnt">${s.count}×</div></div>`;
+    const title = s.title||"—";
+    const author = s.author||"";
+    const dlId=`sdl_${i}_${Math.random().toString(36).slice(2,6)}`;
+    return `<div class="s-row"><div class="s-rank ${rc}">${i<3?rk:i+1}</div><div class="s-info"><div class="s-name">${x(title)}</div><div class="s-auth">${x(author)}</div></div><div class="s-bar-wrap"><div class="s-bar" style="width:${pct}%"></div></div><div class="s-cnt">${s.count}×</div><button class="s-dl-btn" id="${dlId}" onclick="dlSoundRow(this,'${x(title).replace(/'/g,"&#39;")}','${x(author).replace(/'/g,"&#39;")}')">⬇ Download</button></div>`;
   }).join("");
   const ob=d.html_path?`<button class="open-btn" data-path="${x(d.html_path)}" onclick="openF(this.dataset.path)">Open Full Report ↗</button>`:"";
   return `<div class="card"><div class="card-hdr"><div class="card-title">Trending Sounds — #${x(d.hashtag)}</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="stats-strip c3"><div class="stat"><div class="stat-n">${n(d.scanned)}</div><div class="stat-l">Scanned</div></div><div class="stat"><div class="stat-n pink">${n(d.kept)}</div><div class="stat-l">Sounds found</div></div><div class="stat"><div class="stat-n dim">${n(d.removed)}</div><div class="stat-l">Filtered</div></div></div><div class="sound-rows">${rows}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Complete")}</div>${ob}</div></div>`;
@@ -1493,7 +1726,11 @@ function rViral(d,msg){
 
 // trending
 function rTrending(d,msg){
-  const sounds=(d.sounds||[]).slice(0,8).map((s,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-cnt">${s.count}×</div></div>`).join("");
+  const sounds=(d.sounds||[]).slice(0,8).map((s,i)=>{
+    const title=s.title||"—";
+    const author=s.author||"";
+    return `<div class="s-row" data-title="${x(title)}" data-artist="${x(author)}" onclick="dlSongFromRow(this)"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(title)}</div><div class="s-auth">${x(author)}</div></div><div class="s-cnt">${s.count}×</div></div>`;
+  }).join("");
   const vids=(d.videos||[]).slice(0,8).map((v,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(v.title||v.desc||"Video")}</div><div class="s-auth">👁 ${nK(v.views)}</div></div></div>`).join("");
   return `<div class="card"><div class="card-hdr"><div class="card-title">TikTok Trending Now</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="trending-split"><div class="trend-col"><div class="trend-col-hdr">🎵 Top Sounds</div>${sounds}</div><div class="trend-col"><div class="trend-col-hdr">🔥 Trending Videos</div>${vids}</div></div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
 }
@@ -1597,6 +1834,110 @@ function switchTab(btn,panelId){
   document.getElementById(panelId)?.classList.add("on");
 }
 
+// ── CUSTOM COMPRESSOR PRESETS ────────────────────────────────────────────────
+let _customCompPresets = [];
+
+(async function loadCustomCompPresets(){
+  try{
+    const cfg = await fetch("/api/config").then(r=>r.json());
+    _customCompPresets = cfg.custom_comp_presets || [];
+  }catch(e){}
+})();
+
+async function addCompPreset(fieldId){
+  const result = await fetch("/api/browse-file",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({filters:[
+      {name:"HandBrake Preset JSON",exts:"*.json"},
+      {name:"All Files",exts:"*.*"}
+    ]})
+  }).then(r=>r.json()).catch(()=>({path:""}));
+
+  const path = result && result.path;
+  if(!path) return;
+
+  // Derive a friendly name from the filename
+  const rawName = path.replace(/\\/g,"/").split("/").pop().replace(/\.json$/i,"");
+  const name = rawName.replace(/[-_]/g," ").replace(/\w/g,c=>c.toUpperCase());
+
+  // Avoid duplicates
+  if(_customCompPresets.some(p=>p.path===path)) return;
+
+  _customCompPresets.push({name, path});
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({custom_comp_presets:_customCompPresets})});
+
+  // Rebuild the preset grid by re-rendering the current tool
+  const on = document.querySelector(".sb-tool.on");
+  if(on){
+    const id=(on.getAttribute("onclick")||"").replace(/goTool\(['"](.*?)['"]\)/,"$1");
+    if(id) goTool(id);
+  }
+
+  // Auto-select the newly added preset
+  setTimeout(()=>{
+    const grid = document.getElementById("pcg_"+fieldId.replace("tf_",""));
+    if(!grid) return;
+    const newCard = [...grid.querySelectorAll(".preset-card:not(.preset-card-add)")].find(
+      c=>c.dataset.presetVal===path);
+    if(newCard) selectPresetCard(newCard);
+  }, 50);
+}
+
+async function removeCompPreset(path, fieldId){
+  _customCompPresets = _customCompPresets.filter(p=>p.path!==path);
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({custom_comp_presets:_customCompPresets})});
+  const on = document.querySelector(".sb-tool.on");
+  if(on){
+    const id=(on.getAttribute("onclick")||"").replace(/goTool\(['"](.*?)['"]\)/,"$1");
+    if(id) goTool(id);
+  }
+}
+
+// ── FILE / FOLDER BROWSER HELPERS ────────────────────────────────────────────
+async function browseInput(inputId, mode, filtersJson){
+  const btn = event && event.target;
+  if(btn){ btn.disabled=true; btn.textContent="…"; }
+  try{
+    let filters = [];
+    try{ filters = JSON.parse(filtersJson||"[]"); }catch(e){}
+    let result = {path:""};
+    if(mode === "folder"){
+      result = await fetch("/api/browse-folder",{method:"POST"}).then(r=>r.json());
+    } else {
+      // "file" or "file_or_folder"
+      result = await fetch("/api/browse-file",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({filters})
+      }).then(r=>r.json());
+      // If user cancels and mode is file_or_folder, try folder dialog
+      if(!result.path && mode==="file_or_folder"){
+        result = await fetch("/api/browse-folder",{method:"POST"}).then(r=>r.json());
+      }
+    }
+    if(result.path){
+      const el = document.getElementById(inputId);
+      if(el) el.value = result.path;
+    }
+  }catch(e){}
+  if(btn){ btn.disabled=false; btn.textContent="Browse…"; }
+}
+
+function selectPresetCard(card){
+  // Deselect siblings
+  const grid = card.closest(".preset-cards-grid");
+  if(grid) grid.querySelectorAll(".preset-card").forEach(c=>c.classList.remove("selected"));
+  card.classList.add("selected");
+  // Update hidden input
+  const fieldId = card.dataset.presetField;
+  const val     = card.dataset.presetVal;
+  const hidden  = document.getElementById(fieldId);
+  if(hidden) hidden.value = val;
+}
+
 async function openF(path){await fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})}); }
 async function openFolder(path){await fetch("/api/open-folder",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})});}
 function dlFile(path){
@@ -1606,6 +1947,60 @@ function dlFile(path){
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+function dlSong(title,artist){
+  title = title||"";
+  artist = artist||"";
+  if(!title.trim()) return;
+  const tp=document.getElementById("tp");
+  const tpb=document.getElementById("tpb");
+  const tpl=document.getElementById("tpl");
+  const tps=document.getElementById("tps");
+  const tr=document.getElementById("tr");
+  if(tp) tp.style.display="block";
+  if(tpb){ tpb.style.width="0%"; tpb.classList.add("ind"); }
+  if(tpl) tpl.textContent="DOWNLOADING";
+  if(tps) tps.textContent="";
+  if(tr) tr.innerHTML="";
+  doStream("/api/tool",{tool_id:"dl_song",options:{title,artist}},{
+    barEl: tpb, lblEl: tpl, stEl: tps, resEl: tr, feedId:"tlf",
+    onDone:()=>{}
+  });
+}
+function dlSoundRow(btn, title, artist){
+  if(btn.classList.contains("busy") || btn.classList.contains("done")) return;
+  btn.classList.add("busy");
+  btn.textContent = "↻ Downloading";
+
+  const ql = [];
+  let es;
+  try{
+    es = new EventSource("/api/tool?_=" + Date.now());
+  }catch(e){ btn.textContent="⬇ Download"; btn.classList.remove("busy"); return; }
+
+  // Actually use fetch+SSE via doStream into a throwaway div
+  const sink = document.createElement("div");
+  const fakeBar = document.createElement("div");
+  const fakeLbl = document.createElement("div");
+  const fakeSt  = document.createElement("div");
+
+  doStream("/api/tool",
+    {tool_id:"dl_song", options:{title, artist}},
+    {barEl:fakeBar, lblEl:fakeLbl, stEl:fakeSt, resEl:sink, feedId:"",
+     onDone:()=>{
+       btn.classList.remove("busy");
+       btn.classList.add("done");
+       btn.textContent = "✓ Saved";
+     }
+    }
+  );
+}
+
+function dlSongFromRow(el){
+  if(!el) return;
+  const title = el.getAttribute("data-title") || "";
+  const artist = el.getAttribute("data-artist") || "";
+  dlSong(title,artist);
 }
 const x=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const n=v=>Number(v).toLocaleString();
@@ -1643,13 +2038,37 @@ const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).
 
 // ── FIRST-RUN SETUP ──────────────────────────────────────────────────────────
 async function checkFirstRun(){
-  try{
-    const cfg = await fetch("/api/config").then(r=>r.json());
-    // Only show if user has never explicitly completed setup
-    if(!cfg.setup_complete){
-      document.getElementById("setup-overlay").classList.remove("hidden");
+  // Retry until Flask is ready (exe launches browser before server finishes starting)
+  const MAX_TRIES = 40;   // 40 × 250 ms = up to 10 seconds
+  const DELAY_MS  = 250;
+
+  for(let i = 0; i < MAX_TRIES; i++){
+    try{
+      const cfg = await fetch("/api/config").then(r=>{ if(!r.ok) throw new Error(); return r.json(); });
+      // Server is up — hide overlay if setup already done or root_dir set
+      if(cfg.setup_complete || cfg.root_dir){
+        document.getElementById("setup-overlay").classList.add("hidden");
+      }
+      // Also trigger config load for categories / presets now that server is ready
+      _loadConfig(cfg);
+      return;
+    }catch(e){
+      // Server not ready yet — wait and retry
+      await new Promise(r => setTimeout(r, DELAY_MS));
     }
-  }catch(e){}
+  }
+  // After 10 seconds still no server — show overlay so user isn't stuck on blank screen
+  // (they can still use setup or just wait)
+}
+
+function _loadConfig(cfg){
+  _customCategories = cfg.custom_categories || [];
+  // Don't pre-populate PC — initCategories renders custom cats in their own section,
+  // and setCategory() lazy-builds PC[name] on first click. Pre-populating causes duplicates.
+  _customCompPresets = cfg.custom_comp_presets || [];
+  _customPresets = cfg.custom_presets || [];
+  if(_customPresets.length) injectCustomPresets(_customPresets);
+  initCategories();
 }
 
 async function setupBrowse(){

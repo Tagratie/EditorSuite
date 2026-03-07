@@ -39,7 +39,8 @@ async def _scrape_profile_stats(username: str) -> dict:
             except Exception:
                 pass
 
-        page = await ctx.new_page()
+        pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         try:
             await page.goto(

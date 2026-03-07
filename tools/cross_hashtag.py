@@ -14,7 +14,9 @@ from core.browser import new_browser
 from core.filters import check_garbage
 
 
-async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300, progress_cb=None) -> tuple[dict, set]:
+async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=None) -> tuple[dict, set]:
+    """Scrape one hashtag using an existing browser context (new tab, no new browser)."""
+    import random
     sounds: dict = {}
     seen:   set  = set()
 
@@ -41,7 +43,7 @@ async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300, progress_cb=No
         except Exception:
             pass
 
-    browser, ctx = await new_browser(pw, mute=True)
+    # New tab in the existing context — no new browser, no fresh fingerprint
     page = await ctx.new_page()
     page.on("response", on_resp)
     try:
@@ -49,21 +51,24 @@ async def _scrape_tag_sounds(pw, hashtag: str, target: int = 300, progress_cb=No
                         wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
         stale = 0
-        while len(seen) < target and stale < 8:
+        while len(seen) < target and stale < 14:
             if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
+            await asyncio.sleep(0.3 + random.random() * 0.3)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(1.8)
-            stale = stale + 1 if await page.evaluate("document.body.scrollHeight") == prev_h else 0
+            await asyncio.sleep(1.8 + random.random() * 1.2)
+            new_h = await page.evaluate("document.body.scrollHeight")
+            stale = stale + 1 if new_h == prev_h else 0
+            if new_h == prev_h and stale < 14:
+                await asyncio.sleep(2.0 + random.random() * 1.5)
     except Exception:
         pass
-    await browser.close()
+    await page.close()
     return sounds, seen
 
 
 def tool_crosshash():
-    from playwright.async_api import async_playwright
-
     divider("CROSS-HASHTAG SOUND FINDER")
     print(f"  {_T.DIM}Finds sounds trending across ALL your hashtags simultaneously.{_T.R}\n")
     raw  = prompt("Hashtags (comma-separated, no #)", "edit,fyp,trending")
@@ -76,12 +81,17 @@ def tool_crosshash():
     tag_sounds: dict = {}
 
     async def _run_all():
+        from playwright.async_api import async_playwright
         async with async_playwright() as pw:
-            for tag in tags:
-                info(f"Scanning #{tag}...")
-                sounds, seen = await _scrape_tag_sounds(pw, tag, target)
-                tag_sounds[tag] = sounds
-                ok(f"#{tag}: {len(seen)} videos, {len(sounds)} sounds")
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                for tag in tags:
+                    info(f"Scanning #{tag}...")
+                    sounds, seen = await _scrape_tag_sounds(ctx, tag, target)
+                    tag_sounds[tag] = sounds
+                    ok(f"#{tag}: {len(seen)} videos, {len(sounds)} sounds")
+            finally:
+                await browser.close()
 
     asyncio.run(_run_all())
 

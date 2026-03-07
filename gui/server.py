@@ -14,11 +14,16 @@ from gui.runner   import run_task
 
 app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"))
 
-# ── Heartbeat watchdog — kills process when browser tab is closed ──────────────
+# ── Heartbeat watchdog — was killing process on idle tab ───────────────────────
+# We now keep the server alive until it is explicitly shut down via /api/shutdown
+# (triggered when the app window/tab actually closes).
 _last_ping = time.time()
-_PING_TIMEOUT = 4    # seconds before watchdog kills if no ping
+_PING_TIMEOUT = None   # no auto-shutdown on idle; browser close still calls /api/shutdown
 
 def _watchdog():
+    # Preserved for future use; currently disabled by _PING_TIMEOUT=None.
+    if not _PING_TIMEOUT:
+        return
     time.sleep(12)   # grace period at startup
     while True:
         time.sleep(5)
@@ -26,7 +31,8 @@ def _watchdog():
             print("\n  [EditorSuite] Browser disconnected — shutting down.")
             os.kill(os.getpid(), signal.SIGTERM)
 
-threading.Thread(target=_watchdog, daemon=True).start()
+if _PING_TIMEOUT:
+    threading.Thread(target=_watchdog, daemon=True).start()
 
 
 @app.route("/")
@@ -48,11 +54,7 @@ def api_run():
 
     def generate():
         while True:
-            try:
-                item = q.get(timeout=120)
-            except queue.Empty:
-                yield "data: " + json.dumps({"type":"error","text":"Timed out"}) + "\n\n"
-                break
+            item = q.get()   # no timeout — runs until tool finishes or shutdown
             if item is None:
                 yield "data: " + json.dumps({"type":"close"}) + "\n\n"
                 break
@@ -85,11 +87,7 @@ def api_tool():
 
     def generate():
         while True:
-            try:
-                item = q.get(timeout=120)
-            except queue.Empty:
-                yield "data: " + json.dumps({"type":"error","text":"Timed out"}) + "\n\n"
-                break
+            item = q.get()   # no timeout — runs until tool finishes or shutdown
             if item is None:
                 yield "data: " + json.dumps({"type":"close"}) + "\n\n"
                 break
@@ -246,6 +244,99 @@ def api_browse_folder():
 
     except Exception as e:
         return jsonify({"path": "", "error": str(e)})
+
+@app.route("/api/browse-file", methods=["POST"])
+def api_browse_file():
+    """Open IFileOpenDialog for single file selection (Vista+ Explorer style)."""
+    data = request.json or {}
+    filters = data.get("filters", [])   # list of {"name":"Videos","exts":"*.mp4;*.mkv"}
+    try:
+        import ctypes, ctypes.wintypes, uuid
+        from ctypes import HRESULT
+
+        CLSID_FileOpenDialog = "{DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7}"
+        IID_IFileOpenDialog  = "{D57C7288-D4AD-4768-BE02-9D969532D960}"
+        FOS_FORCEFILESYSTEM  = 0x00000040
+        FOS_FILEMUSTEXIST    = 0x00001000
+
+        ole32 = ctypes.windll.ole32
+
+        class _GUID(ctypes.Structure):
+            _fields_ = [("Data1",ctypes.c_ulong),("Data2",ctypes.c_ushort),
+                        ("Data3",ctypes.c_ushort),("Data4",ctypes.c_ubyte*8)]
+
+        def _guid(s):
+            u = uuid.UUID(s); b = u.bytes_le; g = _GUID()
+            g.Data1 = int.from_bytes(b[0:4],"little")
+            g.Data2 = int.from_bytes(b[4:6],"little")
+            g.Data3 = int.from_bytes(b[6:8],"little")
+            g.Data4 = (ctypes.c_ubyte*8)(*b[8:]); return g
+
+        ole32.CoInitialize(None)
+        clsid = _guid(CLSID_FileOpenDialog)
+        iid   = _guid(IID_IFileOpenDialog)
+        ptr   = ctypes.c_void_p()
+        hr = ole32.CoCreateInstance(ctypes.byref(clsid), None, 1,
+                                    ctypes.byref(iid), ctypes.byref(ptr))
+        if hr != 0: raise OSError(f"CoCreateInstance failed: {hr:#010x}")
+
+        vt = ctypes.cast(
+            ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))[0],
+            ctypes.POINTER(ctypes.c_void_p))
+
+        GetOptions = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint))(vt[10])
+        SetOptions = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.c_uint)(vt[9])
+        opts = ctypes.c_uint(0)
+        GetOptions(ptr, ctypes.byref(opts))
+        SetOptions(ptr, opts.value | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST)
+
+        if filters:
+            class COMDLG_FILTERSPEC(ctypes.Structure):
+                _fields_ = [("pszName", ctypes.c_wchar_p), ("pszSpec", ctypes.c_wchar_p)]
+            specs = (COMDLG_FILTERSPEC * len(filters))()
+            for i, f in enumerate(filters):
+                specs[i].pszName = f.get("name", "Files")
+                specs[i].pszSpec = f.get("exts", "*.*")
+            SetFileTypes = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p,
+                                               ctypes.c_uint, ctypes.c_void_p)(vt[4])
+            SetFileTypes(ptr, len(filters), ctypes.byref(specs))
+
+        import win32gui
+        app_hwnd = 0
+        def _find_app(h, _):
+            nonlocal app_hwnd
+            if win32gui.IsWindowVisible(h) and "EditorSuite" in win32gui.GetWindowText(h):
+                if win32gui.GetClassName(h) == "Chrome_WidgetWin_1":
+                    app_hwnd = h
+        win32gui.EnumWindows(_find_app, None)
+
+        Show = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p, ctypes.wintypes.HWND)(vt[3])
+        hr   = Show(ptr, app_hwnd)
+
+        path = ""
+        if hr == 0:
+            si = ctypes.c_void_p()
+            GetResult = ctypes.WINFUNCTYPE(HRESULT, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p))(vt[20])
+            if GetResult(ptr, ctypes.byref(si)) == 0 and si:
+                si_vt = ctypes.cast(
+                    ctypes.cast(si, ctypes.POINTER(ctypes.c_void_p))[0],
+                    ctypes.POINTER(ctypes.c_void_p))
+                GetDisplayName = ctypes.WINFUNCTYPE(
+                    HRESULT, ctypes.c_void_p, ctypes.c_uint,
+                    ctypes.POINTER(ctypes.c_wchar_p))(si_vt[5])
+                name = ctypes.c_wchar_p()
+                GetDisplayName(si, 0x80058000, ctypes.byref(name))
+                if name.value:
+                    path = name.value
+                    ole32.CoTaskMemFree(name)
+
+        ole32.CoUninitialize()
+        return jsonify({"path": path})
+
+    except Exception as e:
+        return jsonify({"path": "", "error": str(e)})
+
 
 @app.route("/api/shutdown", methods=["POST"])
 def api_shutdown():

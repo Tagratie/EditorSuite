@@ -31,6 +31,7 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
     seen: set = set()
 
     async with async_playwright() as pw:
+        # Persistent context — TikTok sees cookies from prior sessions
         browser, ctx = await new_browser(pw, mute=True)
 
         async def on_resp(response):
@@ -74,7 +75,8 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
             except Exception:
                 pass
 
-        page = await ctx.new_page()
+        pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
 
         # Hit both the trending tab and the explore API directly

@@ -8,8 +8,8 @@
   "dir_viral": "",
   "dir_compete": "",
   "dir_analysis": "",
-  "dir_downloads": "C:\\Users\\Tagratie\\Videos\\Songs",
-  "dir_audio": "C:\\Users\\Tagratie\\Videos\\Songs",
+  "dir_downloads": "C:\\Users\\Tagratie\\Videos\\ES OUTPUT TEST",
+  "dir_audio": "C:\\Users\\Tagratie\\Videos\\ES OUTPUT TEST",
   "dir_compress": "",
   "dir_images": "",
   "dir_logs": "",
@@ -26,5 +26,13 @@
   "spotify_client_id": "",
   "spotify_client_secret": "",
   "playwright_ready": true,
-  "setup_complete": true
+  "setup_complete": true,
+  "custom_presets": [],
+  "custom_categories": [],
+  "custom_comp_presets": [
+    {
+      "name": "BEST",
+      "path": "C:\\Users\\Tagratie\\Videos\\BEST.json"
+    }
+  ]
 }

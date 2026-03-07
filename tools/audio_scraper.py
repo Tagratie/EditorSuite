@@ -135,15 +135,18 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
         print(f"  {len(seen)}/{target} videos  |  {_T.GREEN}{len(new_sounds)}{_T.R} songs  "
               f"{_T.DIM}[{phase}]{_T.R}", end="\r", flush=True)
 
-    async def _scroll_until_stale(page, label: str, max_stale: int = 8):
+    async def _scroll_until_stale(page, label: str, max_stale: int = 5):
+        import random
         stale = 0
         while len(seen) < target and stale < max_stale:
             _flush_print()
             _status(label)
             if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
+            await asyncio.sleep(0.3 + random.random() * 0.2)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(1.6 + random.random() * 0.8)
             new_h = await page.evaluate("document.body.scrollHeight")
             stale = stale + 1 if new_h == prev_h else 0
 
@@ -153,59 +156,42 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
     info(f"Scanning #{hashtag}...")
 
     async with async_playwright() as pw:
-        # Phase 1: hashtag page (~280 video cap)
+        # Single persistent browser for both phases — reusing the same context
+        # means TikTok sees a returning user with cookies, not a fresh bot.
         browser, ctx = await new_browser(pw, mute=True)
 
-        async def on_resp_tag(response):
-            if "item_list" not in response.url:
-                return
-            try:
-                body  = await response.json()
-                items = body.get("itemList") or body.get("ItemList") or []
-                _ingest(items)
-            except Exception:
-                pass
-
-        page = await ctx.new_page()
-        page.on("response", on_resp_tag)
-        try:
-            await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
-                            wait_until="domcontentloaded", timeout=30000)
-            await asyncio.sleep(2)
-            await _scroll_until_stale(page, "hashtag page")
-        except Exception:
-            pass
-        await browser.close()
-        _flush_print()
-
-        # Phase 2: search page — different API, no 280-cap
-        if len(seen) < target:
-            browser, ctx = await new_browser(pw, mute=True)
-
-            async def on_resp_search(response):
-                if "/api/search/" not in response.url:
+        def _make_tag_handler():
+            async def on_resp(response):
+                if "item_list" not in response.url:
                     return
                 try:
                     body  = await response.json()
-                    items = (body.get("data") or body.get("itemList") or
-                             body.get("ItemList") or [])
+                    items = body.get("itemList") or body.get("ItemList") or []
                     _ingest(items)
                 except Exception:
                     pass
+            return on_resp
 
-            page2 = await ctx.new_page()
-            page2.on("response", on_resp_search)
+        try:
+            # Single page, scroll hard — phase 2 dropped entirely.
+            # Opening a second tab for the same hashtag returns heavily overlapping
+            # videos (same API, same ranking), so it just burns time re-scanning
+            # videos the seen-set will immediately discard anyway.
+            pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
+            page.on("response", _make_tag_handler())
             try:
-                import urllib.parse as _up
-                q = _up.quote(f"#{hashtag}")
-                await page2.goto(f"https://www.tiktok.com/search/video?q={q}",
-                                 wait_until="domcontentloaded", timeout=30000)
+                await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
+                                wait_until="domcontentloaded", timeout=30000)
                 await asyncio.sleep(2)
-                await _scroll_until_stale(page2, "search page", max_stale=12)
+                await _scroll_until_stale(page, "scrolling")
             except Exception:
                 pass
-            await browser.close()
             _flush_print()
+            await page.close()
+
+        finally:
+            await browser.close()
 
     clear_line()
     return len(seen), sounds
