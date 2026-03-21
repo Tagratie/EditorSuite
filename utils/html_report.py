@@ -135,11 +135,14 @@ def save_sounds_report(hashtag: str, scanned: int, kept: list, removed: list, ou
     for i, s in enumerate(top, 1):
         pct  = int(100 * s["count"] / max_c)
         icon = _rank_icon(i)
+        av   = s.get("avg_views")
+        av_t = f"{av:,}" if isinstance(av, int) and av > 0 else "—"
         rows += f"""<tr>
   <td class="rank">{icon or i}</td>
   <td><div class="name">{s['title']}</div><div class="sub">{s['author']}</div>
       <div class="bar-wrap"><div class="bar-fill" style="width:{pct}%"></div></div></td>
   <td class="count">{s['count']}x</td>
+  <td class="count" style="color:#888">{av_t}</td>
 </tr>"""
 
     body = f"""
@@ -157,7 +160,7 @@ def save_sounds_report(hashtag: str, scanned: int, kept: list, removed: list, ou
 </div>
 <div class="grid full">
   <div class="card"><h2>Full <span>Rankings</span></h2>
-  <table><tr><th>#</th><th>Sound</th><th style="text-align:right">Videos</th></tr>
+  <table><tr><th>#</th><th>Sound</th><th style="text-align:right">Videos</th><th style="text-align:right">Avg Views</th></tr>
   {rows}</table></div>
 </div>"""
 

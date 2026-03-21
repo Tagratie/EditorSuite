@@ -8,13 +8,13 @@ import asyncio
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, unwrap_item
 from utils import dirs as _dirs
 from core.browser import new_browser
 from core.filters import check_garbage
 
 
-async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=None) -> tuple[dict, set]:
+async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=None) -> tuple[dict, int]:
     """Scrape one hashtag using an existing browser context (new tab, no new browser)."""
     import random
     sounds: dict = {}
@@ -27,6 +27,7 @@ async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=N
             body  = await response.json()
             items = body.get("itemList") or body.get("ItemList") or []
             for item in items:
+                item = unwrap_item(item)
                 vid = str(item.get("id") or "")
                 if not vid or vid in seen:
                     continue
@@ -35,11 +36,21 @@ async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=N
                 t   = (m.get("title") or "").strip()
                 a   = (m.get("authorName") or m.get("author") or "").strip()
                 mid = str(m.get("id") or t or "unknown")
+                aobj = item.get("author") or {}
+                author_user = ""
+                if isinstance(aobj, dict):
+                    author_user = (aobj.get("uniqueId") or aobj.get("unique_id") or
+                                   aobj.get("id") or aobj.get("nickname") or "")
+                if not author_user:
+                    author_user = str(item.get("authorName") or "")
+                post_url = f"https://www.tiktok.com/@{author_user}/video/{vid}" if author_user and vid else ""
                 if check_garbage(t, a):
                     continue
                 if mid not in sounds:
-                    sounds[mid] = {"title": t, "author": a, "count": 0}
+                    sounds[mid] = {"title": t, "author": a, "count": 0, "post_url": post_url}
                 sounds[mid]["count"] += 1
+                if post_url and not sounds[mid].get("post_url"):
+                    sounds[mid]["post_url"] = post_url
         except Exception:
             pass
 
@@ -65,7 +76,7 @@ async def _scrape_tag_sounds(ctx, hashtag: str, target: int = 300, progress_cb=N
     except Exception:
         pass
     await page.close()
-    return sounds, seen
+    return sounds, len(seen)
 
 
 def tool_crosshash():
@@ -87,9 +98,9 @@ def tool_crosshash():
             try:
                 for tag in tags:
                     info(f"Scanning #{tag}...")
-                    sounds, seen = await _scrape_tag_sounds(ctx, tag, target)
+                    sounds, seen_count = await _scrape_tag_sounds(ctx, tag, target)
                     tag_sounds[tag] = sounds
-                    ok(f"#{tag}: {len(seen)} videos, {len(sounds)} sounds")
+                    ok(f"#{tag}: {seen_count} videos, {len(sounds)} sounds")
             finally:
                 await browser.close()
 

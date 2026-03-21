@@ -5,10 +5,11 @@ Scrapes TikTok hashtag + search pages for trending sounds.
 """
 import asyncio
 import os
+import time
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
 from utils.validator import validate_sounds
 from utils.html_report import save_sounds_report, _save_and_open
 from utils import dirs as _dirs
@@ -16,9 +17,16 @@ from core.browser import new_browser
 from core.filters import check_garbage, is_funk
 
 
+def _is_recent(ts: int, recent_seconds: int | None) -> bool:
+    if recent_seconds is None:
+        return True
+    return bool(ts) and (time.time() - ts) <= recent_seconds
+
+
 # ── Core scraper ──────────────────────────────────────────────────────────────
 
-async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[int, dict]:
+async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
+                        recent_days: int | None = None) -> tuple[int, dict]:
     """
     Dual-source scrape: hashtag page + search page.
     Returns (videos_seen_count, sounds_dict).
@@ -27,8 +35,10 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
 
     sounds     = {}
     seen       = set()
+    count_seen = 0
     new_sounds = []
     printed    = 0
+    recent_seconds = None if recent_days is None else int(recent_days) * 86400
 
     def _parse_desc_sound(desc: str) -> tuple[str, str]:
         """
@@ -86,17 +96,29 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
         return "", ""
 
     def _ingest(items):
+        nonlocal count_seen
         for item in items:
-            if isinstance(item, dict) and "item" in item:
-                item = item["item"]
+            item = unwrap_item(item)
             vid = str(item.get("id") or "")
             if not vid or vid in seen:
                 return
             seen.add(vid)
+            ts = int(item.get("createTime") or 0)
+            if not _is_recent(ts, recent_seconds):
+                continue
+            count_seen += 1
             m   = item.get("music") or {}
             t   = (m.get("title") or "").strip()
             a   = (m.get("authorName") or m.get("author") or "").strip()
             mid = str(m.get("id") or t or "unknown")
+            aobj = item.get("author") or {}
+            author_user = ""
+            if isinstance(aobj, dict):
+                author_user = (aobj.get("uniqueId") or aobj.get("unique_id") or
+                               aobj.get("id") or aobj.get("nickname") or "")
+            if not author_user:
+                author_user = str(item.get("authorName") or "")
+            post_url = f"https://www.tiktok.com/@{author_user}/video/{vid}" if author_user and vid else ""
 
             # If the music metadata is generic, try scraping the description
             _generic = {"original sound", "оригинальный звук", "son original",
@@ -113,9 +135,18 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
             if is_new:
                 sounds[mid] = {
                     "title": t, "author": a, "count": 0,
+                    "views_sum": 0, "views_n": 0,
+                    "views": 0, "avg_views": 0,
+                    "post_url": post_url,
                     "reason": check_garbage(t, a), "funk": is_funk(t),
                 }
             sounds[mid]["count"] += 1
+            if post_url and not sounds[mid].get("post_url"):
+                sounds[mid]["post_url"] = post_url
+            v = get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views")
+            if v >= 0:
+                sounds[mid]["views_sum"] += int(v)
+                sounds[mid]["views_n"] += 1
             if is_new and not sounds[mid]["reason"]:
                 new_sounds.append(sounds[mid])
 
@@ -132,16 +163,16 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
             printed += 1
 
     def _status(phase: str):
-        print(f"  {len(seen)}/{target} videos  |  {_T.GREEN}{len(new_sounds)}{_T.R} songs  "
+        print(f"  {count_seen}/{target} videos  |  {_T.GREEN}{len(new_sounds)}{_T.R} songs  "
               f"{_T.DIM}[{phase}]{_T.R}", end="\r", flush=True)
 
     async def _scroll_until_stale(page, label: str, max_stale: int = 5):
         import random
         stale = 0
-        while len(seen) < target and stale < max_stale:
+        while count_seen < target and stale < max_stale:
             _flush_print()
             _status(label)
-            if progress_cb: progress_cb(len(seen), target)
+            if progress_cb: progress_cb(count_seen, target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
             await asyncio.sleep(0.3 + random.random() * 0.2)
@@ -178,7 +209,7 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
             # videos (same API, same ranking), so it just burns time re-scanning
             # videos the seen-set will immediately discard anyway.
             pages = ctx.pages
-    page = pages[0] if pages else await ctx.new_page()
+            page = pages[0] if pages else await ctx.new_page()
             page.on("response", _make_tag_handler())
             try:
                 await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
@@ -193,12 +224,18 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[in
         finally:
             await browser.close()
 
+    # Finalize view metrics for GUI/HTML consumers
+    for s in sounds.values():
+        if s.get("views_n"):
+            s["views"] = int(s.get("views_sum", 0))
+            s["avg_views"] = int(s["views_sum"] / s["views_n"])
     clear_line()
-    return len(seen), sounds
+    return count_seen, sounds
 
 
-async def scrape_for_spotify(hashtag: str, videos: int, progress_cb=None) -> tuple[int, dict]:
-    return await scrape_sounds(hashtag, videos, progress_cb=progress_cb)
+async def scrape_for_spotify(hashtag: str, videos: int, progress_cb=None,
+                             recent_days: int | None = None) -> tuple[int, dict]:
+    return await scrape_sounds(hashtag, videos, progress_cb=progress_cb, recent_days=recent_days)
 
 
 # ── Download helper ───────────────────────────────────────────────────────────
@@ -295,7 +332,7 @@ def tool_scraper():
     except: top_n  = 50
 
     print()
-    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos))
+    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos, recent_days=30))
     all_s   = sorted(sounds.values(), key=lambda x: x["count"], reverse=True)
     kept    = [s for s in all_s if not s["reason"]]
     removed = [s for s in all_s if s["reason"]]

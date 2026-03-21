@@ -5,606 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EditorSuite</title>
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#070709;--bg2:#0d0d10;--bg3:#131317;--bg4:#19191e;
-  --border:#1c1c24;--border2:#26262f;--border3:#303040;
-  --cyan:#00dfc0;--pink:#ff3b7a;--purple:#a855f7;
-  --amber:#f59e0b;--green:#22d3a0;--red:#f43f5e;--blue:#38bdf8;
-  --text:#f0f0f4;--text2:#a0a0b0;--text3:#606070;
-  --sidebar:260px;
-  --fh:"Space Grotesk",sans-serif;--fm:"JetBrains Mono",monospace;
-  --cat-scraper:#ff3b7a;--cat-analytics:#a855f7;--cat-dl:#00dfc0;--cat-studio:#f59e0b;
-}
-html,body{margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:var(--fh);height:100vh;overflow:hidden;display:flex}
-body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.018;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat:repeat;background-size:128px}
-
-/* SIDEBAR */
-#sb{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);
-  height:100vh;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;
-  position:relative;z-index:10;flex-shrink:0}
-#sb::-webkit-scrollbar{display:none}
-#sb{-ms-overflow-style:none;scrollbar-width:none}
-#sb::after{content:"";display:block;height:36px;flex-shrink:0}
-.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sb-logo-text{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
-.sb-logo-text span{color:var(--cyan)}
-.sb-logo-tag{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:3px;letter-spacing:.04em}
-.sb-home{margin:12px 12px 6px;padding:12px 14px;
-  background:linear-gradient(135deg,rgba(0,223,192,.1),rgba(255,59,122,.06));
-  border:1px solid var(--border2);border-radius:10px;cursor:pointer;transition:all .2s}
-.sb-home:hover,.sb-home.on{border-color:rgba(0,223,192,.4);background:linear-gradient(135deg,rgba(0,223,192,.15),rgba(255,59,122,.08))}
-.sb-home-title{font-size:.88rem;font-weight:600;
-  background:linear-gradient(90deg,var(--cyan),var(--pink));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.sb-home-sub{font-family:var(--fm);font-size:.72rem;color:var(--text3);margin-top:3px}
-.sb-sep{height:1px;background:var(--border);margin:8px 0}
-.sb-cat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;
-  display:flex;align-items:center;gap:8px;padding:14px 20px 6px}
-.sb-cat-lbl::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-.scrapers-cat .sb-cat-lbl{color:var(--cat-scraper)}
-.analytics-cat .sb-cat-lbl{color:var(--cat-analytics)}
-.downloaders-cat .sb-cat-lbl{color:var(--cat-dl)}
-.studio-cat .sb-cat-lbl{color:var(--cat-studio)}
-.sb-tool{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 20px;
-  cursor:pointer;transition:all .15s;border-radius:6px;margin:2px 8px;border:1px solid transparent}
-.sb-tool:hover{background:var(--bg3);border-color:var(--border)}
-.sb-tool.on{background:var(--bg3);border-color:var(--border2)}
-.scrapers-cat .sb-tool.on{border-left:2px solid var(--cat-scraper)}
-.scrapers-cat .sb-tool.on .sb-tool-name{color:var(--cat-scraper)}
-.analytics-cat .sb-tool.on{border-left:2px solid var(--cat-analytics)}
-.analytics-cat .sb-tool.on .sb-tool-name{color:var(--cat-analytics)}
-.downloaders-cat .sb-tool.on{border-left:2px solid var(--cat-dl)}
-.downloaders-cat .sb-tool.on .sb-tool-name{color:var(--cat-dl)}
-.studio-cat .sb-tool.on{border-left:2px solid var(--cat-studio)}
-.studio-cat .sb-tool.on .sb-tool-name{color:var(--cat-studio)}
-.sb-tool-icon{font-size:.9rem;width:20px;text-align:center;flex-shrink:0}
-.sb-tool-name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* MAIN */
-#main{flex:1;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1}
-#main::-webkit-scrollbar{display:none}
-#main{-ms-overflow-style:none;scrollbar-width:none}
-.panel{display:none;min-height:100%}
-.panel.on{display:block}
-
-/* STICKY PASTE BAR */
-.paste-bar{position:sticky;top:0;z-index:20;
-  background:rgba(7,7,9,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);padding:10px 24px;
-  display:flex;align-items:center;gap:10px}
-/* glowy card lives inside the bar */
-.paste-card{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);
-  border-radius:12px;display:flex;align-items:center;gap:10px;padding:8px 14px;
-  transition:border-color .25s,box-shadow .25s;position:relative;overflow:hidden}
-/* moving glow that follows the mouse */
-.paste-card::before{content:"";position:absolute;width:340px;height:340px;border-radius:50%;
-  background:radial-gradient(circle,rgba(168,85,247,.18) 0%,transparent 70%);
-  pointer-events:none;transform:translate(-50%,-50%);
-  transition:opacity .3s;opacity:0;left:var(--mx,50%);top:var(--my,50%)}
-.paste-card:hover::before{opacity:1}
-.paste-card:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,223,192,.08)}
-.paste-card:focus-within::before{opacity:0}
-.paste-bar-icon{color:var(--text3);font-size:1rem;flex-shrink:0;transition:color .2s}
-.paste-card:focus-within .paste-bar-icon{color:var(--cyan)}
-#mi{flex:1;background:none;border:none;outline:none;font-family:var(--fh);
-  font-size:.93rem;color:var(--text);padding:2px 0;caret-color:var(--cyan);min-width:0}
-#mi::placeholder{color:var(--text3)}
-.paste-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:6px;
-  color:var(--text2);font-family:var(--fm);font-size:.68rem;letter-spacing:.06em;
-  padding:6px 11px;cursor:pointer;transition:all .2s;flex-shrink:0}
-.paste-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.det-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);
-  font-size:.8rem;font-weight:500;border-radius:6px;padding:4px 10px;
-  opacity:0;transform:translateY(2px);transition:all .2s;white-space:nowrap;flex-shrink:0}
-.det-chip.show{opacity:1;transform:none}
-.det-chip.dl{color:var(--cyan)}.det-chip.mu{color:var(--purple)}
-.det-chip.sc2{color:var(--pink)}.det-chip.un{color:var(--text3)}
-.go-btn{background:linear-gradient(135deg,var(--cyan),#00b8a0);color:#000;border:none;
-  border-radius:100px;font-family:var(--fh);font-weight:700;font-size:.76rem;letter-spacing:.04em;
-  padding:8px 18px;cursor:pointer;transition:all .25s;opacity:0;pointer-events:none;white-space:nowrap;
-  box-shadow:0 2px 12px rgba(0,223,192,.2);display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
-.go-btn::after{content:"→";transition:transform .2s}
-.go-btn:hover::after{transform:translateX(3px)}
-.go-btn.show{opacity:1;pointer-events:all}
-.go-btn:hover{background:linear-gradient(135deg,#00f5d4,#00ccb0);box-shadow:0 4px 20px rgba(0,223,192,.35)}
-.go-btn.busy{background:var(--bg3);color:var(--text3);border:1px solid var(--border2);cursor:not-allowed;box-shadow:none}
-.go-btn.busy::after{content:""}
-/* opts row below bar — slides down when needed */
-.paste-opts{display:flex;gap:8px;flex-wrap:wrap;padding:6px 24px 8px;
-  background:rgba(7,7,9,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--border);position:sticky;top:57px;z-index:19}
-.p-opt{display:flex;align-items:center;gap:7px}
-.p-opt-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.05em}
-.p-opt-sel{background:var(--bg4);border:1px solid var(--border2);border-radius:5px;
-  color:var(--text);font-family:var(--fm);font-size:.74rem;padding:3px 8px;outline:none;cursor:pointer}
-.p-opt-sel:focus{border-color:var(--cyan)}
-
-
-
-/* PRESETS */
-.preset-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:24px;margin-top:-8px}
-.preset-lbl{font-family:var(--fm);font-size:.66rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0}
-.preset-chip{font-family:var(--fm);font-size:.74rem;border-radius:20px;padding:5px 13px;
-  cursor:pointer;transition:all .18s;border:1px solid var(--border2);color:var(--text3);
-  background:transparent;white-space:nowrap}
-.scrapers  .preset-chip:hover{border-color:var(--cat-scraper);color:var(--cat-scraper);background:rgba(255,59,122,.07)}
-.analytics .preset-chip:hover{border-color:var(--cat-analytics);color:var(--cat-analytics);background:rgba(168,85,247,.07)}
-.downloaders .preset-chip:hover{border-color:var(--cat-dl);color:var(--cat-dl);background:rgba(0,223,192,.07)}
-.studio    .preset-chip:hover{border-color:var(--cat-studio);color:var(--cat-studio);background:rgba(245,158,11,.07)}
-.preset-chip-active{opacity:.45!important;transform:scale(.96);transition:all .15s}
-
-/* LIVE FEED (replaces terminal — 3 rolling lines, no scroll) */
-.live-feed{margin-top:10px;display:none}
-.live-feed.show{display:block}
-.lf-line{font-family:var(--fm);font-size:.75rem;line-height:1.9;color:var(--text3);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .3s}
-.lf-line.active{color:var(--text2)}
-.lf-line.ok{color:var(--green)}.lf-line.err{color:var(--red)}.lf-line.warn{color:var(--amber)}
-
-/* DOWNLOAD BUTTONS in cards */
-.dl-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.dl-btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:8px;
-  font-family:var(--fh);font-size:.82rem;font-weight:600;padding:10px 18px;
-  cursor:pointer;transition:all .2s;text-decoration:none}
-.dl-btn.primary{background:var(--cyan);color:#000}
-.dl-btn.primary:hover{background:#00f5d4;box-shadow:0 4px 16px rgba(0,223,192,.3)}
-.dl-btn.secondary{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
-.dl-btn.secondary:hover{border-color:var(--border3);color:var(--text)}
-
-
-/* SETTINGS PANEL */
-.settings-wrap{padding:40px;max-width:680px}
-.settings-section{margin-bottom:36px}
-.settings-section-title{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.12em;
-  text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:10px}
-.settings-section-title::after{content:"";flex:1;height:1px;background:var(--border)}
-.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.settings-grid.single{grid-template-columns:1fr}
-.settings-field{display:flex;flex-direction:column;gap:6px}
-.settings-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.05em}
-.settings-lbl span{color:var(--text3);font-size:.66rem;margin-left:4px}
-.settings-in{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;
-  outline:none;transition:border-color .2s;width:100%}
-.settings-in:focus{border-color:var(--cyan)}
-.settings-in::placeholder{color:var(--text3)}
-.settings-toggle-row{display:flex;align-items:center;justify-content:space-between;
-  background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:12px 16px}
-.settings-toggle-label{font-size:.88rem;font-weight:500}
-.settings-toggle-sub{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:2px}
-.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
-.toggle input{opacity:0;width:0;height:0;position:absolute}
-.toggle-slider{position:absolute;inset:0;background:var(--bg4);border:1px solid var(--border2);
-  border-radius:22px;cursor:pointer;transition:all .2s}
-.toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;
-  background:var(--text3);border-radius:50%;transition:all .2s}
-.toggle input:checked+.toggle-slider{background:rgba(0,223,192,.2);border-color:var(--cyan)}
-.toggle input:checked+.toggle-slider::before{transform:translateX(18px);background:var(--cyan)}
-.settings-save-btn{background:linear-gradient(135deg,var(--cyan),#00b8a0);color:#000;
-  border:none;border-radius:9px;font-family:var(--fh);font-weight:700;font-size:.9rem;
-  padding:13px 32px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
-.settings-save-btn:hover{background:linear-gradient(135deg,#00f5d4,#00ccb0);box-shadow:0 4px 20px rgba(0,223,192,.3)}
-.settings-save-btn:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;box-shadow:none}
-.settings-toast{display:inline-flex;align-items:center;gap:8px;font-family:var(--fm);font-size:.78rem;
-  color:var(--green);opacity:0;transition:opacity .3s;margin-left:14px}
-.settings-toast.show{opacity:1}
-
-/* PROGRESS BAR (slim, no terminal) */
-.run-progress{padding:20px 40px 0;display:none}
-.run-progress.show{display:block}
-.rp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.rp-label{font-family:var(--fm);font-size:.7rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
-.rp-status{font-family:var(--fm);font-size:.72rem;color:var(--text3);max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rp-track{height:3px;background:var(--bg4);border-radius:3px;overflow:hidden}
-.rp-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:3px;width:0%;transition:width .4s}
-.rp-bar.ind{width:30%;animation:rpanim 1.2s ease-in-out infinite}
-@keyframes rpanim{0%{transform:translateX(-200%)}100%{transform:translateX(500%)} }
-
-/* RESULT AREA */
-.result-area{padding:24px 40px 60px}
-
-/* TOOL GRID */
-.tools-area{padding:32px 40px 60px}
-.section-hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;margin-top:36px}
-.section-hdr:first-child{margin-top:0}
-.section-title{font-size:1rem;font-weight:600}
-.section-count{font-family:var(--fm);font-size:.72rem;color:var(--text3)}
-.section-line{flex:1;height:1px;background:var(--border);margin-left:8px}
-.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:8px}
-.tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-  padding:18px 18px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
-/* mouse-tracking glow blob — colour set per category via --glow-color */
-.tool-card::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;
-  background:radial-gradient(circle,var(--glow-color,rgba(255,255,255,.06)) 0%,transparent 70%);
-  pointer-events:none;transform:translate(-50%,-50%);
-  transition:opacity .25s;opacity:0;left:var(--mx,50%);top:var(--my,50%)}
-.tool-card:hover{border-color:var(--border3);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.tool-card:hover::before{opacity:1}
-.scrapers   .tool-card{--glow-color:rgba(255,59,122,.16)}
-.analytics  .tool-card{--glow-color:rgba(168,85,247,.16)}
-.downloaders .tool-card{--glow-color:rgba(0,223,192,.16)}
-.studio     .tool-card{--glow-color:rgba(245,158,11,.16)}
-.tool-card-icon{font-size:1.35rem;margin-bottom:12px;display:block}
-.tool-card-name{font-size:.92rem;font-weight:600;margin-bottom:6px}
-.tool-card-desc{font-size:.8rem;color:var(--text2);line-height:1.5}
-.tool-card-tag{position:absolute;top:12px;right:12px;font-family:var(--fm);font-size:.62rem;
-  letter-spacing:.06em;border-radius:4px;padding:2px 7px;opacity:.6}
-.scrapers .tool-card-tag{background:rgba(255,59,122,.15);color:var(--cat-scraper)}
-.analytics .tool-card-tag{background:rgba(168,85,247,.15);color:var(--cat-analytics)}
-.downloaders .tool-card-tag{background:rgba(0,223,192,.15);color:var(--cat-dl)}
-.studio .tool-card-tag{background:rgba(245,158,11,.15);color:var(--cat-studio)}
-
-/* TOOL PANEL */
-#pt2{padding:0;display:flex;flex-direction:column}
-.tool-panel-inner{display:flex;flex:1;min-height:100vh;max-width:none}
-.tpi-left{width:520px;min-width:420px;flex-shrink:0;padding:40px;border-right:1px solid var(--border);overflow-y:auto;height:100vh;box-sizing:border-box}
-.tpi-left::-webkit-scrollbar{display:none}
-.tpi-left{-ms-overflow-style:none;scrollbar-width:none}
-.tpi-right{flex:1;overflow-y:auto;height:100vh;box-sizing:border-box;background:var(--bg)}
-.tpi-right::-webkit-scrollbar{display:none}
-.tpi-right{-ms-overflow-style:none;scrollbar-width:none}
-.tpi-right:has(#tr:empty){display:flex;align-items:center;justify-content:center}
-.tpi-right:has(#tr:empty)::after{content:"Results will appear here";font-family:var(--fm);font-size:.78rem;color:var(--text3);opacity:.4;letter-spacing:.04em}
-.t-back{display:inline-flex;align-items:center;gap:7px;font-family:var(--fm);font-size:.74rem;
-  color:var(--text3);cursor:pointer;margin-bottom:28px;transition:color .2s;
-  border:1px solid var(--border);padding:6px 12px;border-radius:6px;background:var(--bg2)}
-.t-back:hover{color:var(--text2);border-color:var(--border2)}
-.t-cat-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:.72rem;
-  letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:4px 10px;margin-bottom:14px}
-.scrapers .t-cat-badge{background:rgba(255,59,122,.12);color:var(--cat-scraper)}
-.analytics .t-cat-badge{background:rgba(168,85,247,.12);color:var(--cat-analytics)}
-.downloaders .t-cat-badge{background:rgba(0,223,192,.12);color:var(--cat-dl)}
-.studio .t-cat-badge{background:rgba(245,158,11,.12);color:var(--cat-studio)}
-.t-icon-big{font-size:2rem;margin-bottom:10px;display:block}
-.t-title{font-size:1.8rem;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
-.t-sub{font-size:.92rem;color:var(--text2);font-weight:400;margin-bottom:32px;line-height:1.6}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
-.form-row.single{grid-template-columns:1fr}
-.form-field{display:flex;flex-direction:column;gap:6px}
-.form-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);letter-spacing:.06em}
-.form-in{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;outline:none;transition:border-color .2s;width:100%}
-.form-in:focus{border-color:var(--cyan)}.form-in::placeholder{color:var(--text3)}
-.form-sel{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text);font-family:var(--fh);font-size:.9rem;padding:11px 14px;outline:none;cursor:pointer;transition:border-color .2s;width:100%}
-.form-sel:focus{border-color:var(--cyan)}
-.run-btn{display:inline-flex;align-items:center;gap:10px;border:none;border-radius:9px;
-  font-family:var(--fh);font-weight:600;font-size:.9rem;padding:13px 28px;cursor:pointer;transition:all .2s;margin-bottom:28px}
-.run-btn svg{width:16px;height:16px;flex-shrink:0}
-.run-btn.busy{background:var(--bg3)!important;color:var(--text3)!important;cursor:not-allowed;box-shadow:none!important}
-.scrapers .run-btn{background:var(--cat-scraper);color:#fff}
-.scrapers .run-btn:hover:not(.busy){background:#ff5590;box-shadow:0 0 24px rgba(255,59,122,.3)}
-.analytics .run-btn{background:var(--cat-analytics);color:#fff}
-.analytics .run-btn:hover:not(.busy){background:#b97af9;box-shadow:0 0 24px rgba(168,85,247,.3)}
-.downloaders .run-btn{background:var(--cat-dl);color:#000}
-.downloaders .run-btn:hover:not(.busy){background:#00f5d4;box-shadow:0 0 24px rgba(0,223,192,.3)}
-.studio .run-btn{background:var(--cat-studio);color:#000}
-.studio .run-btn:hover:not(.busy){background:#fbbf24;box-shadow:0 0 24px rgba(245,158,11,.3)}
-#tp{display:none}.#tp.show{display:block}
-#tp.show{display:block}
-.tool-result{margin-top:4px}
-
-/* ═══ RESULT CARD STYLES ═══ */
-@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.card{background:var(--bg2);border:1px solid var(--border2);border-radius:0;overflow:hidden;animation:fadeup .3s ease;margin-bottom:0;border-left:none;border-right:none}
-.card-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
-.card-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
-.card-meta{font-family:var(--fm);font-size:.7rem;color:var(--text3)}
-.card-body{padding:0}
-.card-footer{display:flex;align-items:center;gap:10px;padding:12px 20px;
-  background:rgba(34,211,160,.05);border-top:1px solid rgba(34,211,160,.12)}
-.cf-icon{width:22px;height:22px;border-radius:50%;background:rgba(34,211,160,.15);
-  display:flex;align-items:center;justify-content:center;color:var(--green);font-size:.75rem;flex-shrink:0}
-.cf-text{font-family:var(--fm);font-size:.75rem;color:var(--green)}
-.open-btn{margin-left:auto;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.25);
-  border-radius:6px;color:var(--green);font-family:var(--fm);font-size:.68rem;
-  padding:5px 12px;cursor:pointer;transition:all .2s;flex-shrink:0}
-.open-btn:hover{background:rgba(34,211,160,.2)}
-
-/* stats strip */
-.stats-strip{display:grid;border-bottom:1px solid var(--border)}
-.stats-strip.c2{grid-template-columns:1fr 1fr}
-.stats-strip.c3{grid-template-columns:repeat(3,1fr)}
-.stats-strip.c4{grid-template-columns:repeat(4,1fr)}
-.stat{padding:18px 20px;text-align:center;border-right:1px solid var(--border)}
-.stat:last-child{border-right:none}
-.stat-n{font-size:1.8rem;font-weight:700;line-height:1;margin-bottom:4px;color:var(--cyan)}
-.stat-n.pink{color:var(--pink)}.stat-n.purple{color:var(--purple)}
-.stat-n.amber{color:var(--amber)}.stat-n.dim{color:var(--text3)}
-.stat-n.green{color:var(--green)}
-.stat-l{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
-
-/* sound rows */
-.sound-rows{}
-.s-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);transition:background .15s}
-.s-row:last-child{border-bottom:none}
-.s-row:hover{background:var(--bg3)}
-.s-rank{font-family:var(--fm);font-size:.75rem;color:var(--text3);width:24px;text-align:right;flex-shrink:0}
-.s-rank.gold{color:#ffd700}.s-rank.silver{color:#c0c0c0}.s-rank.bronze{color:#cd7f32}
-.s-info{flex:1;min-width:0}
-.s-name{font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.s-auth{font-family:var(--fm);font-size:.7rem;color:var(--text3);margin-top:2px}
-.s-bar-wrap{width:100px;height:3px;background:var(--bg4);border-radius:3px;flex-shrink:0}
-.s-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));border-radius:3px;transition:width .6s .1s}
-.s-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text2);width:42px;text-align:right;flex-shrink:0}
-
-/* sound row download button */
-.s-dl-btn{flex-shrink:0;min-width:100px;width:100px;text-align:center;background:none;border:1px solid var(--border2);border-radius:6px;
-  color:var(--text3);font-size:.68rem;font-family:var(--fm);padding:3px 8px;cursor:pointer;
-  transition:all .15s;white-space:nowrap;opacity:0}
-.s-row:hover .s-dl-btn{opacity:1}
-.s-dl-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,245,212,.07)}
-.s-dl-btn.busy{border-color:var(--purple);color:var(--purple);opacity:1;cursor:default}
-.s-dl-btn.done{border-color:var(--green);color:var(--green);opacity:1;cursor:default}
-
-/* hashtag freq bars */
-.hf-row{display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);transition:background .15s}
-.hf-row:last-child{border-bottom:none}
-.hf-row:hover{background:var(--bg3)}
-.hf-tag{font-family:var(--fm);font-size:.8rem;color:var(--pink);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hf-bar-wrap{flex:1;height:6px;background:var(--bg4);border-radius:3px}
-.hf-bar{height:100%;background:linear-gradient(90deg,var(--pink),var(--purple));border-radius:3px;transition:width .6s}
-.hf-cnt{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:52px;text-align:right;flex-shrink:0}
-
-/* video cards */
-.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:16px}
-.vid-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .2s}
-.vid-card:hover{border-color:var(--border2);transform:translateY(-1px)}
-.vid-rank{font-family:var(--fm);font-size:.65rem;color:var(--text3);margin-bottom:8px}
-.vid-title{font-size:.83rem;font-weight:500;line-height:1.4;margin-bottom:10px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.vid-stats{display:flex;gap:10px;flex-wrap:wrap}
-.vid-stat{font-family:var(--fm);font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px}
-.vid-stat span{color:var(--text2)}
-
-/* table */
-.data-table{width:100%;border-collapse:collapse}
-.data-table th{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;
-  padding:10px 20px;text-align:left;border-bottom:1px solid var(--border);font-weight:500}
-.data-table td{padding:11px 20px;font-size:.85rem;border-bottom:1px solid var(--border)}
-.data-table tr:last-child td{border-bottom:none}
-.data-table tbody tr:hover{background:var(--bg3)}
-.tag-pill{display:inline-block;background:rgba(255,59,122,.12);color:var(--pink);
-  font-family:var(--fm);font-size:.68rem;border-radius:4px;padding:2px 7px;margin:1px}
-
-/* engagement meters */
-.eng-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:16px}
-.eng-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px}
-.eng-val{font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px}
-.eng-label{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
-.eng-grade{display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:.72rem;border-radius:5px;padding:3px 9px}
-.eng-grade.above{background:rgba(34,211,160,.12);color:var(--green)}
-.eng-grade.average{background:rgba(245,158,11,.12);color:var(--amber)}
-.eng-grade.below{background:rgba(244,63,94,.12);color:var(--red)}
-
-/* competitor two-col */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border)}
-.col-hdr{padding:14px 20px;font-size:.9rem;font-weight:600;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
-.col-hdr:last-child{border-right:none}
-.col-hdr .at{color:var(--cyan)}.col-hdr2 .at{color:var(--purple)}
-.col-stat{padding:10px 20px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:.85rem}
-.col-stat:nth-child(even){border-right:none}
-.col-stat-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
-.col-stat-val{font-size:.95rem;font-weight:600;color:var(--cyan)}
-
-/* time slots */
-.slot-rows{}
-.slot-row{display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border);transition:background .15s}
-.slot-row:last-child{border-bottom:none}
-.slot-row:hover{background:var(--bg3)}
-.slot-rank{font-family:var(--fm);font-size:.7rem;color:var(--text3);width:20px;text-align:right}
-.slot-day{font-weight:600;font-size:.88rem;width:36px;flex-shrink:0}
-.slot-time{font-family:var(--fm);font-size:.8rem;color:var(--text3);width:55px;flex-shrink:0}
-.slot-bar-wrap{flex:1;height:6px;background:var(--bg4);border-radius:3px}
-.slot-bar{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));border-radius:3px;transition:width .6s}
-.slot-views{font-family:var(--fm);font-size:.72rem;color:var(--text2);width:72px;text-align:right;flex-shrink:0}
-
-/* health score */
-.health-score-wrap{display:flex;align-items:center;gap:24px;padding:24px}
-.score-circle{width:90px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
-.score-num{font-size:1.8rem;font-weight:700;line-height:1;position:relative;z-index:1}
-.score-label{font-family:var(--fm);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:center;margin-top:2px}
-.score-info{flex:1}
-.score-title{font-size:1rem;font-weight:600;margin-bottom:4px}
-.score-sub{font-size:.85rem;color:var(--text2)}
-.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:16px;border-top:1px solid var(--border)}
-.metric{background:var(--bg3);border-radius:9px;padding:14px}
-.metric-val{font-size:1.4rem;font-weight:700;color:var(--cyan);margin-bottom:3px}
-.metric-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase}
-
-/* growth */
-.growth-snap{padding:16px;border-bottom:1px solid var(--border)}
-.growth-snap-label{font-family:var(--fm);font-size:.68rem;color:var(--text3);margin-bottom:8px}
-.growth-stats{display:flex;gap:20px;flex-wrap:wrap}
-.g-stat{flex:1;min-width:100px}
-.g-val{font-size:1.5rem;font-weight:700;color:var(--cyan);margin-bottom:2px}
-.g-lbl{font-family:var(--fm);font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
-.growth-history{padding:0}
-.hist-row{display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid var(--border);font-size:.83rem}
-.hist-row:last-child{border-bottom:none}
-.hist-date{font-family:var(--fm);font-size:.72rem;color:var(--text3);width:130px;flex-shrink:0}
-.hist-val{font-family:var(--fm);font-weight:600;color:var(--text)}
-.hist-delta{font-family:var(--fm);font-size:.72rem;margin-left:auto}
-.hist-delta.up{color:var(--green)}.hist-delta.down{color:var(--red)}.hist-delta.flat{color:var(--text3)}
-
-/* calendar */
-.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:16px}
-.cal-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative}
-.cal-num{position:absolute;top:10px;right:12px;font-family:var(--fm);font-size:.65rem;color:var(--text3)}
-.cal-day{font-size:.8rem;font-weight:600;color:var(--amber);margin-bottom:4px}
-.cal-date{font-family:var(--fm);font-size:.72rem;color:var(--text3)}
-.cal-time{font-size:1.3rem;font-weight:700;color:var(--text);margin-top:8px}
-
-/* download status */
-.dl-status{padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
-.dl-icon{font-size:3rem}
-.dl-text{font-size:1rem;font-weight:600;color:var(--text)}
-.dl-sub{font-family:var(--fm);font-size:.78rem;color:var(--text3);max-width:400px;line-height:1.6}
-.dl-progress-list{width:100%;max-width:500px}
-.dl-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.83rem}
-.dl-item:last-child{border-bottom:none}
-.dl-item-icon{width:18px;font-size:.9rem;flex-shrink:0;text-align:center}
-.dl-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* niche tabs */
-.tab-row{display:flex;border-bottom:1px solid var(--border)}
-.tab-btn{padding:10px 18px;font-family:var(--fm);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;
-  cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none}
-.tab-btn.on{color:var(--cyan);border-bottom-color:var(--cyan)}
-.tab-panel{display:none}.tab-panel.on{display:block}
-
-
-
-
-
-
-
-/* FIRST-RUN SETUP OVERLAY */
-#setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;
-  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
-#setup-overlay.hidden{display:none}
-#setup-box{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;
-  padding:40px 44px;max-width:480px;width:90%;box-shadow:0 32px 80px rgba(0,0,0,.6)}
-.setup-logo{font-family:var(--fh);font-size:1.3rem;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
-.setup-logo span{background:linear-gradient(90deg,var(--cyan),var(--pink));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.setup-h{font-family:var(--fh);font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--text)}
-.setup-sub{font-family:var(--fm);font-size:.8rem;color:var(--text3);line-height:1.6;margin-bottom:28px}
-.setup-lbl{font-family:var(--fm);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--text3);margin-bottom:7px;display:block}
-.setup-row{display:flex;gap:8px;margin-bottom:24px}
-.setup-in{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;
-  padding:11px 14px;color:var(--text);font-family:var(--fm);font-size:.84rem;outline:none;
-  transition:border-color .2s}
-.setup-in:focus{border-color:var(--purple)}
-.setup-browse{background:var(--bg4);border:1px solid var(--border2);border-radius:9px;
-  padding:11px 16px;color:var(--text2);font-family:var(--fh);font-size:.78rem;font-weight:600;
-  cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
-.setup-browse:hover{border-color:var(--purple);color:var(--purple)}
-.setup-confirm{width:100%;background:linear-gradient(135deg,var(--purple),var(--pink));
-  border:none;border-radius:10px;padding:14px;color:#fff;font-family:var(--fh);
-  font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s;letter-spacing:.01em}
-.setup-confirm:hover{opacity:.88}
-.setup-confirm:disabled{opacity:.4;cursor:not-allowed}
-.setup-skip{display:block;text-align:center;margin-top:14px;font-family:var(--fm);
-  font-size:.72rem;color:var(--text3);cursor:pointer;transition:color .15s}
-.setup-skip:hover{color:var(--text2)}
-
-/* SIDEBAR PRESET CATEGORIES */
-.sb-pcat-header{padding:12px 20px 8px;display:flex;align-items:center;justify-content:space-between}
-.sb-pcat-lbl{font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.12em;text-transform:uppercase}
-.sb-pcat-clear{font-family:var(--fm);font-size:.65rem;color:var(--text3);cursor:pointer;
-  padding:2px 7px;border-radius:4px;border:1px solid transparent;transition:all .15s;display:none}
-.sb-pcat-clear:hover{border-color:var(--border2);color:var(--text2)}
-.sb-pcat-clear.show{display:block}
-.sb-pcat-add{font-size:1rem;font-weight:300;color:var(--text3);cursor:pointer;
-  width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);
-  display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
-.sb-pcat-add:hover{border-color:var(--purple);color:var(--purple);background:rgba(168,85,247,.1)}
-/* custom preset cards */
-.sb-custom-list{padding:0 12px 10px;display:flex;flex-direction:column;gap:4px}
-.sb-custom-card{display:flex;align-items:center;justify-content:space-between;
-  padding:7px 10px;border-radius:7px;border:1px solid var(--border2);
-  background:var(--bg2);cursor:pointer;transition:all .15s;position:relative;
-  font-family:var(--fm);font-size:.76rem;color:var(--text)}
-.sb-custom-card:hover{border-color:var(--purple);background:rgba(168,85,247,.06)}
-.sb-custom-card-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sb-custom-card-tag{color:var(--text3);font-size:.7rem;margin-right:8px}
-.sb-custom-card-del{opacity:0;color:var(--text3);font-size:.8rem;
-  width:18px;height:18px;border-radius:4px;border:none;background:none;
-  cursor:pointer;flex-shrink:0;transition:all .15s;padding:0;line-height:1}
-.sb-custom-card:hover .sb-custom-card-del{opacity:1}
-.sb-custom-card-del:hover{color:#f43f5e;background:rgba(244,63,94,.12)}
-.sb-custom-empty{font-family:var(--fm);font-size:.72rem;color:var(--text3);
-  padding:4px 2px;font-style:italic}
-.sb-pcat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px}
-.sb-pcat-btn{font-family:var(--fm);font-size:.72rem;border-radius:8px;padding:7px 6px;
-  cursor:pointer;transition:all .18s;border:1px solid var(--border);color:var(--text3);
-  background:var(--bg2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  display:flex;align-items:center;justify-content:center;gap:5px;line-height:1.2}
-.sb-pcat-btn:hover{border-color:var(--border3);color:var(--text2);background:var(--bg3)}
-.sb-pcat-btn.active{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.5);
-  color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.12)}
-/* custom category button — has a delete ✕ inside */
-.sb-pcat-btn-custom{position:relative;padding-right:20px}
-.sb-pcat-del{position:absolute;top:50%;right:4px;transform:translateY(-50%);
-  font-size:.6rem;opacity:0;color:var(--text3);line-height:1;
-  border-radius:3px;padding:1px 3px;transition:all .15s}
-.sb-pcat-btn-custom:hover .sb-pcat-del{opacity:1}
-.sb-pcat-del:hover{color:var(--red)!important;background:rgba(244,63,94,.15)}
-/* active category banner inside tool panel */
-.cat-context-badge{display:none;align-items:center;gap:8px;margin-bottom:18px;
-  background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);
-  border-radius:8px;padding:8px 14px;font-family:var(--fm);font-size:.76rem;color:var(--purple);
-  max-width:580px;align-self:flex-start}
-.cat-context-badge.show{display:inline-flex}
-.cat-context-badge span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cat-context-x{cursor:pointer;opacity:.6;font-size:.9rem;transition:opacity .15s}
-.cat-context-x:hover{opacity:1}
-
-/* trending two col */
-.trending-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.trend-col{border-right:1px solid var(--border)}
-.trend-col:last-child{border-right:none}
-.trend-col-hdr{padding:12px 16px;font-family:var(--fm);font-size:.68rem;color:var(--text3);
-  letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)}
-
-/* BROWSE BUTTON — attached to path inputs */
-.browse-row{display:flex;gap:8px;align-items:stretch}
-.browse-row .form-in{flex:1}
-.browse-btn{background:var(--bg4);border:1px solid var(--border2);border-radius:9px;
-  color:var(--text2);font-family:var(--fh);font-size:.78rem;font-weight:600;
-  padding:0 16px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
-.browse-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.browse-btn:disabled{opacity:.4;cursor:not-allowed}
-
-/* COMPRESSOR PRESET CARDS */
-.preset-cards-lbl{font-family:var(--fm);font-size:.72rem;color:var(--text3);
-  letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
-.preset-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:10px;margin-bottom:20px;max-width:720px}
-.preset-card{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
-  padding:16px;cursor:pointer;transition:all .18s;position:relative}
-.preset-card:hover{border-color:var(--border3);background:var(--bg3);transform:translateY(-1px)}
-.preset-card.selected{border-color:var(--amber);background:rgba(245,158,11,.08);
-  box-shadow:0 0 0 1px var(--amber)}
-.preset-card-icon{font-size:1.5rem;margin-bottom:8px;display:block}
-.preset-card-name{font-size:.88rem;font-weight:600;margin-bottom:4px}
-.preset-card-desc{font-size:.72rem;color:var(--text2);line-height:1.45}
-.preset-card-check{position:absolute;top:10px;right:10px;font-size:.75rem;
-  color:var(--amber);opacity:0;transition:opacity .15s}
-.preset-card.selected .preset-card-check{opacity:1}
-/* "Add own" dashed card */
-.preset-card-add{border-style:dashed;border-color:rgba(245,158,11,.3);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
-  min-height:110px}
-.preset-card-add:hover{border-color:var(--amber);background:rgba(245,158,11,.06)}
-.preset-card-del{position:absolute;top:8px;right:8px;opacity:0;background:none;border:none;
-  color:var(--text3);font-size:.8rem;cursor:pointer;padding:2px 5px;border-radius:4px;transition:all .15s}
-.preset-card:hover .preset-card-del{opacity:1}
-.preset-card-del:hover{color:var(--red);background:rgba(244,63,94,.12)}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-
-<!-- FIRST-RUN SETUP OVERLAY -->
+<!-- LOGIN OVERLAY -->
 <div id="setup-overlay">
   <div id="setup-box">
     <div class="setup-logo">Editor<span>Suite</span></div>
-    <div class="setup-h">Welcome — one quick step</div>
-    <div class="setup-sub">Choose where EditorSuite saves everything: downloaded videos, audio, reports and more. You can change this anytime in Settings.</div>
-    <label class="setup-lbl">Download &amp; Output Folder</label>
-    <div class="setup-row">
-      <input class="setup-in" id="setup-path" placeholder="e.g. C:\Users\You\EditorSuite">
-      <button class="setup-browse" onclick="setupBrowse()">Browse</button>
+    <!-- Tabs: Sign In / Create Account -->
+    <div class="setup-tabs">
+      <button type="button" class="setup-tab on" id="stab-up" onclick="setSetupTab('up')">Create account</button>
+      <button type="button" class="setup-tab" id="stab-in" onclick="setSetupTab('in')">Sign in</button>
     </div>
-    <button class="setup-confirm" id="setup-confirm" onclick="setupSave()">Let's go →</button>
-    <span class="setup-skip" onclick="setupSkip()">Skip for now</span>
+    <div id="setup-error-msg" class="setup-error"></div>
+    <input class="setup-in" id="setup-email" type="email" placeholder="Email address" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('setup-pass').focus()">
+    <input class="setup-in" id="setup-pass" type="password" placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')setupSubmit()">
+    <button type="button" class="setup-confirm" onclick="setupSubmit()" id="setup-btn">Create account →</button>
+    <div class="setup-divider">or</div>
+    <button type="button" class="setup-google-btn" onclick="setupGoogleLogin()">
+      <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <button type="button" class="setup-skip" onclick="setupSkip()">Skip — continue without account</button>
   </div>
 </div>
 
@@ -612,77 +36,100 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
   <div class="sb-logo">
     <div class="sb-logo-text">Editor<span>Suite</span></div>
     <div class="sb-logo-tag">Creator Toolkit v2</div>
+    <div id="sb-creator-badge" style="display:none;margin-top:6px">
+      <span class="creator-badge">⚡ Creator</span>
+    </div>
   </div>
-  <div style="margin:8px 12px 4px">
-    <div class="sb-tool" style="margin:0;border-radius:8px;background:var(--bg3);border:1px solid var(--border)" onclick="goSettings()">
-      <div class="sb-tool-icon">⚙️</div>
+  <div class="sb-actions">
+    <div class="sb-tool sb-settings-btn" style="margin:0;border-radius:7px;background:var(--bg3);border:1px solid var(--border)" onclick="goSettings()">
+      <div class="sb-tool-icon sb-settings-icon">⚙️</div>
       <div class="sb-tool-name" style="color:var(--text3)">Settings</div>
     </div>
   </div>
-  <div class="sb-sep"></div>
-  <div class="sb-pcat-header">
-    <span class="sb-pcat-lbl">Preset Category</span>
-    <div style="display:flex;gap:5px;align-items:center">
-      <span class="sb-pcat-clear" id="pcat-clear" onclick="clearCategory()">✕ Clear</span>
-      <span class="sb-pcat-add" id="pcat-add-btn" onclick="toggleCustomAdd()" title="Add custom preset">+</span>
+  <div style="padding:0 10px 4px">
+    <div class="sb-home on" id="hbtn" onclick="goHome()">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);display:inline-block;
+          box-shadow:0 0 7px var(--cyan);animation:homePulse 2.2s ease-in-out infinite;flex-shrink:0"></span>
+        <div class="sb-home-title">Home</div>
+      </div>
+      <div class="sb-home-sub">Paste URL or #hashtag</div>
     </div>
   </div>
-  <!-- inline custom category add form — hidden by default -->
-  <div id="pcat-add-form" style="display:none;padding:0 12px 10px;flex-direction:column;gap:6px">
-    <input class="settings-in" id="sb_cp_label" placeholder="Category name (e.g. Gaming)" style="font-size:.76rem;padding:7px 10px" autocomplete="off" spellcheck="false">
-    <input class="settings-in" id="sb_cp_tag"   placeholder="#tag1, #tag2, #tag3..." style="font-size:.76rem;padding:7px 10px" autocomplete="off" spellcheck="false">
-    <button onclick="sbAddCustomCategory()" style="background:var(--purple);color:#fff;border:none;border-radius:7px;
-      font-family:var(--fh);font-size:.76rem;font-weight:700;padding:7px;cursor:pointer;transition:opacity .2s"
-      onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Category</button>
-  </div>
-  <div class="sb-pcat-grid" id="pcat-grid"></div>
   <div class="sb-sep"></div>
-  <div class="sb-home on" id="hbtn" onclick="goHome()">
-    <div class="sb-home-title">Home</div>
-  </div>
-  <div class="sb-sep"></div>
-  <div class="scrapers-cat">
-    <div class="sb-cat-lbl">Scrapers</div>
-    <div class="sb-tool" onclick="goTool('scraper')"><div class="sb-tool-icon">🎵</div><div class="sb-tool-name">Trending Audio</div></div>
-    <div class="sb-tool" onclick="goTool('hfreq')"><div class="sb-tool-icon">#</div><div class="sb-tool-name">Hashtag Frequency</div></div>
-    <div class="sb-tool" onclick="goTool('crosshash')"><div class="sb-tool-icon">⟁</div><div class="sb-tool-name">Cross-Hashtag Sounds</div></div>
-    <div class="sb-tool" onclick="goTool('viral')"><div class="sb-tool-icon">🔥</div><div class="sb-tool-name">Viral Video Finder</div></div>
-    <div class="sb-tool" onclick="goTool('trending')"><div class="sb-tool-icon">📈</div><div class="sb-tool-name">Trending Now</div></div>
-    <div class="sb-tool" onclick="goTool('sp_exp')"><div class="sb-tool-icon">💚</div><div class="sb-tool-name">Export to Spotify</div></div>
-  </div>
-  <div class="sb-sep"></div>
-  <div class="analytics-cat">
-    <div class="sb-cat-lbl">Analytics</div>
-    <div class="sb-tool" onclick="goTool('hanalyze')"><div class="sb-tool-icon">📊</div><div class="sb-tool-name">Hashtag Analyzer</div></div>
-    <div class="sb-tool" onclick="goTool('competitor')"><div class="sb-tool-icon">⚔️</div><div class="sb-tool-name">Competitor Tracker</div></div>
-    <div class="sb-tool" onclick="goTool('besttime')"><div class="sb-tool-icon">🕐</div><div class="sb-tool-name">Best Posting Time</div></div>
-    <div class="sb-tool" onclick="goTool('engagement')"><div class="sb-tool-icon">💡</div><div class="sb-tool-name">Engagement Calc</div></div>
-    <div class="sb-tool" onclick="goTool('niche')"><div class="sb-tool-icon">🗺</div><div class="sb-tool-name">Niche Report</div></div>
-    <div class="sb-tool" onclick="goTool('growth')"><div class="sb-tool-icon">🌱</div><div class="sb-tool-name">Growth Tracker</div></div>
-    <div class="sb-tool" onclick="goTool('health')"><div class="sb-tool-icon">💪</div><div class="sb-tool-name">Account Health</div></div>
-  </div>
-  <div class="sb-sep"></div>
-  <div class="downloaders-cat">
-    <div class="sb-cat-lbl">Downloaders</div>
-    <div class="sb-tool" onclick="goTool('dl_vid')"><div class="sb-tool-icon">⬇️</div><div class="sb-tool-name">TikTok / YouTube DL</div></div>
-    <div class="sb-tool" onclick="goTool('dl_prof')"><div class="sb-tool-icon">👤</div><div class="sb-tool-name">Profile &amp; Playlist</div></div>
-    <div class="sb-tool" onclick="goTool('dl_spotify')"><div class="sb-tool-icon">🎧</div><div class="sb-tool-name">Spotify / SoundCloud</div></div>
-    <div class="sb-tool" onclick="goTool('dl_audio')"><div class="sb-tool-icon">🎙</div><div class="sb-tool-name">Audio Extractor</div></div>
-  </div>
-  <div class="sb-sep"></div>
-  <div class="studio-cat">
-    <div class="sb-cat-lbl">Studio</div>
-    <div class="sb-tool" onclick="goTool('compress')"><div class="sb-tool-icon">📦</div><div class="sb-tool-name">Video Compressor</div></div>
-    <div class="sb-tool" onclick="goTool('bulk_comp')"><div class="sb-tool-icon">🗂</div><div class="sb-tool-name">Bulk Compressor</div></div>
-    <div class="sb-tool" onclick="goTool('bg_rem')"><div class="sb-tool-icon">✂️</div><div class="sb-tool-name">Background Remover</div></div>
-    <div class="sb-tool" onclick="goTool('calendar')"><div class="sb-tool-icon">📅</div><div class="sb-tool-name">Posting Calendar</div></div>
+  <div class="sb-scroll">
+    <!-- Account + Collections shortcuts -->
+    <div style="padding:8px 10px 4px;display:flex;flex-direction:column;gap:4px">
+      <div class="sb-tool" id="sb-acct-btn" onclick="goAccount()" style="border-radius:8px;border:1px solid var(--border);background:var(--bg3);margin:0;transition:all .2s">
+        <div class="sb-tool-icon">🔑</div>
+        <div class="sb-tool-name" id="sb-acct-label" style="color:var(--text2)">My Account</div>
+        <span id="sb-acct-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--green);margin-left:auto;flex-shrink:0"></span>
+      </div>
+      <div class="sb-tool" id="sb-coll-btn" onclick="goCollections()" style="border-radius:8px;border:1px solid var(--border);background:var(--bg3);margin:0;transition:all .2s">
+        <div class="sb-tool-icon">📂</div>
+        <div class="sb-tool-name" style="color:var(--text2)">Collections</div>
+        <span class="cw-badge" id="sb-coll-badge" style="display:none;background:var(--pink);margin-left:auto">0</span>
+      </div>
+    </div>
+    <div class="sb-sep" style="margin:4px 10px"></div>
+    <!-- Category presets -->
+    <div class="sb-pcat-header">
+      <span class="sb-pcat-lbl">Preset Category</span>
+      <div style="display:flex;gap:5px;align-items:center">
+        <span class="sb-pcat-clear" id="pcat-clear" onclick="clearCategory()">✕ Clear</span>
+        <span class="sb-pcat-add" id="pcat-add-btn" onclick="toggleCustomAdd()" title="Add custom preset">+</span>
+      </div>
+    </div>
+    <div id="pcat-add-form" style="display:none;padding:0 12px 10px;flex-direction:column;gap:5px">
+      <input class="settings-in" id="sb_cp_label" placeholder="Category name" style="font-size:.75rem;padding:7px 10px" autocomplete="off" spellcheck="false">
+      <input class="settings-in" id="sb_cp_tag" placeholder="#tag1, #tag2, #tag3..." style="font-size:.75rem;padding:7px 10px" autocomplete="off" spellcheck="false">
+      <button onclick="sbAddCustomCategory()" style="background:var(--purple);color:#fff;border:none;border-radius:7px;font-family:var(--fh);font-size:.75rem;font-weight:700;padding:7px;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Add Category</button>
+    </div>
+    <div class="sb-pcat-grid" id="pcat-grid"></div>
+    <div class="sb-sep"></div>
+
+    <!-- FAVOURITES -->
+    <div id="sb-favs-section" class="fav-cat empty">
+      <div class="sb-cat-lbl">Favourites</div>
+      <div id="sb-favs-list"></div>
+    </div>
+    <div id="sb-favs-sep" class="sb-sep" style="display:none"></div>
+
+    <div class="scrapers-cat">
+      <div class="sb-cat-lbl">Scrapers</div>
+      <div class="sb-tool" id="sb-row-scraper" onclick="goTool('scraper')"><div class="sb-tool-icon">🎵</div><div class="sb-tool-name">Trending Audio</div><span class="sb-fav-star" id="fav-star-scraper" onclick="event.stopPropagation();toggleFav('scraper')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-crosshash" onclick="goTool('crosshash')"><div class="sb-tool-icon">⟁</div><div class="sb-tool-name">Cross-Hashtag Sounds</div><span class="sb-fav-star" id="fav-star-crosshash" onclick="event.stopPropagation();toggleFav('crosshash')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-sp_exp" onclick="goTool('sp_exp')"><div class="sb-tool-icon">💚</div><div class="sb-tool-name">Export to Spotify</div><span class="sb-fav-star" id="fav-star-sp_exp" onclick="event.stopPropagation();toggleFav('sp_exp')" title="Favourite">☆</span></div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="analytics-cat">
+      <div class="sb-cat-lbl">Analytics</div>
+      <div class="sb-tool" id="sb-row-hanalyze" onclick="goTool('hanalyze')"><div class="sb-tool-icon">📊</div><div class="sb-tool-name">Hashtag Analyzer</div><span class="sb-fav-star" id="fav-star-hanalyze" onclick="event.stopPropagation();toggleFav('hanalyze')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-competitor" onclick="goTool('competitor')"><div class="sb-tool-icon">⚔️</div><div class="sb-tool-name">Competitor Tracker</div><span class="sb-fav-star" id="fav-star-competitor" onclick="event.stopPropagation();toggleFav('competitor')" title="Favourite">☆</span></div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="downloaders-cat">
+      <div class="sb-cat-lbl">Downloaders</div>
+      <div class="sb-tool" id="sb-row-dl_vid" onclick="goTool('dl_vid')"><div class="sb-tool-icon">⬇️</div><div class="sb-tool-name">TikTok / YouTube</div><span class="sb-fav-star" id="fav-star-dl_vid" onclick="event.stopPropagation();toggleFav('dl_vid')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-dl_prof" onclick="goTool('dl_prof')"><div class="sb-tool-icon">👤</div><div class="sb-tool-name">Profile &amp; Playlist</div><span class="sb-fav-star" id="fav-star-dl_prof" onclick="event.stopPropagation();toggleFav('dl_prof')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-dl_spotify" onclick="goTool('dl_spotify')"><div class="sb-tool-icon">🎧</div><div class="sb-tool-name">Spotify / SoundCloud</div><span class="sb-fav-star" id="fav-star-dl_spotify" onclick="event.stopPropagation();toggleFav('dl_spotify')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-dl_audio" onclick="goTool('dl_audio')"><div class="sb-tool-icon">🎙</div><div class="sb-tool-name">Audio Extractor</div><span class="sb-fav-star" id="fav-star-dl_audio" onclick="event.stopPropagation();toggleFav('dl_audio')" title="Favourite">☆</span></div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="studio-cat">
+      <div class="sb-cat-lbl">Studio</div>
+      <div class="sb-tool" id="sb-row-compress" onclick="goTool('compress')"><div class="sb-tool-icon">📦</div><div class="sb-tool-name">Video Compressor</div><span class="sb-fav-star" id="fav-star-compress" onclick="event.stopPropagation();toggleFav('compress')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-bg_rem" onclick="goTool('bg_rem')"><div class="sb-tool-icon">✂️</div><div class="sb-tool-name">Background Remover</div><span class="sb-fav-star" id="fav-star-bg_rem" onclick="event.stopPropagation();toggleFav('bg_rem')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-model3d" onclick="goTool('model3d')"><div class="sb-tool-icon">🧊</div><div class="sb-tool-name">3D Model Finder</div><span class="sb-fav-star" id="fav-star-model3d" onclick="event.stopPropagation();toggleFav('model3d')" title="Favourite">☆</span></div>
+      <div class="sb-tool" id="sb-row-footage" onclick="goTool('footage')"><div class="sb-tool-icon">🎬</div><div class="sb-tool-name">Stock Footage</div><span class="sb-fav-star" id="fav-star-footage" onclick="event.stopPropagation();toggleFav('footage')" title="Favourite">☆</span></div>
+    </div>
+
   </div>
 </nav>
 
 <div id="main">
-  <!-- HOME -->
+  <!-- HOME PANEL -->
   <div class="panel on" id="ph">
-    <!-- Sticky paste bar -->
     <div class="paste-bar">
       <div class="paste-card">
         <span class="paste-bar-icon">⌁</span>
@@ -693,72 +140,137 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
       <button class="go-btn" id="gb" onclick="runHome()">Run</button>
     </div>
     <div class="paste-opts" id="hor" style="display:none">
+      <button class="clear-btn" id="hclear" onclick="clearHomeOutput()" style="display:none">Clear Output</button>
       <div class="p-opt" id="oq" style="display:none"><span class="p-opt-lbl">QUALITY</span><select class="p-opt-sel" id="sq"><option>1080p</option><option>720p</option><option>480p</option></select></div>
       <div class="p-opt" id="oaq" style="display:none"><span class="p-opt-lbl">AUDIO</span><select class="p-opt-sel" id="saq"><option value="320">320 kbps</option><option value="256">256 kbps</option><option value="192">192 kbps</option><option value="128">128 kbps</option></select></div>
       <div class="p-opt" id="olim" style="display:none"><span class="p-opt-lbl">LIMIT</span><select class="p-opt-sel" id="slim"><option value="300">300 videos</option><option value="500">500</option><option value="100">100</option><option value="50">50</option></select></div>
     </div>
-    <!-- progress + results sit right below bar before the grid -->
-    <div class="run-progress" id="hp" style="padding:16px 24px 0">
+    <div class="run-progress" id="hp">
       <div class="rp-top"><span class="rp-label" id="hpl">RUNNING</span><span class="rp-status" id="hps"></span></div>
       <div class="rp-track"><div class="rp-bar ind" id="hpb"></div></div>
       <div class="live-feed" id="hlf"><div class="lf-line" id="hlf0"></div><div class="lf-line" id="hlf1"></div><div class="lf-line" id="hlf2"></div></div>
     </div>
-    <div class="result-area" id="hr" style="padding:16px 24px 0"></div>
-    <div class="tools-area" style="padding-top:24px">
+    <div id="hr-wrap" style="display:none"><div class="result-area" id="hr"></div></div>
+
+    <!-- HERO FEATURED TOOLS -->
+    <div class="hero-section">
+      <div class="hero-section-lbl">Featured Tools</div>
+      <div class="hero-grid">
+        <!-- Audio Scraper -->
+        <div class="hero-card hero-audio" onclick="goTool('scraper')">
+          <div class="hero-arrow">↗</div>
+          <div class="hero-card-vis">
+            <div class="hero-audio-vis">
+              <div class="hz-bar" style="--d:.55s;height:30%"></div>
+              <div class="hz-bar" style="--d:.9s;height:70%"></div>
+              <div class="hz-bar" style="--d:.45s;height:40%"></div>
+              <div class="hz-bar" style="--d:1.1s;height:90%"></div>
+              <div class="hz-bar" style="--d:.7s;height:55%"></div>
+              <div class="hz-bar" style="--d:.82s;height:35%"></div>
+              <div class="hz-bar" style="--d:.6s;height:80%"></div>
+              <div class="hz-bar" style="--d:1.0s;height:50%"></div>
+              <div class="hz-bar" style="--d:.4s;height:25%"></div>
+              <div class="hz-bar" style="--d:.75s;height:65%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-card-tag">Scraper</div>
+            <div class="hero-card-name">Trending Audio</div>
+            <div class="hero-card-desc">Find viral sounds from any TikTok hashtag, ranked by usage and average views</div>
+          </div>
+        </div>
+        <!-- 3D Model Finder -->
+        <div class="hero-card hero-3d" onclick="goTool('model3d')">
+          <div class="hero-arrow">↗</div>
+          <div class="hero-card-vis">
+            <div class="hero-cube-scene">
+              <div class="hero-cube">
+                <div class="cube-face face-f"></div>
+                <div class="cube-face face-b"></div>
+                <div class="cube-face face-l"></div>
+                <div class="cube-face face-r"></div>
+                <div class="cube-face face-t"></div>
+                <div class="cube-face face-bt"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-card-tag">Search</div>
+            <div class="hero-card-name">3D Model Finder</div>
+            <div class="hero-card-desc">Live-search Sketchfab for characters, props, environments and more</div>
+          </div>
+        </div>
+        <!-- Video Compressor -->
+        <div class="hero-card hero-compress" onclick="goTool('compress')">
+          <div class="hero-arrow">↗</div>
+          <div class="hero-card-vis">
+            <div class="hero-comp-vis">
+              <div class="comp-bar" style="--d:1.9s;width:100%"></div>
+              <div class="comp-bar" style="--d:2.3s;width:80%"></div>
+              <div class="comp-bar" style="--d:1.65s;width:90%"></div>
+              <div class="comp-bar" style="--d:2.1s;width:70%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-card-tag">Studio</div>
+            <div class="hero-card-name">Video Compressor</div>
+            <div class="hero-card-desc">Single file or batch-compress entire folders with TikTok, Discord and HQ presets</div>
+          </div>
+        </div>
+        <!-- BG Remover -->
+        <div class="hero-card hero-bgrem" onclick="goTool('bg_rem')">
+          <div class="hero-arrow">↗</div>
+          <div class="hero-card-vis">
+            <div class="hero-bgrem-vis">
+              <div class="bgrem-checker"></div>
+              <div class="bgrem-cover"></div>
+              <div class="bgrem-scissors">✂️</div>
+            </div>
+          </div>
+          <div>
+            <div class="hero-card-tag">Studio</div>
+            <div class="hero-card-name">Background Remover</div>
+            <div class="hero-card-desc">AI-powered background removal on any image or entire folder in one batch</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL TOOLS GRID -->
+    <div class="tools-area">
       <div class="section-hdr">
         <div class="section-title" style="color:var(--cat-scraper)">Scrapers</div>
-        <div class="section-count">6 tools</div><div class="section-line"></div>
+        <div class="section-count">3 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid scrapers">
         <div class="tool-card" onclick="goTool('scraper')"><span class="tool-card-icon">🎵</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Trending Audio Scraper</div><div class="tool-card-desc">Find top sounds from any TikTok hashtag ranked by usage count</div></div>
-        <div class="tool-card" onclick="goTool('hfreq')"><span class="tool-card-icon">#</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Hashtag Frequency</div><div class="tool-card-desc">Discover the most-used hashtags in any niche to maximize reach</div></div>
         <div class="tool-card" onclick="goTool('crosshash')"><span class="tool-card-icon">⟁</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Cross-Hashtag Sounds</div><div class="tool-card-desc">Find sounds trending across multiple niches at once</div></div>
-        <div class="tool-card" onclick="goTool('viral')"><span class="tool-card-icon">🔥</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Viral Video Finder</div><div class="tool-card-desc">Scrape top performing videos by view count for any hashtag</div></div>
-        <div class="tool-card" onclick="goTool('trending')"><span class="tool-card-icon">📈</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">TikTok Trending Now</div><div class="tool-card-desc">See what's blowing up globally on TikTok right now</div></div>
         <div class="tool-card" onclick="goTool('sp_exp')"><span class="tool-card-icon">💚</span><div class="tool-card-tag">SCRAPER</div><div class="tool-card-name">Export to Spotify</div><div class="tool-card-desc">Push trending TikTok sounds straight to a Spotify playlist</div></div>
       </div>
-      <div class="section-hdr" style="margin-top:40px">
+      <div class="section-hdr" style="margin-top:36px">
         <div class="section-title" style="color:var(--cat-analytics)">Analytics</div>
-        <div class="section-count">7 tools</div><div class="section-line"></div>
+        <div class="section-count">2 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid analytics">
         <div class="tool-card" onclick="goTool('hanalyze')"><span class="tool-card-icon">📊</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Hashtag Analyzer</div><div class="tool-card-desc">Compare reach, avg views and difficulty across hashtags</div></div>
         <div class="tool-card" onclick="goTool('competitor')"><span class="tool-card-icon">⚔️</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Competitor Tracker</div><div class="tool-card-desc">Side-by-side deep analysis of two TikTok accounts</div></div>
-        <div class="tool-card" onclick="goTool('besttime')"><span class="tool-card-icon">🕐</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Best Posting Time</div><div class="tool-card-desc">Find exactly which days and hours get the most views</div></div>
-        <div class="tool-card" onclick="goTool('engagement')"><span class="tool-card-icon">💡</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Engagement Calculator</div><div class="tool-card-desc">Calculate your ER and benchmark against TikTok averages</div></div>
-        <div class="tool-card" onclick="goTool('niche')"><span class="tool-card-icon">🗺</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Niche Report</div><div class="tool-card-desc">Full audit: trending sounds, top hashtags and viral videos</div></div>
-        <div class="tool-card" onclick="goTool('growth')"><span class="tool-card-icon">🌱</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Growth Tracker</div><div class="tool-card-desc">Snapshot follower counts and chart your account's growth</div></div>
-        <div class="tool-card" onclick="goTool('health')"><span class="tool-card-icon">💪</span><div class="tool-card-tag">ANALYTICS</div><div class="tool-card-name">Account Health</div><div class="tool-card-desc">Views trend, ER, posting habits and a health score</div></div>
       </div>
-      <div class="section-hdr" style="margin-top:40px">
+      <div class="section-hdr" style="margin-top:36px">
         <div class="section-title" style="color:var(--cat-dl)">Downloaders</div>
         <div class="section-count">4 tools</div><div class="section-line"></div>
       </div>
       <div class="tools-grid downloaders">
-        <div class="tool-card" onclick="goTool('dl_vid')"><span class="tool-card-icon">⬇️</span><div class="tool-card-tag">DL</div><div class="tool-card-name">TikTok / YouTube DL</div><div class="tool-card-desc">Download any single video in best quality as MP4</div></div>
-        <div class="tool-card" onclick="goTool('dl_prof')"><span class="tool-card-icon">👤</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Profile &amp; Playlist DL</div><div class="tool-card-desc">Bulk download full profiles, channels or playlists</div></div>
-        <div class="tool-card" onclick="goTool('dl_spotify')"><span class="tool-card-icon">🎧</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Spotify / SoundCloud</div><div class="tool-card-desc">Download any track, album or playlist as high-quality MP3</div></div>
-        <div class="tool-card" onclick="goTool('dl_audio')"><span class="tool-card-icon">🎙</span><div class="tool-card-tag">DL</div><div class="tool-card-name">Audio Extractor</div><div class="tool-card-desc">Rip audio from any local video file or URL</div></div>
-      </div>
-      <div class="section-hdr" style="margin-top:40px">
-        <div class="section-title" style="color:var(--cat-studio)">Studio</div>
-        <div class="section-count">4 tools</div><div class="section-line"></div>
-      </div>
-      <div class="tools-grid studio">
-        <div class="tool-card" onclick="goTool('compress')"><span class="tool-card-icon">📦</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Video Compressor</div><div class="tool-card-desc">Compress a single video with HandBrake presets</div></div>
-        <div class="tool-card" onclick="goTool('bulk_comp')"><span class="tool-card-icon">🗂</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Bulk Compressor</div><div class="tool-card-desc">Compress every video in a folder in one batch</div></div>
-        <div class="tool-card" onclick="goTool('bg_rem')"><span class="tool-card-icon">✂️</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Background Remover</div><div class="tool-card-desc">AI background removal on images or entire folders</div></div>
-        <div class="tool-card" onclick="goTool('calendar')"><span class="tool-card-icon">📅</span><div class="tool-card-tag">STUDIO</div><div class="tool-card-name">Posting Calendar</div><div class="tool-card-desc">Optimal posting schedule from your account's own data</div></div>
-      </div>
+                <div class="tool-card" onclick="goTool('dl_vid')"><span class="tool-card-icon">⬇️</span><div class="tool-card-tag">DL</div><div class="tool-card-name">TikTok / YouTube DL</div><div class="tool-card-desc">Download any single video in best quality as MP4</div></div>
+      </div></div>
     </div>
-  </div>
 
-  <!-- TOOL PANEL -->
-  <div class="panel" id="pt2">
+    <div class="panel" id="pt2">
     <div class="tool-panel-inner" id="tpi">
-      <!-- LEFT: header + form + progress -->
       <div class="tpi-left">
-        <div class="t-back" onclick="goHome()">← Back</div>
+        <div class="t-back-row">
+          <div class="t-back" onclick="goHome()">← Back</div>
+          <div class="t-history-btn" id="t-hist-btn" onclick="showToolHistory()" style="display:none">🕐 Previous</div>
+        </div>
         <div class="t-cat-badge" id="tcb"></div>
         <span class="t-icon-big" id="tic"></span>
         <div class="t-title" id="tt"></div>
@@ -774,1350 +286,154 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opac
           <div class="live-feed" id="tlf" style="margin-top:8px"><div class="lf-line" id="tlf0"></div><div class="lf-line" id="tlf1"></div><div class="lf-line" id="tlf2"></div></div>
         </div>
       </div>
-      <!-- RIGHT: results -->
       <div class="tpi-right">
         <div class="tool-result" id="tr"></div>
       </div>
     </div>
   </div>
+
   <!-- SETTINGS PANEL -->
-  <div class="panel" id="ps">
+    <div class="panel" id="ps">
     <div class="settings-wrap">
-      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:32px">
-        <div style="font-size:1.8rem;font-weight:700;letter-spacing:-.03em">Settings</div>
-        <div style="font-family:var(--fm);font-size:.72rem;color:var(--text3)">config.json</div>
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:36px">
+        <div style="font-family:var(--fd);font-size:1.8rem;font-weight:800;letter-spacing:-.03em">Settings</div>
       </div>
-
       <div class="settings-section">
-        <div class="settings-section-title">Account</div>
-        <div class="settings-grid single">
-          <div class="settings-field">
-            <label class="settings-lbl">YOUR TIKTOK USERNAME <span>used as default in analytics tools</span></label>
-            <input class="settings-in" id="cfg_my_username" placeholder="@username" autocomplete="off">
-          </div>
+        <div class="settings-section-title">Output Folder</div>
+        <div style="margin-bottom:14px;font-family:var(--fm);font-size:.77rem;color:var(--text3);line-height:1.7">
+          All downloads, scrapes and exports are saved here. Sub-folders are created automatically.
         </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input class="settings-in" id="cfg_root_dir" placeholder="C:\Users\You\Videos\EditorSuite" autocomplete="off" style="flex:1">
+          <button onclick="browseOutputFolder()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:9px;color:var(--text2);font-family:var(--fh);font-size:.83rem;padding:11px 18px;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0"
+            onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">📁 Browse…</button>
+        </div>
+        <div id="cfg_root_dir_display" style="margin-top:8px;font-family:var(--fm);font-size:.72rem;color:var(--text3)"></div>
       </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Output Folders <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:.68rem">Leave blank to use subfolder of root</span></div>
-        <div class="settings-grid single">
-          <div class="settings-field">
-            <label class="settings-lbl">📁 ROOT DIRECTORY <span>everything goes here unless overridden below</span></label>
-            <input class="settings-in" id="cfg_root_dir" placeholder="C:\EditorSuite_Output">
-          </div>
-        </div>
-        <div class="settings-grid" style="margin-top:12px">
-          <div class="settings-field">
-            <label class="settings-lbl">🎬 VIDEO DOWNLOADS <span>TikTok &amp; YouTube .mp4 files</span></label>
-            <input class="settings-in" id="cfg_dir_downloads" placeholder="root\downloads">
-          </div>
-          <div class="settings-field">
-            <label class="settings-lbl">🎵 SONG DOWNLOADS <span>Spotify &amp; SoundCloud .mp3 files</span></label>
-            <input class="settings-in" id="cfg_dir_audio" placeholder="root\downloads\audio">
-          </div>
-          <div class="settings-field">
-            <label class="settings-lbl">🔊 SCRAPED SOUNDS <span>audio scraper &amp; Spotify export reports</span></label>
-            <input class="settings-in" id="cfg_dir_sounds" placeholder="root\reports\sounds">
-          </div>
-          <div class="settings-field">
-            <label class="settings-lbl">📊 ANALYTICS REPORTS <span>hashtag, competitor, niche reports</span></label>
-            <input class="settings-in" id="cfg_dir_analysis" placeholder="root\reports\analysis">
-          </div>
-          <div class="settings-field">
-            <label class="settings-lbl">📦 COMPRESSED VIDEOS <span>output from video compressor</span></label>
-            <input class="settings-in" id="cfg_dir_compress" placeholder="root\compressed">
-          </div>
-          <div class="settings-field">
-            <label class="settings-lbl">🖼️ IMAGES <span>background remover output</span></label>
-            <input class="settings-in" id="cfg_dir_images" placeholder="root\images">
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Scraping Defaults</div>
-        <div class="settings-grid">
-          <div class="settings-field"><label class="settings-lbl">DEFAULT VIDEOS TO SCAN</label><input class="settings-in" id="cfg_default_videos" placeholder="500"></div>
-          <div class="settings-field"><label class="settings-lbl">DEFAULT TOP N RESULTS</label><input class="settings-in" id="cfg_default_top_n" placeholder="50"></div>
-          <div class="settings-field"><label class="settings-lbl">SCROLL DELAY (seconds)</label><input class="settings-in" id="cfg_scroll_delay" placeholder="2.0"></div>
-          <div class="settings-field"><label class="settings-lbl">STALE LIMIT</label><input class="settings-in" id="cfg_stale_limit" placeholder="8"></div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Spotify API <span style="font-family:var(--fm);font-size:.66rem;color:var(--text3);font-weight:400;letter-spacing:0">required for Export to Spotify</span></div>
-        <div class="settings-grid">
-          <div class="settings-field"><label class="settings-lbl">CLIENT ID</label><input class="settings-in" id="cfg_spotify_client_id" placeholder="paste here" autocomplete="off"></div>
-          <div class="settings-field"><label class="settings-lbl">CLIENT SECRET</label><input class="settings-in" id="cfg_spotify_client_secret" type="password" placeholder="paste here" autocomplete="off"></div>
-        </div>
-        <div style="margin-top:10px;font-family:var(--fm);font-size:.72rem;color:var(--text3);line-height:1.7">
-          Get credentials at <span style="color:var(--cyan)">developer.spotify.com/dashboard</span> → Create App → set redirect URI to <span style="color:var(--cyan)">http://localhost:8888/callback</span>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Behaviour</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div class="settings-toggle-row">
-            <div><div class="settings-toggle-label">Auto-open output folder</div><div class="settings-toggle-sub">Open folder in Explorer after every tool finishes</div></div>
-            <label class="toggle"><input type="checkbox" id="cfg_auto_open_folder"><span class="toggle-slider"></span></label>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center">
+      <div style="display:flex;align-items:center;gap:14px;margin-top:32px">
         <button class="settings-save-btn" onclick="saveSettings()">Save Settings</button>
         <span class="settings-toast" id="stst">✓ Saved</span>
       </div>
     </div>
   </div>
 
+  <div class="panel" id="pcoll">
+    <!-- Dialog for new collection -->
+    <div class="coll-dialog-overlay" id="coll-dialog">
+      <div class="coll-dialog">
+        <div class="coll-dialog-title">New Collection</div>
+        <input class="settings-in" id="coll-name-in" placeholder="Collection name (e.g. Sad, Happy, Inspo…)" style="margin-bottom:14px">
+        <div style="font-family:var(--fm);font-size:.7rem;color:var(--text3);letter-spacing:.06em;margin-bottom:8px">RARITY</div>
+        <div class="rarity-picker" id="rarity-picker">
+          <div class="rarity-opt sel" data-r="normal" onclick="pickRarity(this,'normal')" style="color:var(--text2)">Normal</div>
+          <div class="rarity-opt" data-r="rare" onclick="pickRarity(this,'rare')" style="color:var(--blue)">🔷 Rare</div>
+          <div class="rarity-opt" data-r="epic" onclick="pickRarity(this,'epic')" style="color:var(--purple)">⚡ Epic</div>
+          <div class="rarity-opt" data-r="legendary" onclick="pickRarity(this,'legendary')" style="color:var(--amber)">🌟 Legendary</div>
+          <div class="rarity-opt" data-r="custom" onclick="pickRarity(this,'custom')" style="color:var(--cyan)">🎨 Custom</div>
+        </div>
+        <div id="coll-custom-emoji" style="display:none;margin-bottom:14px">
+          <input class="settings-in" id="coll-emoji-in" placeholder="Emoji or icon (e.g. 🔥)" style="font-size:1.2rem;text-align:center">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button onclick="closeCollDialog()" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;color:var(--text2);font-family:var(--fh);font-size:.85rem;padding:11px;cursor:pointer">Cancel</button>
+          <button onclick="createCollection()" style="flex:2;background:linear-gradient(135deg,var(--pink),var(--purple));border:none;border-radius:9px;color:#fff;font-family:var(--fh);font-weight:600;font-size:.88rem;padding:11px;cursor:pointer">Create</button>
+        </div>
+      </div>
+    </div>
+    <!-- Main content -->
+    <div class="coll-wrap">
+      <div class="coll-header">
+        <div class="coll-title" id="coll-panel-title">Collections</div>
+        <div style="font-family:var(--fm);font-size:.72rem;color:var(--text3)" id="coll-panel-sub">Your TikTok video collections</div>
+        <button class="coll-new-btn" id="coll-new-btn" onclick="openCollDialog()">+ New Collection</button>
+      </div>
+      <div class="coll-tabs">
+        <button class="coll-tab on" onclick="setCollTab(this,'all')">All Collections</button>
+        <button class="coll-tab" onclick="setCollTab(this,'creators')">Creators</button>
+        <button class="coll-tab" onclick="setCollTab(this,'videos')">Videos</button>
+      </div>
+      <div id="coll-body"></div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT PANEL -->
+  <div class="panel" id="pac">
+    <div style="padding:40px;max-width:560px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:36px">
+        <div style="font-family:var(--fd);font-size:1.7rem;font-weight:800;letter-spacing:-.03em">My Account</div>
+      </div>
+      <!-- Signed in state (shown when token exists) -->
+      <div id="pac-signed-in" style="display:none">
+        <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:24px 28px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+            <div id="pac-avatar" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:1.3rem;font-weight:800;color:#000;flex-shrink:0">?</div>
+            <div>
+              <div id="pac-email" style="font-size:.95rem;font-weight:600;margin-bottom:3px">—</div>
+              <div style="font-family:var(--fm);font-size:.7rem;color:var(--green);display:flex;align-items:center;gap:5px">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
+                Signed in · Cloud sync active
+              </div>
+            </div>
+            <button onclick="pacSignOut()" style="margin-left:auto;background:none;border:1px solid var(--border2);border-radius:7px;color:var(--text3);font-family:var(--fm);font-size:.72rem;padding:7px 14px;cursor:pointer;transition:all .2s"
+              onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+              onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">Sign out</button>
+          </div>
+          <div style="font-family:var(--fm);font-size:.72rem;color:var(--green);display:flex;align-items:center;gap:6px;margin-top:4px">
+            <span>↕</span> Auto-syncing — changes save to cloud instantly
+          </div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:18px 24px">
+          <div style="font-family:var(--fm);font-size:.68rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">What syncs across machines</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;font-size:.84rem"><span style="color:var(--green)">✓</span> Collections &amp; videos</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:.84rem"><span style="color:var(--green)">✓</span> Watched creators</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:.84rem"><span style="color:var(--green)">✓</span> Watched artists</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:.84rem"><span style="color:var(--text3)">—</span> Output folder (local per machine)</div>
+          </div>
+        </div>
+      </div>
+      <!-- Signed out state -->
+      <div id="pac-signed-out" style="display:none">
+        <div style="text-align:center;padding:48px 0">
+          <div style="font-size:2.5rem;margin-bottom:16px">🔑</div>
+          <div style="font-family:var(--fd);font-size:1.2rem;font-weight:700;margin-bottom:10px">Not signed in</div>
+          <div style="font-family:var(--fm);font-size:.8rem;color:var(--text3);margin-bottom:28px;line-height:1.7">Sign in to sync your collections and settings<br>across all your machines.</div>
+          <button onclick="pacShowLogin()" style="background:linear-gradient(135deg,var(--cyan),#00b8a0);border:none;border-radius:10px;color:#000;font-family:var(--fh);font-weight:700;font-size:.9rem;padding:13px 32px;cursor:pointer;transition:all .2s"
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Sign in / Create account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<script>
-const T={
-  scraper:{cat:"scrapers",cl:"SCRAPERS",name:"Trending Audio Scraper",sub:"Find top sounds from any TikTok hashtag",
-    f:[{id:"hashtag",l:"HASHTAG",p:"edit"},{id:"limit",l:"TARGET VIDEOS",s:["300","500","200","100"]}]},
-  hfreq:{cat:"scrapers",cl:"SCRAPERS",name:"Hashtag Frequency",sub:"Most-used hashtags in a niche",
-    f:[{id:"hashtag",l:"HASHTAG",p:"edit"}]},
-  crosshash:{cat:"scrapers",cl:"SCRAPERS",name:"Cross-Hashtag Sounds",sub:"Sounds trending across multiple niches",
-    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}],
-    presets:[
-      {l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},
-      {l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},
-      {l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},
-      {l:"Naruto + AOT + DS",v:{hashtags:"naruto, attackontitan, demonslayer"}},
-      {l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},
-    ]},
-  viral:{cat:"scrapers",cl:"SCRAPERS",name:"Viral Video Finder",sub:"Top performing videos by view count",
-    f:[{id:"hashtag",l:"HASHTAG",p:"edit"},{id:"limit",l:"VIDEOS TO SCAN",s:["100","200","50"]}]},
-  trending:{cat:"scrapers",cl:"SCRAPERS",name:"TikTok Trending Now",sub:"What's blowing up globally right now",f:[]},
-  sp_exp:{cat:"scrapers",cl:"SCRAPERS",name:"Export to Spotify",sub:"Push trending TikTok sounds to a Spotify playlist",
-    f:[{id:"hashtag",l:"HASHTAG TO SCRAPE",p:"edit"}]},
-  hanalyze:{cat:"analytics",cl:"ANALYTICS",name:"Hashtag Analyzer",sub:"Compare reach & avg views across hashtags",
-    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}],
-    presets:[
-      {l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},
-      {l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},
-      {l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},
-      {l:"Naruto + AOT + DS",v:{hashtags:"naruto, attackontitan, demonslayer"}},
-      {l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},
-    ]},
-  competitor:{cat:"analytics",cl:"ANALYTICS",name:"Competitor Tracker",sub:"Side-by-side analysis of two accounts",
-    f:[{id:"user1",l:"ACCOUNT 1",p:"@username"},{id:"user2",l:"ACCOUNT 2",p:"@username"}]},
-  besttime:{cat:"analytics",cl:"ANALYTICS",name:"Best Posting Time",sub:"Best days & hours to post",
-    f:[{id:"username",l:"YOUR TIKTOK @",p:"@username"}]},
-  engagement:{cat:"analytics",cl:"ANALYTICS",name:"Engagement Calculator",sub:"ER benchmarked against TikTok averages",
-    f:[{id:"followers",l:"FOLLOWERS",p:"50000"},{id:"views",l:"AVG VIEWS / VIDEO",p:"15000"},{id:"likes",l:"AVG LIKES / VIDEO",p:"1200"},{id:"comments",l:"AVG COMMENTS",p:"80"},{id:"shares",l:"AVG SHARES",p:"40"}],
-    presets:[
-      {l:"Nano (1K)",v:{followers:"1000",views:"800",likes:"60",comments:"8",shares:"4"}},
-      {l:"Micro (10K)",v:{followers:"10000",views:"5000",likes:"400",comments:"40",shares:"20"}},
-      {l:"Mid (100K)",v:{followers:"100000",views:"30000",likes:"2500",comments:"150",shares:"80"}},
-      {l:"Macro (1M)",v:{followers:"1000000",views:"200000",likes:"15000",comments:"800",shares:"400"}},
-    ]},
-  niche:{cat:"analytics",cl:"ANALYTICS",name:"Niche Report",sub:"Full audit: sounds + hashtags + viral videos",
-    f:[{id:"hashtag",l:"HASHTAG",p:"edit"}]},
-  growth:{cat:"analytics",cl:"ANALYTICS",name:"Growth Tracker",sub:"Snapshot & chart follower growth over time",
-    f:[{id:"username",l:"TIKTOK @",p:"@username"}]},
-  health:{cat:"analytics",cl:"ANALYTICS",name:"Account Health Dashboard",sub:"Full dashboard: views trend, ER, posting habits, health score",
-    f:[{id:"username",l:"TIKTOK @",p:"@username"},{id:"limit",l:"MAX POSTS",s:["100","50","200","300"]}]},
-  dl_vid:{cat:"downloaders",cl:"DOWNLOADERS",name:"TikTok / YouTube DL",sub:"Download a single video in best quality",
-    f:[{id:"url",l:"VIDEO URL",p:"https://www.tiktok.com/@user/video/..."},{id:"quality",l:"QUALITY",s:["1080","720","480","best"]}]},
-  dl_prof:{cat:"downloaders",cl:"DOWNLOADERS",name:"Profile & Playlist DL",sub:"Full profiles, playlists & channels",
-    f:[{id:"url",l:"URL OR @USERNAME",p:"@username or playlist URL"},{id:"limit",l:"MAX VIDEOS",s:["all","50","100","200"]}]},
-  dl_spotify:{cat:"downloaders",cl:"DOWNLOADERS",name:"Spotify / SoundCloud DL",sub:"Track, album, or playlist as MP3",
-    f:[{id:"url",l:"SPOTIFY OR SOUNDCLOUD URL",p:"https://open.spotify.com/track/..."},{id:"quality",l:"AUDIO QUALITY",s:["320","256","192","128"]}]},
-  dl_audio:{cat:"downloaders",cl:"DOWNLOADERS",name:"Audio Extractor",sub:"MP3 from a local file or URL",
-    f:[{id:"input",l:"FILE PATH OR URL",p:"C:\\video.mp4 or https://...",browse:"file",
-        browseFilters:[{name:"Video / Audio",exts:"*.mp4;*.mkv;*.mov;*.avi;*.mp3;*.wav;*.flac"},{name:"All Files",exts:"*.*"}]},
-       {id:"bitrate",l:"BITRATE",s:["320","256","192","128"]}]},
-  compress:{cat:"studio",cl:"STUDIO",name:"Video Compressor",sub:"Compress a single video with HandBrake",
-    f:[
-      {id:"input",l:"VIDEO FILE",p:"C:\\Videos\\clip.mp4",browse:"file",
-        browseFilters:[{name:"Video Files",exts:"*.mp4;*.mkv;*.mov;*.avi;*.wmv;*.m4v"},{name:"All Files",exts:"*.*"}]},
-      {id:"output",l:"OUTPUT FOLDER",p:"C:\\Compressed\\",browse:"folder"},
-      {id:"preset",l:"COMPRESSION PRESET",type:"preset-cards",cards:[
-        {id:"tiktok",  icon:"📱",name:"TikTok",    desc:"720p · ≤ 30 MB · fast encode"},
-        {id:"instagram",icon:"📸",name:"Instagram", desc:"1080p · balanced quality"},
-        {id:"discord", icon:"💬",name:"Discord",   desc:"< 25 MB · 720p · web-optimised"},
-        {id:"web",     icon:"🌐",name:"Web Fast",  desc:"720p · CRF 23 · small file"},
-        {id:"hq",      icon:"🎬",name:"High Quality",desc:"1080p · CRF 18 · large file"},
-        {id:"ultra",   icon:"🗜",name:"Ultra Small",desc:"480p · max compression"},
-      ]}
-    ]},
-  bulk_comp:{cat:"studio",cl:"STUDIO",name:"Bulk Compressor",sub:"Compress every video in a folder",
-    f:[
-      {id:"folder",l:"INPUT FOLDER",p:"C:\\Videos\\",browse:"folder"},
-      {id:"output",l:"OUTPUT FOLDER",p:"C:\\Compressed\\",browse:"folder"},
-      {id:"preset",l:"COMPRESSION PRESET",type:"preset-cards",cards:[
-        {id:"tiktok",  icon:"📱",name:"TikTok",    desc:"720p · ≤ 30 MB · fast encode"},
-        {id:"instagram",icon:"📸",name:"Instagram", desc:"1080p · balanced quality"},
-        {id:"discord", icon:"💬",name:"Discord",   desc:"< 25 MB · 720p · web-optimised"},
-        {id:"web",     icon:"🌐",name:"Web Fast",  desc:"720p · CRF 23 · small file"},
-        {id:"hq",      icon:"🎬",name:"High Quality",desc:"1080p · CRF 18 · large file"},
-        {id:"ultra",   icon:"🗜",name:"Ultra Small",desc:"480p · max compression"},
-      ]}
-    ]},
-  bg_rem:{cat:"studio",cl:"STUDIO",name:"Background Remover",sub:"AI background removal — single image or batch",
-    f:[{id:"input",l:"FILE OR FOLDER PATH",p:"C:\\image.png",browse:"file_or_folder",
-        browseFilters:[{name:"Images",exts:"*.png;*.jpg;*.jpeg;*.webp;*.bmp"},{name:"All Files",exts:"*.*"}]}]},
-  calendar:{cat:"studio",cl:"STUDIO",name:"Posting Calendar",sub:"Generate a posting schedule from your data",
-    f:[{id:"posts_per_week",l:"POSTS PER WEEK",s:["3","5","7","2","1"]},{id:"start_date",l:"START DATE",p:"2025-01-01"}]},
-};
 
-const ICONS={scraper:"🎵",hfreq:"#",crosshash:"⟁",viral:"🔥",trending:"📈",sp_exp:"💚",
-  hanalyze:"📊",competitor:"⚔️",besttime:"🕐",engagement:"💡",niche:"🗺",growth:"🌱",health:"💪",
-  dl_vid:"⬇️",dl_prof:"👤",dl_spotify:"🎧",dl_audio:"🎙",compress:"📦",bulk_comp:"🗂",bg_rem:"✂️",calendar:"📅"};
-
-let det=null,hrun=false,trun=false,dtimer=null,activeToolId=null;
-
-
-// ── PRESET CATEGORIES ────────────────────────────────────────────────────────
-// Each category defines per-tool field values.
-// When active, opening any tool auto-fills these into the form.
-const PC = {
-  "📺 Shows": {
-    label:"Shows",
-    defaults:{
-      scraper:   {hashtag:"strangerthings"},
-      hfreq:     {hashtag:"strangerthings"},
-      crosshash: {hashtags:"strangerthings, theboys, houseofdragon, peakyblinders"},
-      viral:     {hashtag:"strangerthings"},
-      sp_exp:    {hashtag:"strangerthings"},
-      hanalyze:  {hashtags:"strangerthings, breakingbad, peakyblinders, squidgame, theboys"},
-      niche:     {hashtag:"strangerthings"},
-      competitor:{user1:"netflix", user2:"hbomax"},
-    },
-    chips:{
-      scraper:   [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}},{l:"Dexter",v:{hashtag:"dextermorgan"}}],
-      hfreq:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
-      crosshash: [{l:"Netflix Hits",v:{hashtags:"strangerthings, theboys, houseofdragon, squidgame"}},{l:"Crime Drama",v:{hashtags:"breakingbad, peakyblinders, dextermorgan, sopranos"}},{l:"Sci-Fi",v:{hashtags:"strangerthings, blackmirror, westworld"}}],
-      viral:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
-      sp_exp:    [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
-      hanalyze:  [{l:"Netflix Lineup",v:{hashtags:"strangerthings, theboys, squidgame, wednesdayaddams"}},{l:"Crime Shows",v:{hashtags:"breakingbad, peakyblinders, dextermorgan, sopranos"}},{l:"HBO Hits",v:{hashtags:"gameofthrones, houseofdragon, succession, thewhitelotus"}}],
-      niche:     [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
-      competitor:[{l:"Netflix vs HBO",v:{user1:"netflix",user2:"hbomax"}},{l:"Netflix vs Disney+",v:{user1:"netflix",user2:"disneyplus"}},{l:"HBO vs Hulu",v:{user1:"hbomax",user2:"hulu"}}],
-    }
-  },
-  "🎬 Movies": {
-    label:"Movies",
-    defaults:{
-      scraper:   {hashtag:"harrypotter"},
-      hfreq:     {hashtag:"harrypotter"},
-      crosshash: {hashtags:"harrypotter, marvel, starwars, lordoftherings, dc"},
-      viral:     {hashtag:"harrypotter"},
-      sp_exp:    {hashtag:"moviesoundtrack"},
-      hanalyze:  {hashtags:"harrypotter, marvel, starwars, lordoftherings, interstellar"},
-      niche:     {hashtag:"harrypotter"},
-      competitor:{user1:"marvel", user2:"dccomics"},
-    },
-    chips:{
-      scraper:   [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Interstellar",v:{hashtag:"interstellar"}},{l:"Dune",v:{hashtag:"dune"}},{l:"DC",v:{hashtag:"dccomics"}}],
-      hfreq:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
-      crosshash: [{l:"Fantasy Epic",v:{hashtags:"harrypotter, lordoftherings, dune, narnia"}},{l:"Marvel vs DC",v:{hashtags:"marvel, dc, avengers, batman, superman"}},{l:"Sci-Fi Blockbusters",v:{hashtags:"starwars, interstellar, dune, tenet, avatar"}}],
-      viral:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
-      sp_exp:    [{l:"Movie Soundtracks",v:{hashtag:"moviesoundtrack"}},{l:"Hans Zimmer",v:{hashtag:"hanszimmer"}},{l:"Epic Scores",v:{hashtag:"epicmusic"}},{l:"John Williams",v:{hashtag:"johnwilliams"}}],
-      hanalyze:  [{l:"Fantasy Films",v:{hashtags:"harrypotter, lordoftherings, dune, narnia, avatar"}},{l:"Marvel Universe",v:{hashtags:"marvel, avengers, spiderman, ironman, thor"}},{l:"Star Wars Universe",v:{hashtags:"starwars, themandalorian, obiwankenobi, andor"}}],
-      niche:     [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
-      competitor:[{l:"Marvel vs DC",v:{user1:"marvel",user2:"dccomics"}},{l:"Disney vs Universal",v:{user1:"disney",user2:"universalpictures"}},{l:"Marvel vs Star Wars",v:{user1:"marvel",user2:"starwars"}}],
-    }
-  },
-  "🎭 Creator": {
-    label:"Creator",
-    defaults:{},
-    chips:{
-      scraper:   [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Trending",v:{hashtag:"trending"}}],
-      hfreq:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
-      crosshash: [{l:"Edit + CC + Trans",v:{hashtags:"edit, capcutedit, transition"}},{l:"Edit + Fyp + Trend",v:{hashtags:"videoedit, fyp, trending"}},{l:"Edit + CC + Fyp",v:{hashtags:"edit, capcutedit, fyp"}}],
-      viral:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
-      sp_exp:    [{l:"Edit Music",v:{hashtag:"editmusic"}},{l:"Phonk",v:{hashtag:"phonk"}},{l:"Slowed Reverb",v:{hashtag:"slowedreverb"}},{l:"NCS",v:{hashtag:"ncs"}}],
-      hanalyze:  [{l:"Edit Tags",v:{hashtags:"edit, videoedit, capcutedit, transition, fyp"}},{l:"Phonk Tags",v:{hashtags:"phonk, phonkedit, darkphonk, phonkmusic"}},{l:"Creator Tags",v:{hashtags:"contentcreator, youtuber, tiktokgrowth, fyp"}}],
-      niche:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Phonk",v:{hashtag:"phonk"}}],
-      competitor:[{l:"CapCut vs VN",v:{user1:"capcutapp",user2:"vnvideoeditor"}},{l:"Premiere vs DaVinci",v:{user1:"adobepremiere",user2:"davinciresolve"}},{l:"Edit Creators",v:{user1:"zach.king",user2:"khaby.lame"}}],
-    }
-  },
-  "🎌 Anime": {
-    label:"Anime",
-    defaults:{
-      scraper:   {hashtag:"animeedit"},
-      hfreq:     {hashtag:"anime"},
-      crosshash: {hashtags:"anime, animeedit, animetiktok, otaku, animememes"},
-      viral:     {hashtag:"animeedit"},
-      sp_exp:    {hashtag:"animemusic"},
-      hanalyze:  {hashtags:"anime, animeedit, animetiktok, naruto, onepiece"},
-      niche:     {hashtag:"anime"},
-      competitor:{user1:"crunchyroll", user2:"funimation"},
-    },
-    chips:{
-      scraper:   [{l:"Anime Edits",v:{hashtag:"animeedit"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}},{l:"Dragon Ball",v:{hashtag:"dragonball"}}],
-      hfreq:     [{l:"Anime",v:{hashtag:"anime"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
-      crosshash: [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach, dragonball"}},{l:"New Gen",v:{hashtags:"demonslayer, jujutsukaisen, chainsawman, myheroacademia"}},{l:"Edits Niche",v:{hashtags:"animeedit, animetiktok, otaku, animememes"}}],
-      viral:     [{l:"Anime Edits",v:{hashtag:"animeedit"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
-      sp_exp:    [{l:"Anime Music",v:{hashtag:"animemusic"}},{l:"Anime Openings",v:{hashtag:"animeopening"}},{l:"Lo-Fi Anime",v:{hashtag:"animelofigirl"}},{l:"Phonk Anime",v:{hashtag:"animephonk"}}],
-      hanalyze:  [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach, dragonball, hunterxhunter"}},{l:"New Gen",v:{hashtags:"demonslayer, jujutsukaisen, chainsawman, myheroacademia"}},{l:"Edit Tags",v:{hashtags:"animeedit, animetiktok, animememes, otaku, animefyp"}}],
-      niche:     [{l:"Anime",v:{hashtag:"anime"}},{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}}],
-      competitor:[{l:"Crunchyroll vs Funimation",v:{user1:"crunchyroll",user2:"funimation"}},{l:"Naruto vs One Piece",v:{user1:"naruto",user2:"onepiecefans"}},{l:"Demon Slayer vs JJK",v:{user1:"demonslayer",user2:"jujutsukaisen"}}],
-    }
-  },
-};
-
-// Per-tool preset chips, keyed by category name.
-// When a category is active these replace the default tool presets.
-const TP = {
-  scraper:{
-    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Squid Game",v:{hashtag:"squidgame"}}],
-    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Interstellar",v:{hashtag:"interstellar"}}],
-    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}}],
-  },
-  hfreq:{
-    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
-    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"The Dark Knight",v:{hashtag:"thedarkknight"}}],
-    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"Jujutsu Kaisen",v:{hashtag:"jujutsukaisen"}}],
-  },
-  crosshash:{
-    "📺 Shows":  [{l:"ST + BB + TWD",v:{hashtags:"strangerthings, breakingbad, thewalkingdead"}},{l:"ST + Peaky + Dexter",v:{hashtags:"strangerthings, peakyblinders, dexter"}},{l:"Succession + Ozark + BB",v:{hashtags:"succession, ozark, breakingbad"}}],
-    "🎬 Movies": [{l:"HP + SW + LOTR",v:{hashtags:"harrypotter, starwars, lordoftherings"}},{l:"Marvel + DC + SW",v:{hashtags:"marvel, dc, starwars"}},{l:"Nolan Pack",v:{hashtags:"interstellar, inception, thedarkknight, tenet"}}],
-    "🎌 Anime":  [{l:"Shonen Pack",v:{hashtags:"naruto, onepiece, dragonball, bleach, haikyuu"}},{l:"Dark Pack",v:{hashtags:"attackontitan, demonslayer, tokyoghoul, vinlandSaga"}},{l:"Hype Pack",v:{hashtags:"jujutsukaisen, chainsaw, demonslayer, animeedit"}}],
-  },
-  viral:{
-    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"Squid Game",v:{hashtag:"squidgame"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}}],
-    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marveledit"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lotr"}},{l:"Dune",v:{hashtag:"dune"}}],
-    "🎌 Anime":  [{l:"AOT Edits",v:{hashtag:"attackontitanedit"}},{l:"Demon Slayer",v:{hashtag:"demonslayeredit"}},{l:"Naruto",v:{hashtag:"narutoedit"}},{l:"JJK",v:{hashtag:"jjkedit"}},{l:"One Piece",v:{hashtag:"onepieceedit"}}],
-  },
-  sp_exp:{
-    "📺 Shows":  [{l:"Stranger Things OST",v:{hashtag:"strangerthingsmusic"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinderssoundtrack"}},{l:"Breaking Bad",v:{hashtag:"breakingbadmusic"}},{l:"The Boys",v:{hashtag:"theboysmusic"}}],
-    "🎬 Movies": [{l:"Harry Potter OST",v:{hashtag:"harrypottermusic"}},{l:"Marvel OST",v:{hashtag:"marvelmusic"}},{l:"Hans Zimmer",v:{hashtag:"hanszimmer"}},{l:"Movie Soundtracks",v:{hashtag:"moviesoundtrack"}}],
-    "🎌 Anime":  [{l:"Anime OPs",v:{hashtag:"animeopening"}},{l:"Anime OST",v:{hashtag:"animemusic"}},{l:"Naruto OST",v:{hashtag:"narutomusic"}},{l:"AOT OST",v:{hashtag:"attackontitanmusic"}}],
-  },
-  hanalyze:{
-    "📺 Shows":  [{l:"Netflix Rivals",v:{hashtags:"strangerthings, theboys, squidgame, wednesday"}},{l:"Crime Shows",v:{hashtags:"breakingbad, peakyblinders, ozark, narcos"}},{l:"Sci-Fi Shows",v:{hashtags:"strangerthings, blackmirror, westworld"}}],
-    "🎬 Movies": [{l:"MCU vs DCEU",v:{hashtags:"marvel, dc, avengers, justiceleague"}},{l:"Fantasy Films",v:{hashtags:"harrypotter, lordoftherings, narnia, thehobbit"}},{l:"Blockbusters",v:{hashtags:"starwars, marvel, avatar, fastfurious"}}],
-    "🎌 Anime":  [{l:"Big 3",v:{hashtags:"naruto, onepiece, bleach"}},{l:"New Gen",v:{hashtags:"jujutsukaisen, demonslayer, chainsaw, jjk"}},{l:"Edits Battle",v:{hashtags:"animeedit, animeedits, animetiktok"}}],
-  },
-  niche:{
-    "📺 Shows":  [{l:"Stranger Things",v:{hashtag:"strangerthings"}},{l:"Breaking Bad",v:{hashtag:"breakingbad"}},{l:"The Boys",v:{hashtag:"theboys"}},{l:"Wednesday",v:{hashtag:"wednesdayaddams"}},{l:"Peaky Blinders",v:{hashtag:"peakyblinders"}}],
-    "🎬 Movies": [{l:"Harry Potter",v:{hashtag:"harrypotter"}},{l:"Marvel",v:{hashtag:"marvel"}},{l:"Star Wars",v:{hashtag:"starwars"}},{l:"Lord of the Rings",v:{hashtag:"lordoftherings"}},{l:"Dune",v:{hashtag:"dune"}}],
-    "🎌 Anime":  [{l:"Naruto",v:{hashtag:"naruto"}},{l:"One Piece",v:{hashtag:"onepiece"}},{l:"Attack on Titan",v:{hashtag:"attackontitan"}},{l:"Demon Slayer",v:{hashtag:"demonslayer"}},{l:"JJK",v:{hashtag:"jujutsukaisen"}}],
-  },
-  "🎭 Creator": {
-    scraper:   [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Trending",v:{hashtag:"trending"}}],
-    hfreq:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
-    crosshash: [{l:"Edit + CC + Trans",v:{hashtags:"edit, capcutedit, transition"}},{l:"Edit + Fyp + Trend",v:{hashtags:"videoedit, fyp, trending"}},{l:"Edit + CC + Fyp",v:{hashtags:"edit, capcutedit, fyp"}}],
-    viral:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Fyp",v:{hashtag:"fyp"}}],
-    sp_exp:    [{l:"Edit Music",v:{hashtag:"editmusic"}},{l:"Phonk",v:{hashtag:"phonk"}},{l:"Slowed Reverb",v:{hashtag:"slowedreverb"}},{l:"NCS",v:{hashtag:"ncs"}}],
-    hanalyze:  [{l:"Edit Tags",v:{hashtags:"edit, videoedit, capcutedit, transition, fyp"}},{l:"Phonk",v:{hashtags:"phonk, phonkedit, darkphonk, phonkmusic"}},{l:"Creator Tags",v:{hashtags:"contentcreator, youtuber, tiktokgrowth, fyp"}}],
-    niche:     [{l:"Edit",v:{hashtag:"edit"}},{l:"VideoEdit",v:{hashtag:"videoedit"}},{l:"CapCut",v:{hashtag:"capcutedit"}},{l:"Transitions",v:{hashtag:"transition"}},{l:"Phonk",v:{hashtag:"phonk"}}],
-  },
-};
-
-let activeCategory = null;
-
-function initCategories(){
-  const grid = document.getElementById("pcat-grid");
-  if(!grid) return;
-  // Built-in categories
-  const builtIn = Object.keys(PC).map(name =>
-    `<button class="sb-pcat-btn" data-cat="${name}" onclick="setCategory('${name}')">${name}</button>`
-  );
-  // Custom categories
-  const custom = _customCategories.map((cat, i) =>
-    `<button class="sb-pcat-btn sb-pcat-btn-custom" data-cat="${x(cat.name)}" onclick="setCategory('${x(cat.name)}')" title="Hold to delete">
-      ${x(cat.name)}
-      <span class="sb-pcat-del" onclick="event.stopPropagation();removeCustomCategory(${i})" title="Delete">✕</span>
-    </button>`
-  );
-  grid.innerHTML = [...builtIn, ...custom].join("");
-}
-
-function setCategory(name){
-  if(activeCategory === name){
-    clearCategory(); return;
-  }
-  // Make sure custom category is in PC lookup
-  const custCat = _customCategories.find(c=>c.name===name);
-  if(custCat && !PC[name]) PC[name] = buildCustomCategoryPC(custCat);
-  activeCategory = name;
-  document.querySelectorAll(".sb-pcat-btn").forEach(b=>{
-    b.classList.toggle("active", b.dataset.cat === name);
-  });
-  document.getElementById("pcat-clear").classList.add("show");
-  showContextBadge(name);
-  fillToolFields(name);
-}
-
-function clearCategory(){
-  activeCategory = null;
-  document.querySelectorAll(".sb-pcat-btn").forEach(b=>b.classList.remove("active"));
-  document.getElementById("pcat-clear").classList.remove("show");
-  hideContextBadge();
-}
-
-function showContextBadge(name){
-  const b=document.getElementById("ccb"), t=document.getElementById("ccb-text");
-  if(!b||!t)return;
-  t.textContent = name + " preset active — fields auto-filled";
-  b.classList.add("show");
-}
-function hideContextBadge(){
-  const b=document.getElementById("ccb"); if(b) b.classList.remove("show");
-}
-
-function fillToolFields(catName){
-  const on = document.querySelector(".sb-tool.on");
-  if(!on) return;
-  const id = (on.getAttribute("onclick")||"").replace(/goTool\(['"](.+?)['"]\)/,"$1");
-  if(!id) return;
-  // re-render the whole form so preset chips update too
-  goTool(id);
-}
-
-// run on load
-document.addEventListener("DOMContentLoaded", ()=>{
-  initCategories();
-  setCategory("📺 Shows");
-  // Config loading is handled by checkFirstRun → _loadConfig once server is confirmed ready
-});
-
-// ── NAVIGATION ──────────────────────────────────────────────────────────────
-function goHome(){
-  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
-  document.getElementById("ph").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  document.getElementById("hbtn").classList.add("on");
-  document.getElementById("main").scrollTop=0;
-}
-
-function goTool(id){
-  const t=T[id]; if(!t)return;
-  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
-  document.getElementById("pt2").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  document.querySelectorAll(".sb-tool").forEach(b=>{if(b.getAttribute("onclick")===`goTool('${id}')`)b.classList.add("on")});
-  const tpi=document.getElementById("tpi");
-  tpi.className="tool-panel-inner "+t.cat;
-  document.getElementById("tcb").textContent=t.cl;
-  document.getElementById("tic").textContent=ICONS[id]||"⚙️";
-  document.getElementById("tt").textContent=t.name;
-  document.getElementById("ts").textContent=t.sub;
-  let h="";
-  // Separate normal fields from preset-cards fields
-  const normalFields = t.f.filter(f=>f.type!=="preset-cards");
-  const cardFields   = t.f.filter(f=>f.type==="preset-cards");
-  if(normalFields.length){
-    h+=`<div class="form-row${normalFields.length===1?" single":""}">`;
-    normalFields.forEach(f=>{
-      h+=`<div class="form-field"><label class="form-lbl">${f.l}</label>`;
-      if(f.s){
-        h+=`<select class="form-sel" id="tf_${f.id}">${f.s.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`;
-      } else if(f.browse){
-        // text input + native Explorer browse button
-        const bfJson = f.browseFilters ? JSON.stringify(f.browseFilters).replace(/"/g,"&quot;") : "[]";
-        const btype  = f.browse; // "file", "folder", "file_or_folder"
-        h+=`<div class="browse-row">`;
-        h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
-        h+=`<button class="browse-btn" onclick="browseInput('tf_${f.id}','${btype}','${bfJson}')">Browse…</button>`;
-        h+=`</div>`;
-      } else {
-        h+=`<input class="form-in" id="tf_${f.id}" type="text" placeholder="${f.p||""}">`;
-      }
-      h+=`</div>`;
-    });
-    h+=`</div>`;
-  }
-  // Render preset-card grids
-  cardFields.forEach(f=>{
-    h+=`<div style="margin-bottom:20px;max-width:760px">`;
-    h+=`<div class="preset-cards-lbl">${f.l}</div>`;
-    h+=`<div class="preset-cards-grid" id="pcg_${f.id}">`;
-    (f.cards||[]).forEach((c,i)=>{
-      const sel = i===0 ? " selected" : "";
-      h+=`<div class="preset-card${sel}" data-preset-field="tf_${f.id}" data-preset-val="${c.id}"
-        onclick="selectPresetCard(this)">
-        <span class="preset-card-check">✓</span>
-        <span class="preset-card-icon">${c.icon}</span>
-        <div class="preset-card-name">${c.name}</div>
-        <div class="preset-card-desc">${c.desc}</div>
-      </div>`;
-    });
-    // Inject saved custom compressor presets
-    (_customCompPresets||[]).forEach(cp=>{
-      h+=`<div class="preset-card" data-preset-field="tf_${f.id}" data-preset-val="${x(cp.path)}"
-        onclick="selectPresetCard(this)" style="position:relative">
-        <span class="preset-card-check">✓</span>
-        <span class="preset-card-icon">📂</span>
-        <div class="preset-card-name">${x(cp.name)}</div>
-        <div class="preset-card-desc" style="word-break:break-all;font-size:.65rem">${x(cp.path)}</div>
-        <button class="preset-card-del" onclick="event.stopPropagation();removeCompPreset('${x(cp.path)}','tf_${f.id}')" title="Remove">✕</button>
-      </div>`;
-    });
-    // "Add own preset" card
-    h+=`<div class="preset-card preset-card-add" onclick="addCompPreset('tf_${f.id}')">
-      <span class="preset-card-icon" style="font-size:1.8rem;color:var(--amber);opacity:.7">+</span>
-      <div class="preset-card-name" style="color:var(--amber)">Add own preset</div>
-      <div class="preset-card-desc">Browse for a HandBrake preset .json file</div>
-      <button class="browse-btn" style="margin-top:10px;width:100%;font-size:.72rem;padding:6px 0"
-        onclick="event.stopPropagation();addCompPreset('tf_${f.id}')">Browse…</button>
-    </div>`;
-    h+=`</div>`;
-    // Hidden input that holds the selected preset value
-    const defVal = f.cards && f.cards[0] ? f.cards[0].id : "";
-    h+=`<input type="hidden" id="tf_${f.id}" value="${defVal}">`;
-    h+=`</div>`;
-  });
-  // chips: category-specific if active, else tool's own presets (e.g. engagement size)
-  const catChips = activeCategory && PC[activeCategory] && PC[activeCategory].chips && PC[activeCategory].chips[id]
-    ? PC[activeCategory].chips[id] : null;
-  const chips = catChips || (t.presets && t.presets.length ? t.presets : null);
-  if(chips){
-    const lbl = catChips ? (PC[activeCategory].label+" Presets") : "Presets";
-    h+=`<div class="preset-row"><span class="preset-lbl">${lbl}</span>`;
-    chips.forEach(p=>{
-      const vals=JSON.stringify(p.v).replace(/"/g,"&quot;");
-      h+=`<button class="preset-chip" onclick="applyPreset(${vals})">${p.l}</button>`;
-    });
-    h+=`</div>`;
-  }
-  h+=`<button class="run-btn" id="rbtn" onclick="runTool('${id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Run ${t.name}</button>`;
-  document.getElementById("tf").innerHTML=h;
-  if(activeCategory){ showContextBadge(activeCategory); } else { hideContextBadge(); }
-  const tpEl=document.getElementById("tp");
-  const trEl=document.getElementById("tr");
-  if(activeToolId === id && trun){
-    if(tpEl) tpEl.style.display="block";
-    // keep existing output / progress when returning to a running tool
-  }else{
-    if(tpEl) tpEl.style.display="none";
-    if(trEl) trEl.innerHTML="";
-    trun=false;
-  }
-  document.getElementById("main").scrollTop=0;
-}
-
-let _presetOverride = null;
-
-function applyPreset(vals){
-  // Fill the visible fields with preset values
-  Object.entries(vals).forEach(([k,v])=>{
-    const el = document.getElementById("tf_"+k);
-    if(el) el.value = v;
-  });
-  // Flash the clicked chip
-  const btn = event && event.target;
-  if(btn && btn.classList && btn.classList.contains("preset-chip")){
-    btn.classList.add("preset-chip-active");
-    setTimeout(()=>btn.classList.remove("preset-chip-active"), 600);
-  }
-}
-
-// ── HOME DETECT ──────────────────────────────────────────────────────────────
-const mi=document.getElementById("mi");
-mi.addEventListener("input",()=>{clearTimeout(dtimer);dtimer=setTimeout(()=>doDetect(mi.value),260)});
-mi.addEventListener("keydown",e=>{if(e.key==="Enter"&&det&&!hrun)runHome()});
-
-async function doDetect(txt){
-  if(!txt.trim()){setChip(null);return}
-  try{
-    const r=await fetch("/api/detect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:txt})});
-    det=await r.json(); setChip(det); updateOpts(det.type);
-  }catch(e){}
-}
-
-function setChip(d){
-  const dc=document.getElementById("dc"),dl=document.getElementById("dlbl"),gb=document.getElementById("gb");
-  if(!d||!d.type||d.type==="unknown"){dc.className="det-chip";gb.className="go-btn";return}
-  const cm={tiktok_video:"dl",tiktok_profile:"dl",youtube_video:"dl",youtube_playlist:"dl",
-    spotify_track:"mu",spotify_album:"mu",spotify_playlist:"mu",soundcloud:"mu",hashtag:"sc2"}[d.type]||"un";
-  const ic={tiktok_video:"▶ ",tiktok_profile:"👤 ",youtube_video:"▶ ",youtube_playlist:"📋 ",
-    spotify_track:"🎵 ",spotify_album:"💿 ",spotify_playlist:"🎧 ",soundcloud:"🎵 ",hashtag:"# "};
-  dc.className=`det-chip show ${cm}`;
-  dl.textContent=(ic[d.type]||"")+d.label;
-  gb.className=hrun?"go-btn show busy":"go-btn show";
-}
-
-function updateOpts(tp){
-  const row=document.getElementById("hor");
-  const q=document.getElementById("oq"),aq=document.getElementById("oaq"),lm=document.getElementById("olim");
-  const isV=["tiktok_video","youtube_video","tiktok_profile","youtube_playlist"].includes(tp);
-  const isA=["spotify_track","spotify_album","spotify_playlist","soundcloud"].includes(tp);
-  const isL=["hashtag","tiktok_profile","youtube_playlist"].includes(tp);
-  q.style.display=isV?"flex":"none"; aq.style.display=isA?"flex":"none"; lm.style.display=isL?"flex":"none";
-  row.style.display=(isV||isA||isL)?"flex":"none";
-}
-
-async function doPaste(){
-  try{const t=await navigator.clipboard.readText();mi.value=t;doDetect(t);}catch(e){mi.focus();}
-}
-function ex(t){mi.value=t;mi.focus();doDetect(t);}
-
-// ── RUN HOME ─────────────────────────────────────────────────────────────────
-function runHome(){
-  if(!det||!det.type||det.type==="unknown"||hrun)return;
-  hrun=true;
-  const gb=document.getElementById("gb"); gb.className="go-btn show busy"; gb.textContent="Running...";
-  const hp=document.getElementById("hp"); hp.classList.add("show");
-  document.getElementById("hr").innerHTML="";
-  const hpb=document.getElementById("hpb"); hpb.style.width="0%"; hpb.classList.add("ind");
-  document.getElementById("hpl").textContent="RUNNING"; document.getElementById("hps").textContent="";
-  const opts={quality:document.getElementById("sq")?.value||"1080",
-    audio_quality:document.getElementById("saq")?.value||"320",
-    limit:document.getElementById("slim")?.value||"300"};
-  doStream("/api/run",{detected:det,options:opts},{
-    barEl:hpb,lblEl:document.getElementById("hpl"),stEl:document.getElementById("hps"),
-    resEl:document.getElementById("hr"),feedId:"hlf",
-    onDone:()=>{
-    hrun=false;
-    // Clear the paste bar so user can drop in something new
-    const mi=document.getElementById("mi");
-    if(mi) mi.value="";
-    det=null;
-    setChip(null);
-    // Fade out progress bar after a short delay
-    const hp=document.getElementById("hp");
-    setTimeout(()=>{ if(hp) hp.classList.remove("show"); }, 2000);
-    const g=document.getElementById("gb");
-    g.className="go-btn"; g.textContent="Run";
-  }
-  });
-}
-
-// ── RUN TOOL ─────────────────────────────────────────────────────────────────
-function runTool(id){
-  if(trun)return;
-  const t=T[id]; if(!t)return;
-  trun=true;
-  activeToolId=id;
-  document.getElementById("rbtn").classList.add("busy");
-  const opts={};
-  t.f.forEach(f=>{ const el=document.getElementById('tf_'+f.id); if(el) opts[f.id]=el.value.trim()||el.placeholder||"edit"; });
-  const tp=document.getElementById("tp"); tp.style.display="block";
-  const tpb=document.getElementById("tpb"); tpb.style.width="0%"; tpb.classList.add("ind");
-  document.getElementById("tpl").textContent="RUNNING"; document.getElementById("tps").textContent="";
-  document.getElementById("tr").innerHTML="";
-  doStream("/api/tool",{tool_id:id,options:opts},{
-    barEl:tpb,lblEl:document.getElementById("tpl"),stEl:document.getElementById("tps"),
-    resEl:document.getElementById("tr"),feedId:"tlf",
-    onDone:()=>{trun=false;const b=document.getElementById("rbtn");if(b)b.classList.remove("busy");}
-  });
-}
-
-// ── STREAM ────────────────────────────────────────────────────────────────────
-function makeLiveFeed(feedId){
-  // returns a function that pushes lines into a 3-line rolling display
-  const feed=document.getElementById(feedId); if(!feed)return()=>{};
-  feed.classList.add("show");
-  const lines=[feed.children[0],feed.children[1],feed.children[2]];
-  let buf=[];
-  return function push(text,cls=""){
-    buf.push({text,cls}); if(buf.length>3) buf.shift();
-    lines.forEach((el,i)=>{
-      const entry=buf[i]||{text:"",cls:""};
-      el.textContent=entry.text;
-      el.className="lf-line"+(entry.cls?" "+entry.cls:"")+(i===buf.length-1?" active":"");
-    });
-  };
-}
-
-async function doStream(url,body,{barEl,lblEl,stEl,resEl,feedId,onDone}){
-  const pushLog=makeLiveFeed(feedId||"");
-  let rd=null;
-  try{
-    const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf="";
-    while(true){
-      const{value,done}=await reader.read(); if(done)break;
-      buf+=dec.decode(value,{stream:true});
-      const lines=buf.split("\n"); buf=lines.pop();
-      for(const line of lines){
-        if(!line.startsWith("data: "))continue;
-        let m; try{m=JSON.parse(line.slice(6));}catch(e){continue;}
-        if(m.type==="log"){
-          const cls=/^✓|done|complete|saved/i.test(m.text)?"ok":/^✗|error|fail/i.test(m.text)?"err":/^⚠|warn/i.test(m.text)?"warn":"";
-          pushLog(m.text, cls);
-        }
-        else if(m.type==="progress"){
-          if(barEl){barEl.classList.remove("ind");barEl.style.width=(m.value/m.total*100).toFixed(1)+"%";}
-          if(stEl) stEl.textContent=`${m.value} / ${m.total}`;
-          if(m.track && resEl) appendDlItem(resEl,m.track,m.ok);
-        }
-        else if(m.type==="result"){
-          rd=m.data;
-          if(resEl) renderRes(resEl,rd,"");
-        }
-        else if(m.type==="done"){
-          if(barEl){barEl.classList.remove("ind");barEl.style.width="100%";}
-          if(lblEl) lblEl.textContent="DONE";
-          if(stEl)  stEl.textContent="";
-          pushLog("✓ "+m.text,"ok");
-          if(resEl){
-            if(rd) renderRes(resEl,rd,m.text);
-            else if(m.text) resEl.innerHTML=doneCard(m.text,m.path||"");
-          }
-          onDone();
-        }
-        else if(m.type==="error"){
-          if(stEl)  stEl.textContent="";
-          if(lblEl) lblEl.textContent="ERROR";
-          pushLog("✗ "+m.text,"err");
-          if(resEl) resEl.innerHTML=errorCard(m.text);
-          onDone();
-        }
-        else if(m.type==="close") onDone();
-      }
-    }
-  }catch(e){
-    const msg=e.message.includes('fetch')?'Cannot connect to server — make sure EditorSuite is running via the .exe or .vbs launcher, not opened as a raw HTML file.':e.message;
-    resEl.innerHTML=errorCard(msg); onDone();
-  }
-}
-
-// ── SIDEBAR CUSTOM PRESET ────────────────────────────────────────────────────
-// ── CUSTOM CATEGORY ADD FORM ─────────────────────────────────────────────────
-let _customCategories = [];
-
-function _closeAddForm(){
-  const f=document.getElementById("pcat-add-form");
-  const btn=document.getElementById("pcat-add-btn");
-  if(f) f.style.display="none";
-  if(btn){ btn.style.color=""; btn.style.borderColor=""; }
-}
-
-function toggleCustomAdd(){
-  const f=document.getElementById("pcat-add-form");
-  const open = f.style.display==="none";
-  if(open){
-    f.style.display="flex";
-    const btn=document.getElementById("pcat-add-btn");
-    if(btn){ btn.style.color="var(--purple)"; btn.style.borderColor="var(--purple)"; }
-    const inp=document.getElementById("sb_cp_label");
-    if(inp) inp.focus();
-    // Close if user clicks anywhere outside the form
-    setTimeout(()=>{
-      function _outsideClick(e){
-        if(!f.contains(e.target) && e.target.id!=="pcat-add-btn"){
-          // Only close if both fields are empty
-          const lbl=(document.getElementById("sb_cp_label")||{}).value||"";
-          const tag=(document.getElementById("sb_cp_tag")||{}).value||"";
-          if(!lbl.trim() && !tag.trim()) _closeAddForm();
-          document.removeEventListener("mousedown",_outsideClick);
-        }
-      }
-      document.addEventListener("mousedown",_outsideClick);
-    },0);
-  } else {
-    _closeAddForm();
-  }
-}
-
-/** Convert a saved custom category {name, hashtags:[]} into a PC-compatible entry */
-function buildCustomCategoryPC(cat){
-  const tags = cat.hashtags || [];
-  const multi = tags.join(", ");
-  const first = tags[0] || "";
-  // Single-hashtag tools get one chip per tag
-  const singleChips = tags.map(t=>({l:"#"+t, v:{hashtag:t}}));
-  // Multi-hashtag tools get an "All" chip + combo chips of every pair
-  const multiChips = [{l:"All", v:{hashtags:multi}}];
-  if(tags.length > 2){
-    // sliding window groups of ~3
-    for(let i=0;i<tags.length-1;i+=2){
-      const slice=tags.slice(i,i+3).join(", ");
-      multiChips.push({l:tags.slice(i,i+3).map(t=>"#"+t).join(" + "), v:{hashtags:slice}});
-    }
-  }
-  const entry = {
-    label: cat.name,
-    defaults:{
-      scraper:{hashtag:first}, hfreq:{hashtag:first}, viral:{hashtag:first},
-      sp_exp:{hashtag:first}, niche:{hashtag:first},
-      crosshash:{hashtags:multi}, hanalyze:{hashtags:multi},
-    },
-    chips:{
-      scraper:singleChips, hfreq:singleChips, viral:singleChips,
-      sp_exp:singleChips, niche:singleChips,
-      crosshash:multiChips, hanalyze:multiChips,
-    }
-  };
-  return entry;
-}
-
-async function sbAddCustomCategory(){
-  const lbl = document.getElementById("sb_cp_label").value.trim();
-  const raw  = document.getElementById("sb_cp_tag").value.trim();
-  if(!lbl || !raw) return;
-  const tags = raw.split(",").map(t=>t.trim().replace(/^#/,"")).filter(Boolean);
-  if(!tags.length) return;
-
-  // Prevent duplicate names
-  if(_customCategories.some(c=>c.name.toLowerCase()===lbl.toLowerCase())) {
-    document.getElementById("sb_cp_label").style.borderColor="var(--red)";
-    setTimeout(()=>{ document.getElementById("sb_cp_label").style.borderColor=""; },1500);
-    return;
-  }
-
-  const cat = {name:lbl, hashtags:tags};
-  _customCategories.push(cat);
-  // Don't add to PC here — initCategories renders custom cats separately,
-  // so adding to PC would cause a duplicate. setCategory() lazy-builds PC on first click.
-
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_categories:_customCategories})});
-
-  document.getElementById("sb_cp_label").value="";
-  document.getElementById("sb_cp_tag").value="";
-  _closeAddForm();
-  initCategories();
-
-  // toast
-  const t=document.createElement("div");
-  t.textContent="✓ "+lbl+" added";
-  t.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--green);font-family:var(--fm);font-size:.76rem;padding:8px 18px;border-radius:8px;z-index:999;pointer-events:none;transition:opacity .4s";
-  document.body.appendChild(t);
-  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),400);},1800);
-}
-
-async function removeCustomCategory(idx){
-  const cat = _customCategories[idx];
-  if(!cat) return;
-  // Deactivate if this was the active category
-  if(activeCategory===cat.name) clearCategory();
-  delete PC[cat.name];
-  _customCategories.splice(idx,1);
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_categories:_customCategories})});
-  initCategories();
-}
-
-// ── SETTINGS ─────────────────────────────────────────────────────────────────
-function goSettings(){
-  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
-  document.getElementById("ps").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  document.getElementById("main").scrollTop=0;
-  loadSettings();
-}
-
-async function loadSettings(){
-  try{
-    const cfg=await fetch("/api/config").then(r=>r.json());
-    const fields=["my_username","root_dir","dir_sounds","dir_downloads","dir_audio",
-      "dir_analysis","dir_compress","dir_images","default_videos","default_top_n",
-      "scroll_delay","stale_limit","spotify_client_id","spotify_client_secret"];
-    fields.forEach(k=>{
-      const el=document.getElementById("cfg_"+k);
-      if(el) el.value=cfg[k]||"";
-    });
-    const toggles=["auto_open_folder"];
-    toggles.forEach(k=>{
-      const el=document.getElementById("cfg_"+k);
-      if(el) el.checked=!!cfg[k];
-    });
-
-  }catch(e){console.error("loadSettings",e);}
-}
-
-let _customPresets = [];
-
-function renderSidebarCustomPresets(list){ /* legacy — no-op, categories replaced this */ }
-
-function applyCustomPreset(idx){
-  const p = _customPresets[idx];
-  if(!p) return;
-  applyPreset(p.v);
-}
-
-async function removeCustomPreset(idx){
-  _customPresets.splice(idx, 1);
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_presets:_customPresets})});
-  renderSidebarCustomPresets(_customPresets);
-  injectCustomPresets(_customPresets);
-}
-
-function injectCustomPresets(list){
-  const hashTools=["scraper","hfreq","viral","sp_exp","niche","hanalyze","crosshash"];
-  hashTools.forEach(id=>{
-    if(!T[id]) return;
-    T[id].presets = (T[id].presets||[]).filter(p=>!p._custom);
-    list.forEach(p => T[id].presets.push({...p, _custom:true}));
-  });
-}
-
-async function saveSettings(){
-  const btn=document.querySelector(".settings-save-btn");
-  btn.disabled=true;
-  const fields=["my_username","root_dir","dir_sounds","dir_downloads","dir_audio",
-    "dir_analysis","dir_compress","dir_images","default_videos","default_top_n",
-    "scroll_delay","stale_limit","spotify_client_id","spotify_client_secret"];
-  const updates={};
-  fields.forEach(k=>{
-    const el=document.getElementById("cfg_"+k);
-    if(el) updates[k]=el.value.trim();
-  });
-  const toggles=["auto_open_folder"];
-  toggles.forEach(k=>{
-    const el=document.getElementById("cfg_"+k);
-    if(el) updates[k]=el.checked;
-  });
-  try{
-    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(updates)});
-    const toast=document.getElementById("stst");
-    toast.classList.add("show");
-    setTimeout(()=>toast.classList.remove("show"),2000);
-  }catch(e){alert("Save failed: "+e.message);}
-  btn.disabled=false;
-}
-
-// ── RENDERERS ────────────────────────────────────────────────────────────────
-function renderRes(el,d,msg){
-  const type=d.type||"";
-  if(type==="sounds")         el.innerHTML=rSounds(d,msg);
-  else if(type==="hashtag_freq") el.innerHTML=rHashtagFreq(d,msg);
-  else if(type==="cross_sounds") el.innerHTML=rCrossSounds(d,msg);
-  else if(type==="viral")     el.innerHTML=rViral(d,msg);
-  else if(type==="trending")  el.innerHTML=rTrending(d,msg);
-  else if(type==="engagement") el.innerHTML=rEngagement(d,msg);
-  else if(type==="hashtag_analyze") el.innerHTML=rHashtagAnalyze(d,msg);
-  else if(type==="competitor") el.innerHTML=rCompetitor(d,msg);
-  else if(type==="best_time") el.innerHTML=rBestTime(d,msg);
-  else if(type==="niche")     el.innerHTML=rNiche(d,msg);
-  else if(type==="growth")    el.innerHTML=rGrowth(d,msg);
-  else if(type==="health")    el.innerHTML=rHealth(d,msg);
-  else if(type==="calendar")  el.innerHTML=rCalendar(d,msg);
-  else el.innerHTML=doneCard(msg||"Done");
-}
-
-// sounds
-function rSounds(d,msg){
-  const top=d.top||[],mx=top[0]?.count||1;
-  const rows=top.map((s,i)=>{
-    const pct=(s.count/mx*100).toFixed(0);
-    const rk=i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="s-rank">${i+1}</span>`;
-    const rc=i===0?"gold":i===1?"silver":i===2?"bronze":"";
-    const title = s.title||"—";
-    const author = s.author||"";
-    const dlId=`sdl_${i}_${Math.random().toString(36).slice(2,6)}`;
-    return `<div class="s-row"><div class="s-rank ${rc}">${i<3?rk:i+1}</div><div class="s-info"><div class="s-name">${x(title)}</div><div class="s-auth">${x(author)}</div></div><div class="s-bar-wrap"><div class="s-bar" style="width:${pct}%"></div></div><div class="s-cnt">${s.count}×</div><button class="s-dl-btn" id="${dlId}" onclick="dlSoundRow(this,'${x(title).replace(/'/g,"&#39;")}','${x(author).replace(/'/g,"&#39;")}')">⬇ Download</button></div>`;
-  }).join("");
-  const ob=d.html_path?`<button class="open-btn" data-path="${x(d.html_path)}" onclick="openF(this.dataset.path)">Open Full Report ↗</button>`:"";
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Trending Sounds — #${x(d.hashtag)}</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="stats-strip c3"><div class="stat"><div class="stat-n">${n(d.scanned)}</div><div class="stat-l">Scanned</div></div><div class="stat"><div class="stat-n pink">${n(d.kept)}</div><div class="stat-l">Sounds found</div></div><div class="stat"><div class="stat-n dim">${n(d.removed)}</div><div class="stat-l">Filtered</div></div></div><div class="sound-rows">${rows}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Complete")}</div>${ob}</div></div>`;
-}
-
-// hashtag frequency
-function rHashtagFreq(d,msg){
-  const top=d.top||[],mx=top[0]?.count||1;
-  const rows=top.map(t=>`<div class="hf-row"><div class="hf-tag">${x(t.tag)}</div><div class="hf-bar-wrap"><div class="hf-bar" style="width:${(t.count/mx*100).toFixed(0)}%"></div></div><div class="hf-cnt">${t.count}×</div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Hashtag Frequency — #${x(d.hashtag)}</div><div class="card-meta">${d.total_captions} captions · ${d.total_tags} unique tags</div></div>${rows}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// cross hashtag
-function rCrossSounds(d,msg){
-  const rows=(d.sounds||[]).map((s,i)=>{
-    const pills=(s.tags||[]).map(t=>`<span class="tag-pill">#${x(t)}</span>`).join("");
-    return `<tr><td style="padding-left:20px;font-family:var(--fm);font-size:.68rem;color:var(--text3)">${i+1}</td><td><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></td><td>${pills}</td><td style="font-family:var(--fm);font-size:.78rem;color:var(--text2);text-align:right;padding-right:20px">${s.count}×</td></tr>`;
-  }).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Cross-Hashtag Sounds</div><div class="card-meta">${(d.tags||[]).map(t=>"#"+t).join(", ")}</div></div><table class="data-table"><thead><tr><th>#</th><th>Sound</th><th>Found in</th><th style="text-align:right;padding-right:20px">Count</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// viral videos
-function rViral(d,msg){
-  const cards=(d.videos||[]).map((v,i)=>`<div class="vid-card"><div class="vid-rank">#${i+1}</div><div class="vid-title">${x(v.title||v.desc||"Video")}</div><div class="vid-stats"><div class="vid-stat">👁 <span>${nK(v.views)}</span></div><div class="vid-stat">❤️ <span>${nK(v.likes)}</span></div>${v.comments?`<div class="vid-stat">💬 <span>${nK(v.comments)}</span></div>`:""}</div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Viral Videos — #${x(d.hashtag)}</div><div class="card-meta">${(d.videos||[]).length} videos</div></div><div class="video-grid">${cards}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// trending
-function rTrending(d,msg){
-  const sounds=(d.sounds||[]).slice(0,8).map((s,i)=>{
-    const title=s.title||"—";
-    const author=s.author||"";
-    return `<div class="s-row" data-title="${x(title)}" data-artist="${x(author)}" onclick="dlSongFromRow(this)"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(title)}</div><div class="s-auth">${x(author)}</div></div><div class="s-cnt">${s.count}×</div></div>`;
-  }).join("");
-  const vids=(d.videos||[]).slice(0,8).map((v,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(v.title||v.desc||"Video")}</div><div class="s-auth">👁 ${nK(v.views)}</div></div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">TikTok Trending Now</div><div class="card-meta">${new Date().toLocaleTimeString()}</div></div><div class="trending-split"><div class="trend-col"><div class="trend-col-hdr">🎵 Top Sounds</div>${sounds}</div><div class="trend-col"><div class="trend-col-hdr">🔥 Trending Videos</div>${vids}</div></div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// engagement
-function rEngagement(d,msg){
-  const g=d.grade_er,gr=d.grade_reach;
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Engagement Analysis</div><div class="card-meta">${x(d.tier)}</div></div><div class="stats-strip c4"><div class="stat"><div class="stat-n">${d.er_likes}%</div><div class="stat-l">ER (likes)</div></div><div class="stat"><div class="stat-n pink">${d.er_total}%</div><div class="stat-l">Total ER</div></div><div class="stat"><div class="stat-n purple">${d.reach_rate}%</div><div class="stat-l">Reach rate</div></div><div class="stat"><div class="stat-n amber">${n(d.followers)}</div><div class="stat-l">Followers</div></div></div><div class="eng-grid"><div class="eng-card"><div class="eng-val" style="color:var(--cyan)">${d.er_likes}%</div><div class="eng-label">Engagement Rate</div><div class="eng-grade ${g}">${g==="above"?"↑ Above average":g==="average"?"→ Average":"↓ Below average"}</div></div><div class="eng-card"><div class="eng-val" style="color:var(--purple)">${d.reach_rate}%</div><div class="eng-label">Reach Rate</div><div class="eng-grade ${gr}">${gr==="above"?"↑ Above average":gr==="average"?"→ Average":"↓ Below average"}</div></div><div class="eng-card"><div class="eng-val" style="color:var(--text2)">${d.bench_er}%</div><div class="eng-label">Benchmark ER (${x(d.tier)})</div></div><div class="eng-card"><div class="eng-val" style="color:var(--text2)">${d.bench_reach}%</div><div class="eng-label">Benchmark Reach</div></div></div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// hashtag analyze
-function rHashtagAnalyze(d,msg){
-  const rows=(d.rows||[]).map(r=>`<tr><td class="tag-pill" style="margin:0;display:inline-block">${x(r.tag)}</td><td>${nK(r.posts)}</td><td style="color:var(--cyan)">${nK(r.avg_views)}</td><td>${nK(r.avg_likes)}</td><td><span style="font-family:var(--fm);font-size:.75rem;color:var(--text3)">${x(r.difficulty||"—")}</span></td></tr>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Hashtag Analysis</div><div class="card-meta">${(d.rows||[]).length} hashtags</div></div><table class="data-table"><thead><tr><th>Hashtag</th><th>Posts</th><th>Avg Views</th><th>Avg Likes</th><th>Difficulty</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// competitor
-function rCompetitor(d,msg){
-  const s1=d.stats1||{},s2=d.stats2||{};
-  const stat=(lbl,v1,v2)=>`<div class="col-stat"><div class="col-stat-lbl">${lbl}</div><div class="col-stat-val">${nK(v1)}</div></div><div class="col-stat"><div class="col-stat-lbl">${lbl}</div><div class="col-stat-val" style="color:var(--purple)">${nK(v2)}</div></div>`;
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Competitor Comparison</div></div><div class="two-col"><div class="col-hdr"><span class="at">@${x(d.user1)}</span></div><div class="col-hdr"><span class="at" style="color:var(--purple)">@${x(d.user2)}</span></div>${stat("Avg Views",s1.avg_views,s2.avg_views)}${stat("Avg Likes",s1.avg_likes,s2.avg_likes)}${stat("Posts",s1.post_count,s2.post_count)}${stat("Avg ER",s1.avg_er,s2.avg_er)}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// best time
-function rBestTime(d,msg){
-  const slots=d.slots||[],mx=slots[0]?.avg_views||1;
-  const rows=slots.map((s,i)=>`<div class="slot-row"><div class="slot-rank">${i+1}</div><div class="slot-day">${s.day}</div><div class="slot-time">${String(s.hour).padStart(2,"0")}:00</div><div class="slot-bar-wrap"><div class="slot-bar" style="width:${(s.avg_views/mx*100).toFixed(0)}%"></div></div><div class="slot-views">${nK(s.avg_views)} avg</div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Best Posting Times — @${x(d.username)}</div><div class="card-meta">${d.total_posts} posts analysed</div></div>${rows}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// niche (tabbed)
-function rNiche(d,msg){
-  const sounds=(d.sounds||[]).map((s,i)=>`<div class="s-row"><div class="s-rank">${i+1}</div><div class="s-info"><div class="s-name">${x(s.title||"—")}</div><div class="s-auth">${x(s.author||"")}</div></div><div class="s-cnt">${s.count}×</div></div>`).join("");
-  const videos=(d.viral||[]).map((v,i)=>`<div class="vid-card"><div class="vid-rank">#${i+1}</div><div class="vid-title">${x(v.title||v.desc||"Video")}</div><div class="vid-stats"><div class="vid-stat">👁 <span>${nK(v.views)}</span></div></div></div>`).join("");
-  const tags=(d.top_tags||[]).map(t=>`<div class="hf-row"><div class="hf-tag">${x(t.tag)}</div><div class="hf-bar-wrap"><div class="hf-bar" style="width:${Math.max(8,(t.count/(d.top_tags[0]?.count||1)*100)).toFixed(0)}%"></div></div><div class="hf-cnt">${t.count}×</div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Niche Report — #${x(d.hashtag)}</div><div class="card-meta">${d.scanned} videos scanned</div></div><div class="tab-row"><button class="tab-btn on" onclick="switchTab(this,'n-sounds')">🎵 Sounds</button><button class="tab-btn" onclick="switchTab(this,'n-viral')">🔥 Viral</button><button class="tab-btn" onclick="switchTab(this,'n-tags')">&#35; Hashtags</button></div><div class="tab-panel on" id="n-sounds"><div class="sound-rows">${sounds}</div></div><div class="tab-panel" id="n-viral"><div class="video-grid">${videos}</div></div><div class="tab-panel" id="n-tags">${tags}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// growth
-function rGrowth(d,msg){
-  const s=d.stats||{};
-  const hist=(d.history||[]).slice().reverse().map((h,i,arr)=>{
-    const prev=arr[i+1];
-    const delta=prev?h.followers-prev.followers:null;
-    const dc=delta===null?"flat":delta>0?"up":"down";
-    const ds=delta===null?"—":delta>0?`+${n(delta)}`:n(delta);
-    return `<div class="hist-row"><div class="hist-date">${h.date||""}</div><div class="hist-val">${n(h.followers||0)} followers</div><div class="hist-delta ${dc}">${ds}</div></div>`;
-  }).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Growth Tracker — @${x(d.username)}</div></div><div class="growth-snap"><div class="growth-snap-label">LATEST SNAPSHOT</div><div class="growth-stats"><div class="g-stat"><div class="g-val">${nK(s.followers||0)}</div><div class="g-lbl">Followers</div></div><div class="g-stat"><div class="g-val">${nK(s.likes||0)}</div><div class="g-lbl">Total Likes</div></div><div class="g-stat"><div class="g-val">${nK(s.videos||0)}</div><div class="g-lbl">Videos</div></div></div></div>${hist?`<div class="growth-history">${hist}</div>`:""}<div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// health
-function rHealth(d,msg){
-  const a=d.analysis||{};
-  const score=a.health_score||0;
-  const sc=score>=70?"var(--green)":score>=40?"var(--amber)":"var(--red)";
-  const metrics=Object.entries({
-    "Avg Views":a.avg_views,"Avg Likes":a.avg_likes,"Avg Comments":a.avg_comments,
-    "Posts":a.post_count,"ER %":a.avg_er,"Posts/Week":a.posts_per_week
-  }).filter(([,v])=>v!=null).map(([l,v])=>`<div class="metric"><div class="metric-val">${nK(v)}</div><div class="metric-lbl">${l}</div></div>`).join("");
-  const ob=d.html_path?`<button class="open-btn" data-path="${x(d.html_path)}" onclick="openF(this.dataset.path)">Open Dashboard ↗</button>`:"";
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Account Health — @${x(d.username)}</div></div><div class="health-score-wrap"><div class="score-circle" style="background:conic-gradient(${sc} ${score*3.6}deg,var(--bg4) 0);"><div><div class="score-num" style="color:${sc}">${score}</div><div class="score-label">/ 100</div></div></div><div class="score-info"><div class="score-title">${score>=70?"Healthy account 💪":score>=40?"Room to improve ⚠️":"Needs attention 🔴"}</div><div class="score-sub">${x(msg||"")}</div></div></div><div class="metrics-grid">${metrics}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">Health analysis complete</div>${ob}</div></div>`;
-}
-
-// calendar
-function rCalendar(d,msg){
-  const cards=(d.schedule||[]).map((s,i)=>`<div class="cal-card"><div class="cal-num">#${i+1}</div><div class="cal-day">${s.day}</div><div class="cal-date">${s.date}</div><div class="cal-time">${s.time}</div></div>`).join("");
-  return `<div class="card"><div class="card-hdr"><div class="card-title">Posting Calendar</div><div class="card-meta">${d.posts_per_week}× / week · ${(d.schedule||[]).length} posts</div></div><div class="cal-grid">${cards}</div><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
-}
-
-// dl item live append (for spotify progress)
-function appendDlItem(el,name,ok){
-  let list=el.querySelector(".dl-progress-list");
-  if(!list){el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title">Downloading…</div></div><div class="dl-progress-list"></div></div>`;list=el.querySelector(".dl-progress-list");}
-  const row=document.createElement("div");
-  row.className="dl-item";
-  row.innerHTML=`<div class="dl-item-icon">${ok?"✓":"✗"}</div><div class="dl-item-name">${x(name)}</div>`;
-  row.style.color=ok?"var(--green)":"var(--text3)";
-  list.appendChild(row);
-  el.scrollIntoView({behavior:"smooth",block:"nearest"});
-}
-
-function doneCard(msg, path){
-  const match=msg.match(/(?:Saved(?: to)?|→)\s*(.+)/i);
-  const savePath=path||(match?match[1].trim():"");
-  // Use data-path attribute — avoids escaping backslashes in onclick
-  const btns=savePath
-    ? `<div class="dl-btns"><button class="dl-btn primary" data-path="${x(savePath)}" onclick="openFolder(this.dataset.path)">📁 Open Folder</button></div>`
-    : "";
-  return `<div class="card"><div class="card-body"><div class="dl-status"><div class="dl-icon">✓</div><div class="dl-text">Done</div><div class="dl-sub">${x(msg)}</div>${btns}</div></div></div>`;
-}
-function errorCard(msg){
-  return `<div class="card" style="border-color:rgba(244,63,94,.3)"><div class="card-body"><div class="dl-status"><div class="dl-icon">✗</div><div class="dl-text" style="color:var(--red)">Error</div><div class="dl-sub">${x(msg)}</div></div></div></div>`;
-}
-
-function switchTab(btn,panelId){
-  const card=btn.closest(".card");
-  card.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("on"));
-  card.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("on"));
-  btn.classList.add("on");
-  document.getElementById(panelId)?.classList.add("on");
-}
-
-// ── CUSTOM COMPRESSOR PRESETS ────────────────────────────────────────────────
-let _customCompPresets = [];
-
-(async function loadCustomCompPresets(){
-  try{
-    const cfg = await fetch("/api/config").then(r=>r.json());
-    _customCompPresets = cfg.custom_comp_presets || [];
-  }catch(e){}
-})();
-
-async function addCompPreset(fieldId){
-  const result = await fetch("/api/browse-file",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({filters:[
-      {name:"HandBrake Preset JSON",exts:"*.json"},
-      {name:"All Files",exts:"*.*"}
-    ]})
-  }).then(r=>r.json()).catch(()=>({path:""}));
-
-  const path = result && result.path;
-  if(!path) return;
-
-  // Derive a friendly name from the filename
-  const rawName = path.replace(/\\/g,"/").split("/").pop().replace(/\.json$/i,"");
-  const name = rawName.replace(/[-_]/g," ").replace(/\w/g,c=>c.toUpperCase());
-
-  // Avoid duplicates
-  if(_customCompPresets.some(p=>p.path===path)) return;
-
-  _customCompPresets.push({name, path});
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_comp_presets:_customCompPresets})});
-
-  // Rebuild the preset grid by re-rendering the current tool
-  const on = document.querySelector(".sb-tool.on");
-  if(on){
-    const id=(on.getAttribute("onclick")||"").replace(/goTool\(['"](.*?)['"]\)/,"$1");
-    if(id) goTool(id);
-  }
-
-  // Auto-select the newly added preset
-  setTimeout(()=>{
-    const grid = document.getElementById("pcg_"+fieldId.replace("tf_",""));
-    if(!grid) return;
-    const newCard = [...grid.querySelectorAll(".preset-card:not(.preset-card-add)")].find(
-      c=>c.dataset.presetVal===path);
-    if(newCard) selectPresetCard(newCard);
-  }, 50);
-}
-
-async function removeCompPreset(path, fieldId){
-  _customCompPresets = _customCompPresets.filter(p=>p.path!==path);
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({custom_comp_presets:_customCompPresets})});
-  const on = document.querySelector(".sb-tool.on");
-  if(on){
-    const id=(on.getAttribute("onclick")||"").replace(/goTool\(['"](.*?)['"]\)/,"$1");
-    if(id) goTool(id);
-  }
-}
-
-// ── FILE / FOLDER BROWSER HELPERS ────────────────────────────────────────────
-async function browseInput(inputId, mode, filtersJson){
-  const btn = event && event.target;
-  if(btn){ btn.disabled=true; btn.textContent="…"; }
-  try{
-    let filters = [];
-    try{ filters = JSON.parse(filtersJson||"[]"); }catch(e){}
-    let result = {path:""};
-    if(mode === "folder"){
-      result = await fetch("/api/browse-folder",{method:"POST"}).then(r=>r.json());
-    } else {
-      // "file" or "file_or_folder"
-      result = await fetch("/api/browse-file",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({filters})
-      }).then(r=>r.json());
-      // If user cancels and mode is file_or_folder, try folder dialog
-      if(!result.path && mode==="file_or_folder"){
-        result = await fetch("/api/browse-folder",{method:"POST"}).then(r=>r.json());
-      }
-    }
-    if(result.path){
-      const el = document.getElementById(inputId);
-      if(el) el.value = result.path;
-    }
-  }catch(e){}
-  if(btn){ btn.disabled=false; btn.textContent="Browse…"; }
-}
-
-function selectPresetCard(card){
-  // Deselect siblings
-  const grid = card.closest(".preset-cards-grid");
-  if(grid) grid.querySelectorAll(".preset-card").forEach(c=>c.classList.remove("selected"));
-  card.classList.add("selected");
-  // Update hidden input
-  const fieldId = card.dataset.presetField;
-  const val     = card.dataset.presetVal;
-  const hidden  = document.getElementById(fieldId);
-  if(hidden) hidden.value = val;
-}
-
-async function openF(path){await fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})}); }
-async function openFolder(path){await fetch("/api/open-folder",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})});}
-function dlFile(path){
-  const a=document.createElement("a");
-  a.href="/api/download-file?path="+encodeURIComponent(path);
-  a.download=path.split(/[\/]/).pop();
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-function dlSong(title,artist){
-  title = title||"";
-  artist = artist||"";
-  if(!title.trim()) return;
-  const tp=document.getElementById("tp");
-  const tpb=document.getElementById("tpb");
-  const tpl=document.getElementById("tpl");
-  const tps=document.getElementById("tps");
-  const tr=document.getElementById("tr");
-  if(tp) tp.style.display="block";
-  if(tpb){ tpb.style.width="0%"; tpb.classList.add("ind"); }
-  if(tpl) tpl.textContent="DOWNLOADING";
-  if(tps) tps.textContent="";
-  if(tr) tr.innerHTML="";
-  doStream("/api/tool",{tool_id:"dl_song",options:{title,artist}},{
-    barEl: tpb, lblEl: tpl, stEl: tps, resEl: tr, feedId:"tlf",
-    onDone:()=>{}
-  });
-}
-function dlSoundRow(btn, title, artist){
-  if(btn.classList.contains("busy") || btn.classList.contains("done")) return;
-  btn.classList.add("busy");
-  btn.textContent = "↻ Downloading";
-
-  const ql = [];
-  let es;
-  try{
-    es = new EventSource("/api/tool?_=" + Date.now());
-  }catch(e){ btn.textContent="⬇ Download"; btn.classList.remove("busy"); return; }
-
-  // Actually use fetch+SSE via doStream into a throwaway div
-  const sink = document.createElement("div");
-  const fakeBar = document.createElement("div");
-  const fakeLbl = document.createElement("div");
-  const fakeSt  = document.createElement("div");
-
-  doStream("/api/tool",
-    {tool_id:"dl_song", options:{title, artist}},
-    {barEl:fakeBar, lblEl:fakeLbl, stEl:fakeSt, resEl:sink, feedId:"",
-     onDone:()=>{
-       btn.classList.remove("busy");
-       btn.classList.add("done");
-       btn.textContent = "✓ Saved";
-     }
-    }
-  );
-}
-
-function dlSongFromRow(el){
-  if(!el) return;
-  const title = el.getAttribute("data-title") || "";
-  const artist = el.getAttribute("data-artist") || "";
-  dlSong(title,artist);
-}
-const x=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-const n=v=>Number(v).toLocaleString();
-const nK=v=>{v=Number(v)||0;return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":String(v)};
-
-// ── HEARTBEAT — keeps server alive; shutdown when tab closes ─────────────────
-(function(){
-  // Ping every 5 seconds so the watchdog knows we're alive
-  setInterval(()=>{
-    fetch("/api/ping",{method:"POST",keepalive:true}).catch(()=>{});
-  }, 5000);
-
-  // Kill server immediately when window closes — don't wait 15s for watchdog
-  window.addEventListener("beforeunload", ()=>{
-    navigator.sendBeacon("/api/shutdown");
-  });
-})();
-
-// ── MOUSE GLOW — paste card + all tool cards ─────────────────────────────────
-(function(){
-  function attachGlow(el){
-    el.addEventListener('mousemove', e => {
-      const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
-      el.style.setProperty('--my', (e.clientY - r.top)  + 'px');
-    });
-  }
-  // paste bar card
-  const pc = document.querySelector('.paste-card');
-  if(pc) attachGlow(pc);
-  // all tool cards — use a delegated approach so dynamically added ones work too
-  document.querySelectorAll('.tool-card').forEach(attachGlow);
-})();
-
-
-// ── FIRST-RUN SETUP ──────────────────────────────────────────────────────────
-async function checkFirstRun(){
-  // Retry until Flask is ready (exe launches browser before server finishes starting)
-  const MAX_TRIES = 40;   // 40 × 250 ms = up to 10 seconds
-  const DELAY_MS  = 250;
-
-  for(let i = 0; i < MAX_TRIES; i++){
-    try{
-      const cfg = await fetch("/api/config").then(r=>{ if(!r.ok) throw new Error(); return r.json(); });
-      // Server is up — hide overlay if setup already done or root_dir set
-      if(cfg.setup_complete || cfg.root_dir){
-        document.getElementById("setup-overlay").classList.add("hidden");
-      }
-      // Also trigger config load for categories / presets now that server is ready
-      _loadConfig(cfg);
-      return;
-    }catch(e){
-      // Server not ready yet — wait and retry
-      await new Promise(r => setTimeout(r, DELAY_MS));
-    }
-  }
-  // After 10 seconds still no server — show overlay so user isn't stuck on blank screen
-  // (they can still use setup or just wait)
-}
-
-function _loadConfig(cfg){
-  _customCategories = cfg.custom_categories || [];
-  // Don't pre-populate PC — initCategories renders custom cats in their own section,
-  // and setCategory() lazy-builds PC[name] on first click. Pre-populating causes duplicates.
-  _customCompPresets = cfg.custom_comp_presets || [];
-  _customPresets = cfg.custom_presets || [];
-  if(_customPresets.length) injectCustomPresets(_customPresets);
-  initCategories();
-}
-
-async function setupBrowse(){
-  const btn = document.querySelector(".setup-browse");
-  btn.textContent = "..."; btn.disabled = true;
-  try{
-    const r = await fetch("/api/browse-folder", {method:"POST"});
-    const d = await r.json();
-    if(d.path){
-      document.getElementById("setup-path").value = d.path;
-      document.getElementById("setup-confirm").disabled = false;
-    }
-  }catch(e){}
-  btn.textContent = "Browse"; btn.disabled = false;
-}
-
-async function setupSave(){
-  const path = document.getElementById("setup-path").value.trim();
-  if(!path) return;
-  const btn = document.getElementById("setup-confirm");
-  btn.disabled = true; btn.textContent = "Saving...";
-  try{
-    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({root_dir: path, setup_complete: true})});
-    document.getElementById("setup-overlay").classList.add("hidden");
-  }catch(e){
-    btn.disabled = false; btn.textContent = "Let's go →";
-  }
-}
-
-async function setupSkip(){
-  document.getElementById("setup-overlay").classList.add("hidden");
-  try{
-    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({setup_complete:true})});
-  }catch(e){}
-}
-
-// Validate path input — enable button only when something is typed
-document.addEventListener("DOMContentLoaded", ()=>{
-  checkFirstRun();
-  const inp = document.getElementById("setup-path");
-  const btn = document.getElementById("setup-confirm");
-  if(inp && btn){
-    inp.addEventListener("input", ()=>{
-      btn.disabled = !inp.value.trim();
-    });
-    // Allow Enter key to confirm
-    inp.addEventListener("keydown", e=>{ if(e.key==="Enter" && inp.value.trim()) setupSave(); });
-  }
-});
-</script>
+<!-- VIDEO PLAYER OVERLAY -->
+<div id="vid-overlay" onclick="if(event.target===this)closeVidPlayer()">
+  <div id="vid-player-box">
+    <button class="vid-overlay-close" onclick="closeVidPlayer()">✕</button>
+    <video id="vid-player" controls playsinline></video>
+    <div class="vid-overlay-info">
+      <div class="vid-overlay-title" id="vid-player-title"></div>
+      <div class="vid-overlay-meta" id="vid-player-meta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- VIDEO NAME DIALOG -->
+<div id="vid-name-dialog">
+  <div id="vid-name-box">
+    <div class="vid-name-title">Name this video</div>
+    <input class="vid-name-in" id="vid-name-in" placeholder="e.g. Funny clip, Dance trend…"
+      onkeydown="if(event.key==='Enter')confirmVidName()">
+    <div class="vid-name-btns">
+      <button class="vid-name-cancel" onclick="cancelVidName()">Cancel</button>
+      <button class="vid-name-confirm" id="vid-name-confirm-btn" onclick="confirmVidName()">Add to Collection</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

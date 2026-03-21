@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
 from utils import dirs as _dirs
 from utils.config import get_my_username, set_my_username
 from core.browser import new_browser
@@ -41,17 +41,17 @@ async def _scrape_profile(ctx, username: str,
             if not body.get("hasMore", 1):
                 has_more = False
             for item in body.get("itemList") or []:
+                item = unwrap_item(item)
                 vid = str(item.get("id") or "")
                 if not vid or vid in seen:
                     continue
                 seen.add(vid)
-                stats  = item.get("stats") or item.get("statistics") or {}
                 music  = item.get("music") or {}
                 ts     = int(item.get("createTime") or 0)
                 posts.append({
-                    "views":  int(stats.get("playCount")  or 0),
-                    "likes":  int(stats.get("diggCount")  or 0),
-                    "shares": int(stats.get("shareCount") or 0),
+                    "views":  get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views"),
+                    "likes":  get_stat(item, "diggCount", "digg_count", "likeCount", "like_count"),
+                    "shares": get_stat(item, "shareCount", "share_count"),
                     "sound":  (music.get("title") or "").strip(),
                     "ts":     ts,
                     "date":   datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "?",

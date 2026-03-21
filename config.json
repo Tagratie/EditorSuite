@@ -34,5 +34,30 @@
       "name": "BEST",
       "path": "C:\\Users\\Tagratie\\Videos\\BEST.json"
     }
+  ],
+  "watched_creators": [],
+  "auth_url": "https://ypeaasvejgpojdkhsnez.supabase.co",
+  "auth_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZWFhc3Zlamdwb2pka2hzbmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMjk0MzYsImV4cCI6MjA4OTYwNTQzNn0.6K_0kMj25GBfgJz-v5tolxTG0lkJEAUN8SNDb9HmshE",
+  "auth_provider": "supabase",
+  "user_email": "tagratieafx@gmail.com",
+  "fav_tools": [],
+  "collections": [
+    {
+      "creators": [],
+      "emoji": "\ud83c\udf1f",
+      "id": "1774052332874",
+      "name": "Peak",
+      "rarity": "legendary",
+      "videos": [
+        {
+          "url": "https://www.tiktok.com/@swassae/video/7608959660590173462",
+          "desc": "Ellie Swassae peak",
+          "thumb": "",
+          "localPath": "C:\\Users\\Tagratie\\Videos\\ES OUTPUT TEST\\single\\swassae_Tuff Ellie Part 20\uff5c\uff5c#elliewilliamsthelastofus #elliewilliamsedit #the....mp4",
+          "added": "3/21/2026",
+          "downloading": false
+        }
+      ]
+    }
   ]
 }

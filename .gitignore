@@ -1,0 +1,9 @@
+
+# Code signing — never commit these
+editorsuite.pfx
+editorsuite.pfx.pass
+editorsuite.key
+editorsuite.crt
+bin
+create_cert.py
+setup_server.py

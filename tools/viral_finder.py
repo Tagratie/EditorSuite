@@ -4,20 +4,30 @@ Tool 10 — Viral Video Finder
 Scrapes a hashtag page and ranks videos by view count.
 """
 import asyncio
+import time
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
 from utils.validator import validate_videos
 from utils.html_report import save_viral_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 
 
-async def _scrape_viral(hashtag: str, target: int, progress_cb=None) -> list[dict]:
+def _is_recent(ts: int, recent_seconds: int | None) -> bool:
+    if recent_seconds is None:
+        return True
+    return bool(ts) and (time.time() - ts) <= recent_seconds
+
+
+async def _scrape_viral(hashtag: str, target: int, progress_cb=None,
+                        recent_days: int | None = None) -> list[dict]:
     from playwright.async_api import async_playwright
     videos: list[dict] = []
     seen:   set[str]   = set()
+    count_seen = 0
+    recent_seconds = None if recent_days is None else int(recent_days) * 86400
 
     async with async_playwright() as pw:
         browser, ctx = await new_browser(pw, mute=True)
@@ -28,37 +38,46 @@ async def _scrape_viral(hashtag: str, target: int, progress_cb=None) -> list[dic
             try:
                 body  = await response.json()
                 items = body.get("itemList") or body.get("ItemList") or []
+                nonlocal count_seen
                 for item in items:
+                    item = unwrap_item(item)
                     vid = str(item.get("id") or "")
                     if not vid or vid in seen:
                         continue
                     seen.add(vid)
-                    stats  = item.get("stats") or item.get("statistics") or {}
                     music  = item.get("music") or {}
                     author = item.get("author") or {}
+                    ts     = int(item.get("createTime") or 0)
+                    if not _is_recent(ts, recent_seconds):
+                        continue
+                    count_seen += 1
+                    author_user = (author.get("uniqueId") or author.get("unique_id") or
+                                   author.get("id") or author.get("nickname") or "")
+                    post_url = f"https://www.tiktok.com/@{author_user}/video/{vid}" if author_user and vid else ""
                     videos.append({
-                        "views": int(stats.get("playCount") or stats.get("play_count") or 0),
-                        "likes": int(stats.get("diggCount") or stats.get("digg_count") or 0),
+                        "views": get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views"),
+                        "likes": get_stat(item, "diggCount", "digg_count", "likeCount", "like_count"),
                         "desc":  (item.get("desc") or "").strip()[:120],
                         "user":  (author.get("uniqueId") or author.get("unique_id") or ""),
                         "sound": (music.get("title") or "").strip(),
                         "ts":    int(item.get("createTime") or 0),
+                        "post_url": post_url,
                         "id":    vid,
                     })
             except Exception:
                 pass
 
         pages = ctx.pages
-    page = pages[0] if pages else await ctx.new_page()
+        page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
                         wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
         import random
         stale = 0
-        while len(seen) < target and stale < 14:
-            print(f"  {len(seen)}/{target} videos...", end="\r", flush=True)
-            if progress_cb: progress_cb(len(seen), target)
+        while count_seen < target and stale < 14:
+            print(f"  {count_seen}/{target} videos...", end="\r", flush=True)
+            if progress_cb: progress_cb(count_seen, target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
             await asyncio.sleep(0.3 + random.random() * 0.3)

@@ -13,8 +13,6 @@ CATEGORIES = [
         ("Trending Audio Scraper",   "Find top songs from any hashtag"),
         ("Hashtag Frequency",        "Most-used hashtags in a niche"),
         ("Cross-Hashtag Sounds",     "Sounds trending across multiple niches"),
-        ("Viral Video Finder",       "Top performing videos by view count"),
-        ("TikTok Trending Now",      "What's blowing up globally right now"),
         ("Export to Spotify",        "Push trending TikTok sounds to a playlist"),
     ]),
     ("ANALYTICS", [

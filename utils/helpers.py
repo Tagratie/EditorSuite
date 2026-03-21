@@ -11,9 +11,121 @@ main.py catches these in the tool loop.  Every tool just calls
 back_to_menu() at the end — no return values, no extra logic needed.
 """
 import os
+import re
 import sys
 from datetime import datetime
 from ui import theme as _T
+
+
+# ---------- Data parsing helpers ----------
+def _coerce_int(val) -> int:
+    """Best-effort parse of numeric strings like '1,234', '5.6K', '1.2M'."""
+    if val is None:
+        return 0
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, (int, float)):
+        return int(val)
+    s = str(val).strip()
+    if not s:
+        return 0
+    s = s.replace(",", "").replace("views", "").replace("view", "").strip()
+    m = re.match(r"^([0-9]*\.?[0-9]+)\s*([kmb])$", s, re.IGNORECASE)
+    if m:
+        num = float(m.group(1))
+        mult = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}[m.group(2).lower()]
+        return int(num * mult)
+    digits = re.findall(r"\d+", s)
+    return int("".join(digits)) if digits else 0
+
+
+def get_stat(item: dict, *keys: str) -> int:
+    """
+    Pull a stat from common TikTok response shapes.
+    Checks stats/statistics/statsV2 plus direct keys, with coercion.
+    """
+    if not isinstance(item, dict):
+        return 0
+    containers = []
+    for k in ("stats", "statistics", "statsV2", "stats_v2", "statistic", "statsInfo", "stats_info"):
+        c = item.get(k)
+        if isinstance(c, dict):
+            containers.append(c)
+    def _pick(d: dict, key: str):
+        if key in d:
+            return d.get(key)
+        lk = key.lower()
+        for k in d.keys():
+            if isinstance(k, str) and k.lower() == lk:
+                return d.get(k)
+        return None
+
+    variants = []
+    for key in keys:
+        variants.extend([key, f"{key}Text", f"{key}Str"])
+
+    zero_seen = False
+
+    def _consider(v):
+        nonlocal zero_seen
+        if v in (None, ""):
+            return None
+        val = _coerce_int(v)
+        if val != 0:
+            return val
+        zero_seen = True
+        return None
+
+    for c in containers:
+        for key in variants:
+            v = _pick(c, key)
+            found = _consider(v)
+            if found is not None:
+                return found
+    for key in variants:
+        v = _pick(item, key)
+        found = _consider(v)
+        if found is not None:
+            return found
+
+    def _search(obj, depth: int):
+        if depth < 0:
+            return None
+        if isinstance(obj, dict):
+            for key in variants:
+                v = _pick(obj, key)
+                if v not in (None, ""):
+                    return v
+            for v in obj.values():
+                found = _search(v, depth - 1)
+                if found not in (None, ""):
+                    return found
+        elif isinstance(obj, list):
+            for v in obj:
+                found = _search(v, depth - 1)
+                if found not in (None, ""):
+                    return found
+        return None
+
+    v = _search(item, 4)
+    found = _consider(v)
+    if found is not None:
+        return found
+    return 0 if zero_seen else 0
+
+
+def unwrap_item(item):
+    """Normalize TikTok item wrappers to the actual item struct."""
+    if not isinstance(item, dict):
+        return item
+    if isinstance(item.get("itemStruct"), dict):
+        return item.get("itemStruct")
+    info = item.get("itemInfo")
+    if isinstance(info, dict) and isinstance(info.get("itemStruct"), dict):
+        return info.get("itemStruct")
+    if isinstance(item.get("item"), dict):
+        return item.get("item")
+    return item
 
 
 # ── Navigation signals ─────────────────────────────────────────────────────────

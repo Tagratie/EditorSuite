@@ -5,22 +5,32 @@ Tool 7  — Hashtag Frequency: count hashtags from captions in a niche
 """
 import asyncio
 import re
+import time
 from collections import Counter, defaultdict
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
 from utils.html_report import save_hashtag_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 
 
+def _is_recent(ts: int, recent_seconds: int | None) -> bool:
+    if recent_seconds is None:
+        return True
+    return bool(ts) and (time.time() - ts) <= recent_seconds
+
+
 # ── Shared scraper: raw captions from a hashtag page ─────────────────────────
 
-async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[str]:
+async def _scrape_captions(hashtag: str, target: int, progress_cb=None,
+                           recent_days: int | None = None) -> list[str]:
     from playwright.async_api import async_playwright
     captions: list[str] = []
     seen: set[str] = set()
+    count_seen = 0
+    recent_seconds = None if recent_days is None else int(recent_days) * 86400
 
     async with async_playwright() as pw:
         browser, ctx = await new_browser(pw, mute=True)
@@ -31,11 +41,16 @@ async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[
             try:
                 body  = await response.json()
                 items = body.get("itemList") or body.get("ItemList") or []
+                nonlocal count_seen
                 for item in items:
                     vid = str(item.get("id") or "")
                     if not vid or vid in seen:
                         continue
                     seen.add(vid)
+                    ts = int(item.get("createTime") or 0)
+                    if not _is_recent(ts, recent_seconds):
+                        continue
+                    count_seen += 1
                     desc = (item.get("desc") or "").strip()
                     if desc:
                         captions.append(desc)
@@ -43,15 +58,15 @@ async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[
                 pass
 
         pages = ctx.pages
-    page = pages[0] if pages else await ctx.new_page()
+        page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
                         wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
         stale = 0
-        while len(seen) < target and stale < 8:
-            print(f"  {len(seen)}/{target} captions scraped...", end="\r", flush=True)
-            if progress_cb: progress_cb(len(seen), target)
+        while count_seen < target and stale < 8:
+            print(f"  {count_seen}/{target} captions scraped...", end="\r", flush=True)
+            if progress_cb: progress_cb(count_seen, target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.0)
@@ -117,12 +132,12 @@ async def _scrape_one_tag(ctx, tag: str) -> tuple[str, dict]:
             body  = await response.json()
             items = body.get("itemList") or body.get("ItemList") or []
             for item in items:
+                item = unwrap_item(item)
                 vid = str(item.get("id") or "")
                 if vid in seen:
                     continue
                 seen.add(vid)
-                stats = item.get("stats") or item.get("statistics") or {}
-                v = int(stats.get("playCount") or stats.get("play_count") or 0)
+                v = get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views")
                 result["videos"] += 1
                 result["views"]  += v
                 result["top_views"].append(v)

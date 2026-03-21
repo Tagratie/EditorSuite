@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, back_to_menu, clear_line
+from utils.helpers import ok, info, err, warn, divider, prompt, back_to_menu, clear_line, get_stat, unwrap_item
 from utils import dirs as _dirs
 from core.browser import new_browser
 
@@ -43,10 +43,10 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
                     user    = u.get("user") or u.get("User") or {}
                     stats   = u.get("stats") or u.get("Stats") or {}
                     profile.update({
-                        "followers":  int(stats.get("followerCount")  or stats.get("fans")        or 0),
-                        "following":  int(stats.get("followingCount") or stats.get("following")   or 0),
-                        "likes":      int(stats.get("heartCount")     or stats.get("digg")        or 0),
-                        "videos":     int(stats.get("videoCount")     or 0),
+                        "followers":  get_stat(stats, "followerCount", "fans"),
+                        "following":  get_stat(stats, "followingCount", "following"),
+                        "likes":      get_stat(stats, "heartCount", "digg"),
+                        "videos":     get_stat(stats, "videoCount"),
                         "nickname":   user.get("nickname") or username,
                         "bio":        user.get("signature") or "",
                         "verified":   bool(user.get("verified")),
@@ -60,21 +60,21 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
                     body  = await response.json()
                     items = body.get("itemList") or []
                     for item in items:
+                        item = unwrap_item(item)
                         vid = str(item.get("id") or "")
                         if not vid or vid in seen:
                             continue
                         seen.add(vid)
-                        stats   = item.get("stats") or item.get("statistics") or {}
                         music   = item.get("music") or {}
                         author  = item.get("author") or {}
                         ts      = int(item.get("createTime") or 0)
                         dt      = datetime.fromtimestamp(ts, tz=timezone.utc) if ts else None
                         posts.append({
                             "id":       vid,
-                            "views":    int(stats.get("playCount")    or 0),
-                            "likes":    int(stats.get("diggCount")    or 0),
-                            "comments": int(stats.get("commentCount") or 0),
-                            "shares":   int(stats.get("shareCount")   or 0),
+                            "views":    get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views"),
+                            "likes":    get_stat(item, "diggCount", "digg_count", "likeCount", "like_count"),
+                            "comments": get_stat(item, "commentCount", "comment_count"),
+                            "shares":   get_stat(item, "shareCount", "share_count"),
                             "sound":    (music.get("title") or "").strip(),
                             "desc":     (item.get("desc") or "").strip()[:120],
                             "ts":       ts,
@@ -87,7 +87,7 @@ async def _scrape_account(username: str, max_posts: int) -> dict:
                     pass
 
         pages = ctx.pages
-    page = pages[0] if pages else await ctx.new_page()
+        page = pages[0] if pages else await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/@{username}",
                         wait_until="domcontentloaded", timeout=30000)

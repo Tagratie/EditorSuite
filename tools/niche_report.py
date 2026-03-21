@@ -18,6 +18,9 @@ from tools.viral_finder import _scrape_viral
 from tools.hashtag_analyzer import _scrape_captions
 
 
+RECENT_DAYS = 30
+
+
 def tool_nichereport():
     divider("NICHE REPORT GENERATOR")
     print(f"  {_T.DIM}Full analysis: top sounds + hashtags + viral videos for any niche.{_T.R}\n")
@@ -26,18 +29,18 @@ def tool_nichereport():
     print()
 
     info("Phase 1/3 — Scraping trending sounds...")
-    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos))
+    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos, recent_days=RECENT_DAYS))
     all_s = sorted(sounds.values(), key=lambda x: x["count"], reverse=True)
     kept  = [s for s in all_s if not s["reason"]]
     ok(f"Found {len(kept)} sounds from {scanned} videos")
 
     info("Phase 2/3 — Scraping viral videos...")
-    viral = asyncio.run(_scrape_viral(hashtag, min(videos, 300)))
+    viral = asyncio.run(_scrape_viral(hashtag, min(videos, 300), recent_days=RECENT_DAYS))
     viral.sort(key=lambda x: x["views"], reverse=True)
     ok(f"Found {len(viral)} videos")
 
     info("Phase 3/3 — Scraping hashtag frequency...")
-    captions  = asyncio.run(_scrape_captions(hashtag, min(videos, 300)))
+    captions  = asyncio.run(_scrape_captions(hashtag, min(videos, 300), recent_days=RECENT_DAYS))
     tag_count = Counter()
     for cap in captions:
         for tag in re.findall(r"#(\w+)", cap.lower()):
