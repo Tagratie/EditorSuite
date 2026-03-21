@@ -1,9 +1,11 @@
-
-# Code signing — never commit these
+bin/
+dist/
+build_tmp/
 editorsuite.pfx
 editorsuite.pfx.pass
 editorsuite.key
 editorsuite.crt
-bin
-create_cert.py
-setup_server.py
+.env.editorsuite
+config.json
+__pycache__/
+*.pyc
