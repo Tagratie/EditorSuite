@@ -9,3 +9,4 @@ editorsuite.crt
 config.json
 __pycache__/
 *.pyc
+ui/

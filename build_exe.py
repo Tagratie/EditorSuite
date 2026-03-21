@@ -95,7 +95,6 @@ a = Analysis(
         (str(ROOT / 'gui' / 'server.py'), 'gui'),
         (str(ROOT / 'tools'), 'tools'),
         (str(ROOT / 'utils'), 'utils'),
-        (str(ROOT / 'ui'), 'ui'),
         (str(ROOT / 'core'), 'core'),
         (str(ROOT / 'pw_hook.py'), '.'),
     ],
