@@ -7,7 +7,11 @@ import asyncio
 from collections import defaultdict
 from datetime import datetime
 
-from ui import theme as _T
+try:
+    from ui import theme as _T
+except ModuleNotFoundError:
+    class _T:  # noqa
+        BOLD=DIM=R=GREEN=YELLOW=RED=CYAN=MAGENTA=WHITE=BLUE=""
 from utils.helpers import ok, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
 from utils import dirs as _dirs
 from utils.config import get_my_username, set_my_username

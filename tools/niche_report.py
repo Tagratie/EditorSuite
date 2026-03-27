@@ -8,7 +8,11 @@ import re
 from collections import Counter
 from datetime import datetime
 
-from ui import theme as _T
+try:
+    from ui import theme as _T
+except ModuleNotFoundError:
+    class _T:  # noqa
+        BOLD=DIM=R=GREEN=YELLOW=RED=CYAN=MAGENTA=WHITE=BLUE=""
 from utils.helpers import ok, info, warn, divider, prompt, save, saved_in, back_to_menu
 from utils.validator import validate_sounds, validate_videos
 from utils.html_report import save_niche_report, _save_and_open

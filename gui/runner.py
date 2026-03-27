@@ -11,7 +11,10 @@ if ROOT not in sys.path:
 
 from utils.config import load_config
 from utils.dirs   import _init_dirs
-from ui.theme     import _apply_theme
+try:
+    from ui.theme import _apply_theme
+except (ModuleNotFoundError, ImportError):
+    def _apply_theme(*a, **kw): pass
 
 load_config(); _apply_theme("default"); _init_dirs()
 from utils import dirs as _dirs
@@ -143,9 +146,25 @@ def _dispatch(kind, value, opts, log, prog, res, done, error):
         return (error("Enter both usernames.") if not u1 or not u2 else
                 _competitor(u1, u2, opts, log, res, done, error))
 
+    if kind == "besttime":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter your TikTok username.") if not u else
+                _best_time(u, opts, log, res, done, error))
 
+    if kind == "niche":
+        h = (opts.get("hashtag","") or "").lstrip("#").strip()
+        return (error("Enter a hashtag.") if not h else
+                _niche_report(h, opts, log, prog, res, done, error))
 
+    if kind == "growth":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter a TikTok username.") if not u else
+                _growth(u, log, res, done, error))
 
+    if kind == "health":
+        u = opts.get("username","").lstrip("@").strip()
+        return (error("Enter a TikTok username.") if not u else
+                _health(u, opts, log, prog, res, done, error))
 
     # --- DOWNLOADERS ---
     if kind == "dl_vid":
@@ -183,12 +202,13 @@ def _dispatch(kind, value, opts, log, prog, res, done, error):
     # --- STUDIO ---
     if kind == "compress":
         inp = opts.get("input","").strip()
-        if not inp: return error("Enter a video file or folder path.")
-        if os.path.isdir(inp):
-            opts["folder"] = inp
-            return _bulk_compress(inp, opts, log, prog, done, error)
-        return _compress(inp, opts, log, done, error)
+        return (error("Enter a video file path.") if not inp else
+                _compress(inp, opts, log, done, error))
 
+    if kind == "bulk_comp":
+        folder = opts.get("folder","").strip()
+        return (error("Enter a folder path.") if not folder else
+                _bulk_compress(folder, opts, log, prog, done, error))
 
     if kind == "bg_rem":
         inp = opts.get("input","").strip()
@@ -330,23 +350,56 @@ def _export_spotify(hashtag, opts, log, prog, done, error):
 
 def _hashtag_analyze(tags, opts, log, prog, res, done, error):
     from tools.hashtag_analyzer import _analyze_hashtags
-    log(f"Analysing {len(tags)} hashtag(s)...")
+    log(f"Analysing {len(tags)} hashtag(s) — last 7 days...")
     try:
         results = asyncio.run(_analyze_hashtags(tags))
     except Exception as e:
         return error(f"Analysis failed: {e}")
 
+    EXCL = {"fyp","foryou","foryoupage","viral","trending","tiktok",
+            "xyzbca","blowthisup","explore","fy","parati","pourtoi",
+            "4u","4you","fypシ","fypシ゚viral"}
+
     rows = sorted([
-        {"tag":f"#{tag}",
-         "posts":     d.get("post_count",0),
-         "avg_views": d.get("avg_views",0),
-         "avg_likes": d.get("avg_likes",0),
-         "difficulty":d.get("difficulty","—")}
-        for tag,d in results.items()
+        {"tag": f"#{tag}",
+         "posts":     d.get("post_count", d.get("videos", 0)),
+         "avg_views": d.get("avg_views",  d.get("avg", 0)),
+         "avg_likes": d.get("avg_likes",  0),
+         "difficulty": d.get("difficulty", "—")}
+        for tag, d in results.items()
     ], key=lambda r: r["avg_views"], reverse=True)
 
-    res({"type":"hashtag_analyze","rows":rows})
-    done(f"Analysis complete for {len(rows)} hashtags")
+    # Collect co-occurring hashtags from top videos
+    from collections import Counter
+    co_counter = Counter()
+    top_videos  = []
+    top_sounds  = Counter()
+    for tag, d in results.items():
+        for v in d.get("top_videos", []):
+            top_videos.append(v)
+            for ht in v.get("hashtags", []):
+                clean = ht.lstrip("#").lower()
+                if clean not in EXCL and clean != tag.lower():
+                    co_counter[ht if ht.startswith("#") else f"#{ht}"] += 1
+            snd = v.get("sound") or v.get("music")
+            if snd:
+                top_sounds[snd] += 1
+
+    # Deduplicate and sort top videos by views
+    seen_ids = set()
+    uniq_vids = []
+    for v in sorted(top_videos, key=lambda v: v.get("views", 0), reverse=True):
+        vid_id = v.get("id") or v.get("url", "")
+        if vid_id not in seen_ids:
+            seen_ids.add(vid_id)
+            uniq_vids.append(v)
+
+    co_tags = [tag for tag, _ in co_counter.most_common(24)]
+    sounds  = [{"name": s, "count": c} for s, c in top_sounds.most_common(8)]
+
+    res({"type": "hashtag_analyze", "rows": rows,
+         "co_tags": co_tags, "top_videos": uniq_vids[:8], "top_sounds": sounds})
+    done(f"Analysis complete — {len(rows)} hashtag(s)")
 
 
 def _competitor(u1, u2, opts, log, res, done, error):
@@ -379,6 +432,139 @@ def _competitor(u1, u2, opts, log, res, done, error):
     done(f"Comparison complete: @{u1} vs @{u2}")
 
 
+def _best_time(username, opts, log, res, done, error):
+    from tools.competitor import _scrape_profile
+    from playwright.async_api import async_playwright
+    from collections import defaultdict
+    import datetime
+    log(f"Scraping @{username} posting history...")
+
+    async def _run():
+        from core.browser import new_browser
+        async with async_playwright() as pw:
+            browser, ctx = await new_browser(pw, mute=True)
+            try:
+                _, posts = await _scrape_profile(ctx, username)
+            finally:
+                await browser.close()
+            return posts
+
+    try:
+        posts = asyncio.run(_run())
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+    slot_views = defaultdict(list)
+    for p in posts:
+        ts = p.get("timestamp",0)
+        if not ts: continue
+        dt  = datetime.datetime.fromtimestamp(ts)
+        key = (dt.weekday(), dt.hour)
+        slot_views[key].append(p.get("views",0))
+
+    slots = sorted([
+        {"day":DAYS[d],"hour":h,
+         "avg_views":int(sum(v)/len(v)),
+         "count":len(v)}
+        for (d,h),v in slot_views.items()
+    ], key=lambda s: s["avg_views"], reverse=True)
+
+    log(f"Analysed {len(posts)} posts across {len(slots)} time slots")
+    res({"type":"best_time","username":username,
+         "slots":slots[:10],"total_posts":len(posts)})
+    done(f"Best times found from {len(posts)} posts")
+
+
+def _niche_report(hashtag, opts, log, prog, res, done, error):
+    from tools.audio_scraper    import scrape_sounds
+    from tools.viral_finder     import _scrape_viral
+    from tools.hashtag_analyzer import _scrape_captions
+    from collections import Counter
+    limit = int(opts.get("limit","300") or "300")
+
+    log(f"Full niche audit for #{hashtag}...")
+    log("  [1/3] Scraping trending sounds...")
+    prog(1, 3)
+    try:
+        scanned, sounds = asyncio.run(scrape_sounds(hashtag, limit, recent_days=RECENT_DAYS))
+    except Exception as e:
+        return error(f"Sound scrape failed: {e}")
+
+    log("  [2/3] Finding viral videos...")
+    prog(2, 3)
+    try:
+        videos = asyncio.run(_scrape_viral(hashtag, min(limit,300), recent_days=RECENT_DAYS))
+    except Exception as e:
+        videos = []; log(f"  Viral scrape warning: {e}")
+
+    log("  [3/3] Analysing hashtag frequency...")
+    prog(3, 3)
+    try:
+        captions = asyncio.run(_scrape_captions(hashtag, min(limit,300), recent_days=RECENT_DAYS))
+    except Exception as e:
+        captions = []; log(f"  Caption scrape warning: {e}")
+
+    kept     = sorted([v for v in sounds.values() if not v["reason"]],
+                      key=lambda x: x["count"], reverse=True)[:10]
+    viral    = sorted(videos, key=lambda v: v.get("views",0), reverse=True)[:10]
+    tags     = re.findall(r"#(\w+)", " ".join(captions))
+    top_tags = [{"tag":f"#{t}","count":c}
+                for t,c in Counter(tags).most_common(10)]
+
+    res({"type":"niche","hashtag":hashtag,"scanned":scanned,
+         "sounds":kept,"viral":viral,"top_tags":top_tags})
+    done(f"Niche report done — {len(kept)} sounds · {len(viral)} videos · {len(top_tags)} tags")
+
+
+def _growth(username, log, res, done, error):
+    from tools.growth_tracker import _scrape_profile_stats
+    import json, datetime
+    log(f"Scraping @{username} stats...")
+    try:
+        stats = asyncio.run(_scrape_profile_stats(username))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    snap_file = os.path.join(_dirs.DIR_ANALYSIS, f"{username}_growth.json")
+    os.makedirs(_dirs.DIR_ANALYSIS, exist_ok=True)
+    history = []
+    if os.path.exists(snap_file):
+        try:
+            history = json.loads(open(snap_file,encoding="utf-8").read())
+        except Exception:
+            pass
+    history.append({**stats, "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")})
+    open(snap_file,"w",encoding="utf-8").write(json.dumps(history, indent=2))
+
+    log(f"Snapshot #{len(history)} saved")
+    res({"type":"growth","username":username,"stats":stats,"history":history})
+    done(f"@{username}: {stats.get('followers',0):,} followers · {len(history)} snapshots total")
+
+
+def _health(username, opts, log, prog, res, done, error):
+    from tools.account_health import _scrape_account, _analyse, _save_html
+    max_posts = int(opts.get("limit","100") or "100")
+    log(f"Scraping @{username} (up to {max_posts} posts)...")
+    try:
+        raw = asyncio.run(_scrape_account(username, max_posts))
+    except Exception as e:
+        return error(f"Scrape failed: {e}")
+
+    posts = raw.get("posts",[])
+    log(f"Scraped {len(posts)} posts — analysing...")
+    a = _analyse(raw)
+    os.makedirs(_dirs.DIR_ANALYSIS, exist_ok=True)
+    html_path = _save_html(username, a, _dirs.DIR_ANALYSIS)
+    log(f"Report saved: {html_path}")
+    res({"type":"health","username":username,"analysis":a,"html_path":html_path})
+    done(f"Health score: {a.get('health_score',0)}/100 · {len(posts)} posts analysed")
+
+
+# =============================================================================
+# DOWNLOADERS
+# =============================================================================
+
 def _dl_video(url, opts, log, done, error):
     quality = str(opts.get("quality","1080")).replace("p","")
     out_dir = os.path.join(_dirs.DIR_DOWNLOADS, "single")
@@ -386,31 +572,18 @@ def _dl_video(url, opts, log, done, error):
     is_yt = any(x in url for x in ("youtube.com","youtu.be"))
     log(f"Downloading {'YouTube' if is_yt else 'TikTok'} video...")
     if is_yt:
-        # Prefer mp4 video + m4a (AAC) audio so the result plays everywhere.
-        # If no m4a stream available, take best audio and remux/convert to aac.
-        fmt = (
-            f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/"
-            f"bestvideo[height<={quality}]+bestaudio[ext=m4a]/"
-            f"bestvideo[height<={quality}]+bestaudio/best[ext=mp4]/best"
-        )
-        cmd = [_find_bin("yt-dlp"), url,
-               "-o", os.path.join(out_dir, "%(uploader)s_%(title)s.%(ext)s"),
-               "--format", fmt,
-               "--merge-output-format", "mp4",
-               "--audio-format", "aac",        # convert audio to AAC if not already
-               "--postprocessor-args", "ffmpeg:-c:a aac -b:a 192k",
-               "--add-metadata", "--progress"]
+        cmd = [_find_bin("yt-dlp"), url, "-o", os.path.join(out_dir,"%(uploader)s_%(title)s.%(ext)s"),
+               "--format", f"bestvideo[height<={quality}]+bestaudio/best",
+               "--merge-output-format","mp4","--add-metadata","--progress"]
     else:
         cmd = [_find_bin("yt-dlp"), url, "-o", os.path.join(out_dir,"%(uploader)s_%(title)s.%(ext)s"),
                "--merge-output-format","mp4","--no-warnings","--progress"]
     _stream_cmd(cmd, log)
-    # Find the actual downloaded file to return its path
-    import glob as _glob
-    _files = []
-    for _ext in ("*.mp4","*.mkv","*.mov","*.webm","*.avi"):
-        _files += _glob.glob(os.path.join(out_dir, _ext))
-    _file_path = sorted(_files, key=os.path.getmtime)[-1] if _files else out_dir
-    done(f"Saved to: {out_dir}", path=_file_path)
+    # Find the specific file just downloaded (newest .mp4 in dir)
+    import glob as _g, time as _t
+    mp4s = sorted(_g.glob(os.path.join(out_dir,"*.mp4")), key=os.path.getmtime, reverse=True)
+    file_path = mp4s[0] if mp4s else out_dir
+    done(f"Saved to: {out_dir}", path=file_path)
 
 
 def _dl_profile(username, opts, log, done, error):
@@ -420,15 +593,16 @@ def _dl_profile(username, opts, log, done, error):
     lim = opts.get("limit","")
     cmd = [_find_bin("yt-dlp"), url, "-o",
            os.path.join(out_dir,"%(upload_date)s_%(title)s.%(ext)s"),
-           "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
-           "--merge-output-format","mp4",
-           "--audio-format","aac",
-           "--postprocessor-args","ffmpeg:-c:a aac -b:a 192k",
+           "--format","bestvideo+bestaudio/best","--merge-output-format","mp4",
            "--yes-playlist","--ignore-errors","--no-warnings","--progress"]
     if str(lim).isdigit(): cmd += ["--playlist-end", str(lim)]
     log(f"Downloading @{username}'s videos...")
     _stream_cmd(cmd, log)
-    done(f"Saved to: {out_dir}", path=out_dir)
+    # Find the specific file just downloaded (newest .mp4 in dir)
+    import glob as _g, time as _t
+    mp4s = sorted(_g.glob(os.path.join(out_dir,"*.mp4")), key=os.path.getmtime, reverse=True)
+    file_path = mp4s[0] if mp4s else out_dir
+    done(f"Saved to: {out_dir}", path=file_path)
 
 
 def _dl_playlist(url, opts, log, done, error):
@@ -436,14 +610,16 @@ def _dl_playlist(url, opts, log, done, error):
     os.makedirs(out_dir, exist_ok=True)
     cmd = [_find_bin("yt-dlp"), url, "-o",
            os.path.join(out_dir,"%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"),
-           "--format", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best",
-           "--merge-output-format","mp4",
-           "--audio-format","aac",
-           "--postprocessor-args","ffmpeg:-c:a aac -b:a 192k",
-           "--yes-playlist","--ignore-errors","--no-warnings","--progress"]
+           "--format","bestvideo[height<=1080]+bestaudio/best",
+           "--merge-output-format","mp4","--yes-playlist",
+           "--ignore-errors","--no-warnings","--progress"]
     log("Downloading playlist / channel...")
     _stream_cmd(cmd, log)
-    done(f"Saved to: {out_dir}", path=out_dir)
+    # Find the specific file just downloaded (newest .mp4 in dir)
+    import glob as _g, time as _t
+    mp4s = sorted(_g.glob(os.path.join(out_dir,"*.mp4")), key=os.path.getmtime, reverse=True)
+    file_path = mp4s[0] if mp4s else out_dir
+    done(f"Saved to: {out_dir}", path=file_path)
 
 
 def _spotify(url, opts, log, prog, done, error):

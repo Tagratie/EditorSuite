@@ -7,6 +7,10 @@ editorsuite.key
 editorsuite.crt
 .env.editorsuite
 config.json
-__pycache__/
+tools/__pycache__/
+core/__pycache__/
+gui/__pycache__/
+utils/__pycache__/
 *.pyc
 ui/
+EditorSuite_Output/

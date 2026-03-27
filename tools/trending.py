@@ -9,8 +9,12 @@ import re
 from collections import Counter
 from datetime import datetime
 
-from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, save, saved_in, prompt, back_to_menu, clear_line, get_stat, unwrap_item
+try:
+    from ui import theme as _T
+except ModuleNotFoundError:
+    class _T:  # noqa
+        BOLD=DIM=R=GREEN=YELLOW=RED=CYAN=MAGENTA=WHITE=BLUE=""
+from utils.helpers import ok, info, err, warn, divider, save, saved_in, prompt, back_to_menu, clear_line
 from utils import dirs as _dirs
 from utils.validator import validate_sounds, validate_videos
 from core.browser import new_browser
@@ -31,7 +35,6 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
     seen: set = set()
 
     async with async_playwright() as pw:
-        # Persistent context — TikTok sees cookies from prior sessions
         browser, ctx = await new_browser(pw, mute=True)
 
         async def on_resp(response):
@@ -47,17 +50,14 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
                       or body.get("data", {}).get("itemList")
                       or [])
                 for item in items:
-                    item = unwrap_item(item)
                     vid = str(item.get("id") or "")
                     if not vid or vid in seen:
                         continue
                     seen.add(vid)
+                    stats  = item.get("stats") or item.get("statistics") or {}
                     music  = item.get("music") or {}
                     author = item.get("author") or {}
-                    author_user = (author.get("uniqueId") or author.get("unique_id") or
-                                   author.get("id") or author.get("nickname") or "")
-                    post_url = f"https://www.tiktok.com/@{author_user}/video/{vid}" if author_user and vid else ""
-                    views  = get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views")
+                    views  = int(stats.get("playCount") or stats.get("play_count") or 0)
 
                     title  = (music.get("title") or "").strip()
                     artist = (music.get("authorName") or music.get("author_name") or "").strip()
@@ -65,14 +65,11 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
 
                     if title and mid:
                         sounds_counter[mid] += 1
-                        if mid not in sound_meta:
-                            sound_meta[mid] = {"title": title, "author": artist, "id": mid, "post_url": post_url}
-                        elif post_url and not sound_meta[mid].get("post_url"):
-                            sound_meta[mid]["post_url"] = post_url
+                        sound_meta[mid] = {"title": title, "author": artist, "id": mid}
 
                     videos.append({
                         "views": views,
-                        "likes": get_stat(item, "diggCount", "digg_count", "likeCount", "like_count"),
+                        "likes": int(stats.get("diggCount") or stats.get("digg_count") or 0),
                         "desc":  (item.get("desc") or "").strip()[:120],
                         "user":  (author.get("uniqueId") or author.get("unique_id") or ""),
                         "sound": title,
@@ -81,8 +78,7 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
             except Exception:
                 pass
 
-        pages = ctx.pages
-        page = pages[0] if pages else await ctx.new_page()
+        page = await ctx.new_page()
         page.on("response", on_resp)
 
         # Hit both the trending tab and the explore API directly
@@ -112,8 +108,7 @@ async def _scrape_trending(target: int, progress_cb=None) -> tuple[list, list]:
         title  = meta.get("title", "Unknown")
         author = meta.get("author", "")
         reason = check_garbage(title, author)
-        entry  = {"title": title, "author": author, "count": count, "funk": is_funk(title),
-                  "post_url": meta.get("post_url","")}
+        entry  = {"title": title, "author": author, "count": count, "funk": is_funk(title)}
         if reason:
             removed_sounds.append(entry)
         else:

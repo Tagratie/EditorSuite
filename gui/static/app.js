@@ -7,12 +7,13 @@ const T={
     f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}]},
   sp_exp:{cat:"scrapers",cl:"SCRAPERS",name:"Export to Spotify",sub:"Push trending TikTok sounds to a Spotify playlist",
     f:[{id:"hashtag",l:"HASHTAG TO SCRAPE",p:"edit"}]},
-  hanalyze:{cat:"analytics",cl:"ANALYTICS",name:"Hashtag Analyzer",sub:"Compare reach & avg views across hashtags",
-    f:[{id:"hashtags",l:"HASHTAGS (comma-separated)",p:"edit"}]},
+  hanalyze:{cat:"analytics",cl:"ANALYTICS",name:"Hashtag Analyzer",sub:"Analyse any TikTok hashtag — avg views, top videos from the last 7 days, trending sounds (UGC filtered), and related tags",
+    _isHanalyze:true, f:[{id:"hashtags",l:"HASHTAGS",p:"edit"}]},
   competitor:{cat:"analytics",cl:"ANALYTICS",name:"Competitor Tracker",sub:"Side-by-side analysis of two accounts",
     f:[{id:"user1",l:"ACCOUNT 1",p:"@username"},{id:"user2",l:"ACCOUNT 2",p:"@username"}]},
-  dl_vid:{cat:"downloaders",cl:"DOWNLOADERS",name:"TikTok / YouTube DL",sub:"Download a single video in best quality",
-    f:[{id:"url",l:"VIDEO URL",p:"https://www.tiktok.com/@user/video/..."},{id:"quality",l:"QUALITY",s:["1080","720","480","best"]}]},
+  dl_vid:{cat:"downloaders",cl:"DOWNLOADERS",name:"Video Downloader",sub:"Single video or full profile — TikTok & YouTube",
+    _isDlCentered:true,
+    f:[{id:"url",l:"URL",p:""},{id:"quality",l:"QUALITY",s:["1080","720","480","best"]},{id:"limit",l:"LIMIT",s:["20","50","100","all"]}]},
   dl_prof:{cat:"downloaders",cl:"DOWNLOADERS",name:"Profile & Playlist DL",sub:"Full profiles, playlists & channels",
     f:[{id:"url",l:"URL OR @USERNAME",p:"@username or playlist URL"},{id:"limit",l:"MAX VIDEOS",s:["all","50","100","200"]}]},
   dl_spotify:{cat:"downloaders",cl:"DOWNLOADERS",name:"Spotify / SoundCloud DL",sub:"Track, album, or playlist as MP3",
@@ -41,16 +42,16 @@ const T={
   model3d:{cat:"search",cl:"SEARCH",name:"3D Model Finder",sub:"Live-search Sketchfab for 3D models, characters, props, environments and more",
     _isLive:true,
     f:[{id:"query",l:"SEARCH MODELS",p:"low poly car, character sword, tree, building..."}]},
-  artist_search:{cat:"search",cl:"SEARCH",name:"Artist Search",sub:"Search Spotify & YouTube Music artists — browse songs, download tracks, get notified of new releases",
-    _isArtist:true, f:[{id:"query",l:"SEARCH ARTIST",p:"The Weeknd, Tame Impala, Dua Lipa..."}]},
+
   footage:{cat:"search",cl:"SEARCH",name:"Stock Footage",sub:"Search free HD stock footage and cinematic car clips — instant download via yt-dlp",
     _isFootage:true, f:[{id:"query",l:"SEARCH",p:"ocean waves, forest drone, city night timelapse..."}]},
+  scene_pack:{cat:"search",cl:"SEARCH",name:"Scene Pack Finder",sub:"Browse free scene packs by category",_isScenePack:true,f:[{id:"query",l:"SEARCH",p:"anime, dark, horror, aesthetic..."}]},
 };
 
 const ICONS={scraper:"🎵",crosshash:"⟁",sp_exp:"💚",
   hanalyze:"📊",competitor:"⚔️",
   dl_vid:"⬇️",dl_prof:"👤",dl_spotify:"🎧",dl_audio:"🎙",
-  compress:"📦",bg_rem:"✂️",model3d:"🧊",artist_search:"🎤",footage:"🎬"};
+  compress:"📦",bg_rem:"✂️",model3d:"🧊",footage:"🎬",scene_pack:"🎬"};
 
 let det=null,hrun=false,trun=false,dtimer=null,activeToolId=null,appBusy=false;
 let _streamGen=0; // incremented on tool switch; streams check before writing
@@ -120,17 +121,127 @@ function fillToolFields(catName){const on=document.querySelector(".sb-tool.on");
 document.addEventListener("DOMContentLoaded",()=>{initCategories();setCategory("📺 Shows")});
 
 // ── NAVIGATION ───────────────────────────────────────────────────────────────
+function _setTopbarActive(id){
+  ["tb-home","tb-coll","tb-acct","tb-settings","tb-community"].forEach(b=>{
+    const el=document.getElementById(b);
+    if(el) el.classList.toggle("on",b===id);
+  });
+}
+
+// ── CENTERED SEARCH HELPERS ──────────────────────────────────────────────────
+// ── VIDEO DOWNLOADER CENTERED ─────────────────────────────────────────────────
+function setDlMode(mode){
+  window._dlMode=mode;
+  document.querySelectorAll(".cs-mode-btn").forEach(b=>b.classList.remove("active"));
+  const btn=document.getElementById("dlm-"+mode); if(btn)btn.classList.add("active");
+  const inp=document.getElementById("tf_dl_url");
+  const lw=document.getElementById("dl-limit-wrap");
+  if(mode==="bulk"){
+    if(inp)inp.placeholder="@username or playlist URL…";
+    if(lw)lw.style.display="";
+  }else{
+    if(inp)inp.placeholder="Paste a TikTok or YouTube URL…";
+    if(lw)lw.style.display="none";
+  }
+}
+async function runDlCentered(){
+  const inp=document.getElementById("tf_dl_url");
+  const url=(inp?inp.value:"").trim(); if(!url) return;
+  _csSetSearched(true);
+  const res=document.getElementById("cs-results");
+  if(res)res.innerHTML='<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
+  const quality=document.getElementById("tf_quality")?.value||"720";
+  const limit=document.getElementById("tf_limit")?.value||"20";
+  const isBulk=(window._dlMode==="bulk");
+  const toolId=isBulk?"dl_prof":"dl_vid";
+  const opts=isBulk?{url,limit}:{url,quality};
+  const fakeBar={style:{}},fakeLbl={textContent:""},fakeSt={textContent:""};
+  await new Promise(resolve=>{
+    doStream("/api/tool",{tool_id:toolId,options:opts},{
+      barEl:fakeBar,lblEl:fakeLbl,stEl:fakeSt,resEl:res,feedId:"",onDone:resolve
+    });
+  });
+}
+
+let _csSearched = false;
+
+function _csSetSearched(v){
+  _csSearched = v;
+  const center = document.getElementById("cs-center");
+  if(center) center.classList.toggle("cs-searched", v);
+}
+
+// ── HASHTAG ANALYZER CENTERED ────────────────────────────────────────────────
+async function _csRunHanalyze(){
+  const inp = document.getElementById("tf_hashtags");
+  const raw = (inp ? inp.value : "").trim();
+  if(!raw) return;
+  _csSetSearched(true);
+  const res = document.getElementById("cs-results");
+  if(res) res.innerHTML = '<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
+
+  // Parse tags
+  const tags = raw.replace(/#/g,"").split(/[,\s]+/).filter(Boolean).map(t=>t.toLowerCase());
+
+  // Use the existing doStream machinery via /api/tool
+  const opts = { hashtags: tags.join(", ") };
+  try{
+    await new Promise((resolve)=>{
+      const fakeBar={style:{}}, fakeLbl={textContent:""}, fakeSt={textContent:""};
+      const fakeRes = { id:"_fake_res", innerHTML:"" };
+      Object.defineProperty(fakeRes,"innerHTML",{
+        set(v){
+          if(res) res.innerHTML = v;
+        },
+        get(){ return res ? res.innerHTML : ""; }
+      });
+      doStream("/api/tool",{tool_id:"hanalyze",options:opts},{
+        barEl:fakeBar, lblEl:fakeLbl, stEl:fakeSt, resEl:res,
+        feedId:"",
+        onDone:resolve
+      });
+    });
+  }catch(e){
+    if(res) res.innerHTML = '<div style="padding:40px;text-align:center;font-family:var(--fm);font-size:.8rem;color:#555">Analysis failed: '+x(e.message)+'</div>';
+  }
+}
+
+
+async function _csRun(mode){
+  _csSetSearched(true);
+  const res = document.getElementById("cs-results");
+  if(res) res.innerHTML = '<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
+  const tr = document.getElementById("tr");
+  if(mode === "3d"){
+    await run3DSearch();
+    if(res && tr){ res.innerHTML = tr.innerHTML; tr.innerHTML = ""; }
+  } else {
+    await runFootageSearch();
+    if(res && tr){ res.innerHTML = tr.innerHTML; tr.innerHTML = ""; }
+  }
+}
+
+
 function goHome(){
+  _setTopbarActive("tb-home");
+  const _rstTpl=document.querySelector(".tpi-left"); if(_rstTpl) _rstTpl.style.display="";
+  const _rstPt=document.getElementById("pt2"); if(_rstPt) _rstPt.style.flexDirection="";
+  const _rstTr=document.getElementById("tr"); if(_rstTr){ _rstTr.style.overflow=""; _rstTr.style.padding=""; _rstTr.style.display=""; _rstTr.style.flexDirection=""; }
+  // Restore tpi-left if hidden by centered search
+  const _tl=document.querySelector(".tpi-left"); if(_tl) _tl.style.display="";
+  const _pt2d=document.getElementById("pt2"); if(_pt2d) _pt2d.style.flexDirection="";
   if(document.getElementById("pt2").classList.contains("on"))saveToolOutput(activeToolId);
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("ph").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
   document.getElementById("hbtn").classList.add("on");
   restoreHomeOutput();
-  document.getElementById("main").scrollTop=0;
+  document.getElementById("panels").scrollTop=0;
 }
 
 function goTool(id){
+  _setTopbarActive(null);
+  const _tl=document.querySelector(".tpi-left"); if(_tl) _tl.style.display="";
+  const _pt2d2=document.getElementById("pt2"); if(_pt2d2) _pt2d2.style.flexDirection="";
   const t=T[id];if(!t)return;
   if(document.getElementById("ph").classList.contains("on"))saveHomeOutput();
   else if(document.getElementById("pt2").classList.contains("on"))saveToolOutput(activeToolId);
@@ -139,12 +250,10 @@ function goTool(id){
   if(!wasRunningSameTool) _streamGen++;  // invalidate any running stream's writes
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("pt2").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
   document.querySelectorAll(".sb-tool").forEach(b=>{if(b.getAttribute("onclick")===`goTool('${id}')`)b.classList.add("on")});
   activeToolId=id;
   updateHistoryBtn();
-  // Highlight fav row if it exists
-  document.querySelectorAll('.sb-tool.fav-item').forEach(r=>r.classList.toggle('on',r.id==='sb-fav-'+id));
+  // Highlight active tool card on home
   const tpi=document.getElementById("tpi");
   tpi.className="tool-panel-inner "+t.cat;
   document.getElementById("tcb").textContent=t.cl;
@@ -155,89 +264,216 @@ function goTool(id){
   // Build form HTML
   let h="";
 
-  if(t._isArtist){
-    h += `<div class="model-search-bar" style="margin-bottom:0">
-      <input class="model-search-in" id="tf_query" type="text"
-        placeholder="${t.f[0].p}" autocomplete="off" spellcheck="false">
-    </div>
-    <div class="model-filters" style="margin-bottom:0">
-      <button class="mf-chip active" id="as-sp" onclick="setArtistPlatform(this,'both')">🎵 Both</button>
-      <button class="mf-chip" onclick="setArtistPlatform(this,'spotify')">Spotify</button>
-      <button class="mf-chip" onclick="setArtistPlatform(this,'youtube')">YouTube Music</button>
-    </div>`;
-    h += `<div class="tool-actions" style="margin-top:16px"><button class="run-btn" id="rbtn" onclick="runArtistSearch()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Search</button></div>`;
-    document.getElementById("tf").innerHTML = h;
-    if(activeCategory) showContextBadge(activeCategory); else hideContextBadge();
-    const tpEl3 = document.getElementById("tp");
-    if(!wasRunningSameTool){if(tpEl3)tpEl3.style.display="none"; trun=false; restoreToolOutput(id);}
-    document.getElementById("main").scrollTop = 0;
-    window._artistPlatform = "both";
-    setTimeout(()=>{
-      const inp = document.getElementById("tf_query"); if(!inp) return;
-      let at = null;
-      inp.addEventListener("input", ()=>{
-        clearTimeout(at);
-        if(!inp.value.trim()){document.getElementById("tr").innerHTML="";return;}
-        at = setTimeout(()=>runArtistSearch(), 500);
-      });
-      inp.addEventListener("keydown", e=>{ if(e.key==="Enter") runArtistSearch(); });
-      inp.focus();
-    }, 0);
-    return;
-  }
+  
   if(t._isFootage){
-    h+=`
-    <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border2);border-radius:10px;overflow:hidden;width:fit-content">
-      <button class="footage-mode-btn active" id="fm-general" onclick="setFootageMode(this,'general')" style="padding:8px 20px;border:none;background:rgba(251,191,36,.15);color:var(--amber);font-family:var(--fh);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s">🎬 General</button>
-      <button class="footage-mode-btn" id="fm-cars" onclick="setFootageMode(this,'cars')" style="padding:8px 20px;border:none;background:transparent;color:var(--text3);font-family:var(--fh);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s;border-left:1px solid var(--border2)">🚗 Cars</button>
-    </div>
-    <div id="footage-general-ui">
-      <div class="model-search-bar" style="margin-bottom:0">
-        <input class="model-search-in" id="tf_query" type="text" placeholder="ocean waves, forest drone, city night timelapse..." autocomplete="off" spellcheck="false">
-      </div>
-    </div>
-    <div id="footage-cars-ui" style="display:none">
-      <div class="model-search-bar" style="margin-bottom:0">
-        <input class="model-search-in" id="tf_car" type="text" placeholder="BMW M3, Ferrari 488, Porsche 911, McLaren..." autocomplete="off" spellcheck="false">
-      </div>
-      <div style="font-family:var(--fm);font-size:.71rem;color:var(--text3);padding:6px 0 0">Searches YouTube for "[car name] cinematic footage 4K"</div>
-    </div>`;
-    h+=`<div class="tool-actions" style="margin-top:16px"><button class="run-btn" id="rbtn" onclick="runFootageSearch()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l11 6-11 6z"/></svg> Search</button></div>`;
-    document.getElementById("tf").innerHTML=h;
-    if(activeCategory)showContextBadge(activeCategory);else hideContextBadge();
-    const tpEl2=document.getElementById("tp");
-    if(!wasRunningSameTool){if(tpEl2)tpEl2.style.display="none";trun=false;restoreToolOutput(id);}
-    document.getElementById("main").scrollTop=0;
+    document.getElementById("tf").innerHTML="";
+    // Centered full-panel search
+    const _tpr=document.getElementById("tr");
+    const _tpl=document.querySelector(".tpi-left");
+    if(_tpl) _tpl.style.display="none";
+    const _pt=document.getElementById("pt2");
+    if(_pt) _pt.style.flexDirection="column";
+    if(_tpr) _tpr.innerHTML=`
+      <div class="cs-wrap" id="cs-wrap">
+        <div class="cs-center" id="cs-center">
+          <div class="cs-label">Stock Footage</div>
+          <div class="cs-bar">
+            <input class="cs-input" id="tf_query" type="text" placeholder="ocean waves, forest drone, city night..." autocomplete="off" spellcheck="false">
+          </div>
+          <div class="cs-chips">
+            <button class="mf-chip active" id="fm-general" onclick="setFootageMode(this,'general')">General</button>
+            <button class="mf-chip" id="fm-cars" onclick="setFootageMode(this,'cars')">Cars</button>
+            <div class="cs-count-wrap">
+              <label class="cs-count-lbl">Results</label>
+              <select class="cs-count-sel" id="cs-result-count">
+                <option value="4">4</option><option value="6" selected>6</option>
+                <option value="10">10</option><option value="16">16</option><option value="24">24</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="cs-results" id="cs-results"></div>
+      </div>`;
+    document.getElementById("panels").scrollTop=0;
     window._footageMode="general";
     setTimeout(()=>{
-      const inp=document.getElementById("tf_query");if(inp){
-        let ft=null;
-        inp.addEventListener("input",()=>{clearTimeout(ft);ft=setTimeout(()=>{if(inp.value.trim())runFootageSearch()},600)});
-        inp.focus();
-      }
-      const carInp=document.getElementById("tf_car");if(carInp){
-        let ft2=null;
-        carInp.addEventListener("input",()=>{clearTimeout(ft2);ft2=setTimeout(()=>{if(carInp.value.trim())runFootageSearch()},600)});
-        carInp.addEventListener("keydown",e=>{if(e.key==="Enter")runFootageSearch()});
-      }
+      const inp=document.getElementById("tf_query"); if(!inp) return;
+      inp.focus();
+      let dt=null;
+      inp.addEventListener("input",()=>{
+        clearTimeout(dt);
+        if(!inp.value.trim()){ const r=document.getElementById("cs-results"); if(r) r.innerHTML=""; _csSetSearched(false); return; }
+        dt=setTimeout(()=>_csRun("footage"),200);
+      });
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){ clearTimeout(dt); if(inp.value.trim()) _csRun("footage"); }});
     },0);
     return;
   }
   if(t._isLive){
-    // Special 3D search layout
-    h+=`<div class="model-search-bar">
-      <input class="model-search-in" id="tf_query" type="text" placeholder="${t.f[0].p||''}" autocomplete="off" spellcheck="false">
-    </div>
-    <div class="model-filters" id="mf-filters">
-      <button class="mf-chip active" data-cat="all" onclick="set3DCat(this,'all')">All</button>
-      <button class="mf-chip" data-cat="characters" onclick="set3DCat(this,'characters')">Characters</button>
-      <button class="mf-chip" data-cat="vehicles" onclick="set3DCat(this,'vehicles')">Vehicles</button>
-      <button class="mf-chip" data-cat="architecture" onclick="set3DCat(this,'architecture')">Architecture</button>
-      <button class="mf-chip" data-cat="nature" onclick="set3DCat(this,'nature')">Nature</button>
-      <button class="mf-chip" data-cat="weapons" onclick="set3DCat(this,'weapons')">Weapons</button>
-      <button class="mf-chip" data-cat="props" onclick="set3DCat(this,'props')">Props</button>
-      <button class="model-free-toggle" id="mft" onclick="toggle3DFree(this)">Free only</button>
-    </div>`;
+    document.getElementById("tf").innerHTML="";
+    const _tpr2=document.getElementById("tr");
+    const _tpl2=document.querySelector(".tpi-left");
+    if(_tpl2) _tpl2.style.display="none";
+    const _pt2x=document.getElementById("pt2");
+    if(_pt2x) _pt2x.style.flexDirection="column";
+    if(_tpr2) _tpr2.innerHTML=`
+      <div class="cs-wrap" id="cs-wrap">
+        <div class="cs-center" id="cs-center">
+          <div class="cs-label">3D Model Finder</div>
+          <div class="cs-bar">
+            <input class="cs-input" id="tf_query" type="text" placeholder="${t.f[0].p||'low poly car, character sword, building...'}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="cs-chips" id="mf-filters">
+            <button class="mf-chip active" data-cat="all" onclick="set3DCat(this,'all')">All</button>
+            <button class="mf-chip" data-cat="characters" onclick="set3DCat(this,'characters')">Characters</button>
+            <button class="mf-chip" data-cat="vehicles" onclick="set3DCat(this,'vehicles')">Vehicles</button>
+            <button class="mf-chip" data-cat="architecture" onclick="set3DCat(this,'architecture')">Architecture</button>
+            <button class="mf-chip" data-cat="nature" onclick="set3DCat(this,'nature')">Nature</button>
+            <button class="mf-chip" data-cat="weapons" onclick="set3DCat(this,'weapons')">Weapons</button>
+            <button class="mf-chip" data-cat="props" onclick="set3DCat(this,'props')">Props</button>
+            <button class="model-free-toggle" id="mft" onclick="toggle3DFree(this)">Free only</button>
+            <div class="cs-count-wrap">
+              <label class="cs-count-lbl">Results</label>
+              <select class="cs-count-sel" id="cs-result-count">
+                <option value="6">6</option><option value="12" selected>12</option>
+                <option value="20">20</option><option value="30">30</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="cs-results" id="cs-results"></div>
+      </div>`;
+    document.getElementById("panels").scrollTop=0;
+    window._3dCategory="all"; window._3dFreeOnly=false;
+    setTimeout(()=>{
+      const inp=document.getElementById("tf_query"); if(!inp) return;
+      inp.focus();
+      let dt=null;
+      inp.addEventListener("input",()=>{
+        clearTimeout(dt);
+        if(!inp.value.trim()){ const r=document.getElementById("cs-results"); if(r) r.innerHTML=""; _csSetSearched(false); return; }
+        dt=setTimeout(()=>_csRun("3d"),200);
+      });
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){ clearTimeout(dt); if(inp.value.trim()) _csRun("3d"); }});
+    },0);
+  if(t._isDlCentered){
+    document.getElementById("tf").innerHTML="";
+    const _dtpl=document.querySelector(".tpi-left"); if(_dtpl) _dtpl.style.display="none";
+    const _dpt=document.getElementById("pt2"); if(_dpt) _dpt.style.flexDirection="column";
+    const _dtr=document.getElementById("tr");
+    if(_dtr) _dtr.innerHTML=`
+      <div class="cs-wrap" id="cs-wrap">
+        <div class="cs-center" id="cs-center">
+          <div class="cs-label">Video Downloader</div>
+          <div class="cs-mode-toggle">
+            <button class="cs-mode-btn active" id="dlm-single" onclick="setDlMode('single')">Single</button>
+            <button class="cs-mode-btn" id="dlm-bulk" onclick="setDlMode('bulk')">Bulk / Profile</button>
+          </div>
+          <div class="cs-bar">
+            <input class="cs-input" id="tf_dl_url" type="text" placeholder="Paste a TikTok or YouTube URL…" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="cs-chips">
+            <div class="cs-count-wrap">
+              <label class="cs-count-lbl">Quality</label>
+              <select class="cs-count-sel" id="tf_quality">
+                <option value="1080">1080p</option><option value="720" selected>720p</option>
+                <option value="480">480p</option><option value="best">Best</option>
+              </select>
+            </div>
+            <div class="cs-count-wrap" id="dl-limit-wrap" style="display:none">
+              <label class="cs-count-lbl">Limit</label>
+              <select class="cs-count-sel" id="tf_limit">
+                <option value="20">20</option><option value="50">50</option>
+                <option value="100">100</option><option value="all">All</option>
+              </select>
+            </div>
+            <button class="cs-run-btn" onclick="runDlCentered()">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M3 2l11 6-11 6z"/></svg>
+              Download
+            </button>
+          </div>
+        </div>
+        <div class="cs-results" id="cs-results"></div>
+      </div>`;
+    document.getElementById("panels").scrollTop=0;
+    window._dlMode="single";
+    if(!wasRunningSameTool){ trun=false; restoreToolOutput(id); }
+    setTimeout(()=>{
+      const inp=document.getElementById("tf_dl_url"); if(!inp) return;
+      inp.focus();
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter"&&inp.value.trim()) runDlCentered(); });
+    },0);
+    return;
+  }
+  if(t._isScenePack){
+    document.getElementById("tf").innerHTML="";
+    const _stpl=document.querySelector(".tpi-left"); if(_stpl) _stpl.style.display="none";
+    const _spt=document.getElementById("pt2"); if(_spt) _spt.style.flexDirection="column";
+    const _str=document.getElementById("tr");
+    if(_str) _str.innerHTML=`
+      <div class="cs-wrap" id="cs-wrap">
+        <div class="cs-center" id="cs-center">
+          <div class="cs-label">Scene Pack Finder</div>
+          <div style="font-family:var(--fm);font-size:.72rem;color:#2e2e2e;margin-bottom:16px;text-align:center">Free scene packs from vlscenepacks.com</div>
+          <div class="cs-bar">
+            <input class="cs-input" id="tf_query" type="text"
+              placeholder="anime, dark, horror, aesthetic, cinematic…" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="cs-chips">
+            <button class="mf-chip active" data-sc="all"         onclick="setSceneCat(this,'all')">All</button>
+            <button class="mf-chip" data-sc="anime"      onclick="setSceneCat(this,'anime')">Anime</button>
+            <button class="mf-chip" data-sc="dark"       onclick="setSceneCat(this,'dark')">Dark</button>
+            <button class="mf-chip" data-sc="aesthetic"  onclick="setSceneCat(this,'aesthetic')">Aesthetic</button>
+            <button class="mf-chip" data-sc="horror"     onclick="setSceneCat(this,'horror')">Horror</button>
+            <button class="mf-chip" data-sc="cinematic"  onclick="setSceneCat(this,'cinematic')">Cinematic</button>
+            <button class="mf-chip" data-sc="trending"   onclick="setSceneCat(this,'trending')">Trending</button>
+          </div>
+        </div>
+        <div class="cs-results" id="cs-results"></div>
+      </div>`;
+    document.getElementById("panels").scrollTop=0;
+    window._sceneCat="all";
+    setTimeout(()=>{
+      const inp=document.getElementById("tf_query"); if(!inp) return;
+      inp.focus();
+      let dt=null;
+      inp.addEventListener("input",()=>{ clearTimeout(dt); if(inp.value.trim()) dt=setTimeout(()=>runSceneSearch(),300); else { _csSetSearched(false); const r=document.getElementById("cs-results"); if(r) r.innerHTML=""; } });
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter"&&inp.value.trim()){ clearTimeout(dt); runSceneSearch(); }});
+    },0);
+    return;
+  }
+    if(t._isHanalyze){
+    document.getElementById("tf").innerHTML="";
+    const _htpl=document.querySelector(".tpi-left");
+    if(_htpl) _htpl.style.display="none";
+    const _hpt=document.getElementById("pt2");
+    if(_hpt) _hpt.style.flexDirection="column";
+    const _htr=document.getElementById("tr");
+    // Remove overflow from tr so flex sticky layout works
+    if(_htr){ _htr.style.overflow="visible"; _htr.style.padding="0"; _htr.style.flex="1"; _htr.style.display="flex"; _htr.style.flexDirection="column"; }
+    if(_htr) _htr.innerHTML=`
+      <div class="cs-wrap" id="cs-wrap">
+        <div class="cs-center" id="cs-center">
+          <div class="cs-label">Hashtag Analyzer</div>
+          <div style="font-family:var(--fm);font-size:.72rem;color:#2e2e2e;margin-bottom:8px;text-align:center">Avg views · top videos · trending sounds · related hashtags</div>
+          <div class="cs-bar">
+            <input class="cs-input" id="tf_hashtags" type="text"
+              placeholder="#hashtag  or  #tag1 #tag2 …" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="cs-chips">
+            <div class="cs-hint" style="font-family:var(--fm);font-size:.7rem;color:#333">Last 7 days · UGC sounds filtered · press Enter</div>
+          </div>
+        </div>
+        <div class="cs-results" id="cs-results"></div>
+      </div>`;
+    document.getElementById("panels").scrollTop=0;
+    setTimeout(()=>{
+      const inp=document.getElementById("tf_hashtags"); if(!inp) return;
+      inp.focus();
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter" && inp.value.trim()) _csRunHanalyze(); });
+    },0);
+    return;
+  }
   } else {
     const normalFields=t.f.filter(f=>f.type!=="preset-cards");
     const cardFields=t.f.filter(f=>f.type==="preset-cards");
@@ -287,7 +523,7 @@ function goTool(id){
   }
 
   document.getElementById("tf").innerHTML=h;
-  if(activeCategory)showContextBadge(activeCategory);else hideContextBadge();
+  hideContextBadge();
 
   const tpEl=document.getElementById("tp"),trEl=document.getElementById("tr");
   if(wasRunningSameTool){
@@ -297,22 +533,9 @@ function goTool(id){
     trun=false;
     restoreToolOutput(id);
   }
-  document.getElementById("main").scrollTop=0;
+  document.getElementById("panels").scrollTop=0;
 
-  // Attach live search for 3D tool
-  if(t._isLive){
-    _3dFreeOnly=false;_3dCategory="all";
-    setTimeout(()=>{
-      const inp=document.getElementById("tf_query");
-      if(!inp)return;
-      inp.addEventListener("input",()=>{
-        clearTimeout(_3dSearchTimer);
-        if(!inp.value.trim()){document.getElementById("tr").innerHTML="";return;}
-        _3dSearchTimer=setTimeout(()=>run3DSearch(),500);
-      });
-      inp.focus();
-    },0);
-  }
+  // 3D input wired inside _isLive block
 }
 
 function set3DCat(btn,cat){
@@ -320,31 +543,32 @@ function set3DCat(btn,cat){
   document.querySelectorAll(".mf-chip").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   const inp=document.getElementById("tf_query");
-  if(inp&&inp.value.trim())run3DSearch();
+  if(inp&&inp.value.trim()) _csRun("3d");
 }
 
 function toggle3DFree(btn){
   _3dFreeOnly=!_3dFreeOnly;
   btn.classList.toggle("active",_3dFreeOnly);
   const inp=document.getElementById("tf_query");
-  if(inp&&inp.value.trim())run3DSearch();
+  if(inp&&inp.value.trim()) _csRun("3d");
 }
 
 async function run3DSearch(){
   const inp=document.getElementById("tf_query");
   const q=(inp?inp.value:"").trim();
-  const tr=document.getElementById("tr");
-  if(!q){if(tr)tr.innerHTML="";return;}
-  if(tr)tr.innerHTML=`<div class="model-loading">🔍 Searching for "${x(q)}"...</div>`;
+  const dest=document.getElementById("cs-results")||document.getElementById("tr");
+  if(!q){if(dest)dest.innerHTML="";return;}
+  if(dest)dest.innerHTML='<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
   try{
-    let url=`/api/3d-search?q=${encodeURIComponent(q)}`;
+    const _3dCntEl=document.getElementById("cs-result-count"); const _3dCnt=_3dCntEl?_3dCntEl.value:"12";
+    let url=`/api/3d-search?q=${encodeURIComponent(q)}&count=${_3dCnt}`;
     if(_3dCategory!=="all")url+=`&cat=${encodeURIComponent(_3dCategory)}`;
     if(_3dFreeOnly)url+=`&free=1`;
     const r=await fetch(url);
     const data=await r.json();
-    if(tr)tr.innerHTML=r3DModels(data,q);
+    if(dest)dest.innerHTML=r3DModels(data,q);
   }catch(e){
-    if(tr)tr.innerHTML=errorCard("3D search failed: "+e.message);
+    if(dest)dest.innerHTML=errorCard("3D search failed: "+e.message);
   }
 }
 
@@ -374,13 +598,7 @@ function r3DModels(data,query){
     </div>`;
   }).join("");
   const src=data.source||"Sketchfab";
-  return`<div class="model-grid-wrap">
-    <div class="model-grid-header">
-      <span class="model-grid-count">${results.length} models from ${x(src)}</span>
-    </div>
-    <div class="model-grid">${cards}</div>
-  </div>`;
-}
+  return`<div class="model-grid">${cards}</div><div class="model-src">via ${x(src)}</div>`}
 
 function applyPreset(vals){
   Object.entries(vals).forEach(([k,v])=>{const el=document.getElementById("tf_"+k);if(el)el.value=v});
@@ -429,7 +647,7 @@ function runHome(){
   const opts={quality:document.getElementById("sq")?.value||"1080",audio_quality:document.getElementById("saq")?.value||"320",limit:document.getElementById("slim")?.value||"300"};
   doStream("/api/run",{detected:det,options:opts},{
     barEl:hpb,lblEl:document.getElementById("hpl"),stEl:document.getElementById("hps"),
-    resEl:document.getElementById("hr"),feedId:"hlf",onStart:()=>{const w=document.getElementById("hr-wrap");if(w)w.style.display="block";const r=document.getElementById("hr");if(r)r.innerHTML="";},onEnd:()=>{const r=document.getElementById("hr");if(r&&r.innerHTML.trim()===""){const w=document.getElementById("hr-wrap");if(w)w.style.display="none"}},
+    resEl:document.getElementById("hr"),feedId:"hlf",onStart:()=>{const r=document.getElementById("hr");if(r)r.innerHTML="";},onEnd:()=>{const r=document.getElementById("hr");const w=document.getElementById("hr-wrap");if(r&&w){if(r.innerHTML.trim()===""){w.style.display="none";}else{w.style.display="block";}}},
     onDone:()=>{
       hrun=false;appBusy=false;
       const mi=document.getElementById("mi");if(mi)mi.value="";
@@ -456,7 +674,12 @@ function runTool(id){
   doStream("/api/tool",{tool_id:id,options:opts},{
     barEl:tpb,lblEl:document.getElementById("tpl"),stEl:document.getElementById("tps"),
     resEl:document.getElementById("tr"),feedId:"tlf",
-    onDone:()=>{trun=false;appBusy=false;const b=document.getElementById("rbtn");if(b)b.classList.remove("busy")}
+    onDone:()=>{
+      trun=false;appBusy=false;
+      const b=document.getElementById("rbtn");if(b)b.classList.remove("busy");
+      const tp=document.getElementById("tp");
+      if(tp) setTimeout(()=>{tp.style.display="none"},1200);
+    }
   });
 }
 
@@ -546,10 +769,10 @@ async function removeCustomCategory(idx){
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function goSettings(){
+  _setTopbarActive("tb-settings");
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("ps").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  document.getElementById("main").scrollTop=0;loadSettings();
+  document.getElementById("panels").scrollTop=0;loadSettings();
 }
 async function loadSettings(){
   try{
@@ -614,9 +837,82 @@ function rCrossSounds(d,msg){
   return`<div class="card"><div class="card-hdr"><div class="card-title">Cross-Hashtag Sounds</div><div class="card-meta">${(d.tags||[]).map(t=>"#"+t).join(", ")}</div></div><table class="data-table"><thead><tr><th>#</th><th>Sound</th><th>Found in</th><th style="text-align:right">Count</th><th style="text-align:right">Post</th><th style="text-align:right;padding-right:20px">Download</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
 }
 
+// ── HASHTAG ANALYZER video open ──────────────────────────────────────────────
+function haOpenVideo(url, thumb, sound){
+  if(!url) return;
+  // Open in system default browser via /api/open for audio support
+  fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({path:url, url:true})}).catch(()=>{
+    // Fallback: window.open
+    window.open(url,"_blank","noopener");
+  });
+}
+
+
 function rHashtagAnalyze(d,msg){
-  const rows=(d.rows||[]).map(r=>`<tr><td class="tag-pill" style="margin:0;display:inline-block">${x(r.tag)}</td><td>${nK(r.posts)}</td><td style="color:var(--cyan)">${nK(r.avg_views)}</td><td>${nK(r.avg_likes)}</td><td><span style="font-family:var(--fm);font-size:.74rem;color:var(--text3)">${x(r.difficulty||"—")}</span></td></tr>`).join("");
-  return`<div class="card"><div class="card-hdr"><div class="card-title">Hashtag Analysis</div><div class="card-meta">${(d.rows||[]).length} hashtags</div></div><table class="data-table"><thead><tr><th>Hashtag</th><th>Posts</th><th>Avg Views</th><th>Avg Likes</th><th>Difficulty</th></tr></thead><tbody>${rows}</tbody></table><div class="card-footer"><div class="cf-icon">✓</div><div class="cf-text">${x(msg||"Done")}</div></div></div>`;
+  const EXCL = new Set(["fyp","foryou","foryoupage","viral","trending","tiktok","xyzbca","blowthisup","explore","fy","parati","pourtoi"]);
+  const rows = d.rows||[];
+
+  // ── Stats cards
+  const statsHtml = rows.map(r=>{
+    const tag = r.tag||"";
+    const avgV = r.avg_views||0;
+    const posts = r.posts||0;
+    const diff = r.difficulty||"";
+    const diffColor = diff==="Low"?"#4ade80":diff==="Medium"?"#fbbf24":"#f43f5e";
+    return `<div class="ha-stat-card">
+      <div class="ha-tag">${x(tag)}</div>
+      <div class="ha-avg">${nK(avgV)}<span class="ha-avg-lbl"> avg views</span></div>
+      <div class="ha-row"><span class="ha-lbl">Posts</span><span class="ha-val">${nK(posts)}</span></div>
+      <div class="ha-row"><span class="ha-lbl">Avg likes</span><span class="ha-val">${nK(r.avg_likes||0)}</span></div>
+      ${diff?`<div class="ha-row"><span class="ha-lbl">Competition</span><span style="color:${diffColor};font-family:var(--fm);font-size:.75rem;font-weight:600">${x(diff)}</span></div>`:""}
+    </div>`;
+  }).join("");
+
+  // ── Related hashtags (from co_tags field, exclude banned)
+  const allCoTags = [];
+  (d.co_tags||[]).forEach(t=>{ if(!EXCL.has(t.toLowerCase().replace(/^#/,""))) allCoTags.push(t); });
+  const relHtml = allCoTags.length ? `
+    <div class="ha-section">
+      <div class="ha-section-title">Related Hashtags</div>
+      <div class="ha-tags-wrap">${allCoTags.slice(0,20).map(t=>`<span class="ha-pill">${x(t.startsWith("#")?t:"#"+t)}</span>`).join("")}</div>
+    </div>` : "";
+
+  // ── Top videos
+  const topVids = (d.top_videos||[]).slice(0,8);
+  const vidsHtml = topVids.length ? `
+    <div class="ha-section">
+      <div class="ha-section-title">Top Videos · Last 7 Days</div>
+      <div class="ha-vids-grid">${topVids.map(v=>`
+        <div class="ha-vid-card" onclick="haOpenVideo('${x(v.url||"")}','${x(v.thumb||"")}','${x(v.sound||"")}')">
+          ${v.thumb?`<div class="ha-vid-thumb"><img src="${x(v.thumb)}" loading="lazy" onerror="this.parentElement.style.background='#111'"></div>`:'<div class="ha-vid-thumb" style="background:#111"></div>'}
+          <div class="ha-vid-info">
+            <div class="ha-vid-views">${nK(v.views||0)} views</div>
+            ${v.sound?`<div class="ha-vid-sound">♪ ${x(v.sound)}</div>`:""}
+            <div class="ha-vid-date" style="font-family:var(--fm);font-size:.65rem;color:#333">${x(v.date||"")}</div>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  // ── Top sounds
+  const sounds = d.top_sounds||[];
+  const soundsHtml = sounds.length ? `
+    <div class="ha-section">
+      <div class="ha-section-title">Trending Sounds</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${sounds.slice(0,6).map((s,i)=>`
+        <div class="ha-sound-row">
+          <span class="ha-sound-rank">${i+1}</span>
+          <span class="ha-sound-name">${x(s.name||s)}</span>
+          ${s.count?`<span class="ha-sound-count">${nK(s.count)}x</span>`:""}
+        </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  return `<div class="ha-wrap">
+    <div class="ha-stats-row">${statsHtml}</div>
+    ${relHtml}${vidsHtml}${soundsHtml}
+  </div>`;
 }
 
 function rCompetitor(d,msg){
@@ -645,11 +941,11 @@ function switchTab(btn,panelId){const card=btn.closest(".card");card.querySelect
 
 // navigation
 function goAccount(){
+  _setTopbarActive("tb-acct");
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("pac").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
   document.getElementById("sb-acct-btn").classList.add("on");
-  document.getElementById("main").scrollTop=0;
+  document.getElementById("panels").scrollTop=0;
   
 }
 
@@ -1049,16 +1345,18 @@ async function runFootageSearch(){
     q=(gi?gi.value:"").trim();
     if(!q){if(tr)tr.innerHTML="";return;}
   }
-  if(tr) tr.innerHTML=`<div class="model-loading" style="padding:60px;text-align:center;font-family:var(--fm);font-size:.77rem;color:var(--text3)">🎬 Searching YouTube for "${x(q)}"…</div>`;
+  const dest=document.getElementById("cs-results")||tr;
+  if(dest)dest.innerHTML='<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
   try{
-    const url=`/api/footage-search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}`;
+    const _cntEl=document.getElementById("cs-result-count"); const _cnt=_cntEl?_cntEl.value:"6";
+    const url=`/api/footage-search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&count=${_cnt}`;
     const r=await fetch(url);
     if(!r.ok) throw new Error(`Server error ${r.status}`);
     const data=await r.json();
     if(data.error) throw new Error(data.error);
-    if(tr) tr.innerHTML=rFootage(data,q,mode);
+    if(dest)dest.innerHTML=rFootage(data,q,mode);
   }catch(e){
-    if(tr) tr.innerHTML=errorCard("Footage search failed: "+e.message);
+    if(dest)dest.innerHTML=errorCard("Footage search failed: "+e.message);
   }
 }
 
@@ -1179,6 +1477,166 @@ document.addEventListener("keydown",function(e){
     closeCollDialog();
   }
 });
+
+// ── SCENE PACK FINDER ──────────────────────────────────────────────────────
+let _sceneCat = "all";
+
+function setSceneCat(btn, cat){
+  _sceneCat = cat;
+  document.querySelectorAll("[data-sc]").forEach(b=>b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+  runSceneSearch();
+}
+
+async function runSceneSearch(){
+  const inp  = document.getElementById("tf_query");
+  const q    = (inp ? inp.value : "").trim();
+  const dest = document.getElementById("cs-results") || document.getElementById("tr");
+  if(!dest) return;
+  _csSetSearched(true);
+  dest.innerHTML = '<div class="search-dots-wrap"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
+  try{
+    const data = await fetch(`/api/scene-search?q=${encodeURIComponent(q)}&cat=${encodeURIComponent(_sceneCat)}`).then(r=>r.json());
+    dest.innerHTML = rScenePacks(data, q);
+  }catch(e){
+    dest.innerHTML = errorCard("Scene search failed: "+e.message);
+  }
+}
+
+function rScenePacks(data, query){
+  const results = data.results||[];
+  if(!results.length) return `<div class="model-empty">No scene packs found for "<strong style="color:#888">${x(query||_sceneCat)}</strong>"<br><span style="font-size:.72rem">Try a different keyword or category</span></div>`;
+  const cards = results.map(p=>`
+    <div class="scene-card" onclick="window.open('${x(p.url||"")}','_blank')">
+      ${p.thumb
+        ? `<div class="scene-card-thumb"><img src="${x(p.thumb)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\"scene-card-ph\">🎬</div>'"></div>`
+        : `<div class="scene-card-thumb scene-card-ph">🎬</div>`}
+      <div class="scene-card-info">
+        <div class="scene-card-name">${x(p.name||"Scene Pack")}</div>
+        ${p.tags&&p.tags.length ? `<div class="scene-card-tags">${p.tags.slice(0,3).map(t=>`<span class="ha-pill" style="font-size:.62rem;padding:3px 8px">${x(t)}</span>`).join("")}</div>` : ""}
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="cw-action-btn" style="flex:1" onclick="event.stopPropagation();window.open('${x(p.download||p.url||"")}','_blank')">⬇ Download</button>
+        </div>
+      </div>
+    </div>`).join("");
+  const src = (data.results||[]).some(r=>r.source==="YouTube") ? "Results via YouTube Search" : "vlscenepacks.com";
+  return `<div class="scene-grid">${cards}</div><div class="model-src">${src}</div>`;
+}
+
+// ── TIKTOK INTEGRATION ──────────────────────────────────────────────────────
+function openTikTokLogin(){
+  const b=document.getElementById("tt-login-banner");
+  if(b) b.style.display=b.style.display==="none"||b.style.display===""?"block":"none";
+}
+
+async function connectTikTok(){
+  const inp     = document.getElementById("tt-cookie-in");
+  const session = (inp?inp.value:"").trim();
+  if(!session){ showToast("Paste your TikTok sessionid cookie first","var(--red)"); return; }
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({tt_session:session})}).catch(()=>{});
+  showToast("Connecting to TikTok…");
+  document.getElementById("tt-login-banner").style.display="none";
+  await syncTikTokCollections(session);
+}
+
+async function syncTikTokCollections(session){
+  showToast("Syncing TikTok favorites & reposts…");
+  try{
+    const data = await fetch("/api/tiktok-sync",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({session})}).then(r=>r.json());
+    if(data.error){ showToast("TikTok sync failed: "+data.error,"var(--red)"); return; }
+    function _upsertColl(name,emoji,rarity,vids){
+      let c=_collections.find(c=>c.name===name);
+      if(!c){ c={id:"tt-"+name.replace(/\s/g,"-")+"-"+Date.now(),name,rarity,emoji,thumb:"",videos:[],creators:[]}; _collections.push(c); }
+      let added=0;
+      (vids||[]).forEach(v=>{
+        if(!c.videos.find(ev=>ev.url===v.url)){
+          c.videos.push({url:v.url,desc:v.desc||"",thumb:v.thumb||"",localPath:"",added:new Date().toLocaleDateString(),creator:v.creator||""});
+          added++;
+        }
+      });
+      return added;
+    }
+    const fa=_upsertColl("TikTok Favorites","❤️","epic",data.favorites);
+    const ra=_upsertColl("TikTok Reposts","🔁","rare",data.reposts);
+    await saveColl();
+    renderCollections();
+    showToast("✓ Synced: "+fa+" favorites, "+ra+" reposts added");
+  }catch(e){ showToast("TikTok sync error: "+e.message,"var(--red)"); }
+}
+
+// ── COMMUNITY COLLECTIONS ───────────────────────────────────────────────────
+let _commTab = "presets";
+const _COMM_META = {
+  presets:    {label:"Presets",    icon:"🎛"},
+  songs:      {label:"Songs",      icon:"🎵"},
+  characters: {label:"Characters", icon:"🎭"},
+  shows:      {label:"Shows",      icon:"📺"},
+};
+
+function setCommTab(btn,tab){
+  _commTab=tab;
+  document.querySelectorAll(".comm-tab").forEach(b=>b.classList.remove("on"));
+  if(btn) btn.classList.add("on");
+  renderCommTab(tab);
+}
+
+async function renderCommTab(tab){
+  const body=document.getElementById("comm-body");
+  if(!body) return;
+  body.innerHTML='<div class="search-dots-wrap" style="padding:60px 0"><span class="search-dot"></span><span class="search-dot"></span><span class="search-dot"></span></div>';
+  try{
+    const data=await fetch(`/api/community?tab=${encodeURIComponent(tab)}`).then(r=>r.json());
+    const items=data.items||[];
+    const meta=_COMM_META[tab]||{icon:"📦",label:tab};
+    if(!items.length){
+      body.innerHTML=`<div class="comm-empty"><div class="comm-empty-icon">${meta.icon}</div><div class="comm-empty-title">No ${meta.label} yet</div><div class="comm-empty-sub">Be the first to contribute!</div></div>`;
+      return;
+    }
+    body.innerHTML=`<div class="comm-grid">${items.map(renderCommItem).join("")}</div>`;
+  }catch(e){
+    body.innerHTML=`<div class="comm-empty"><div class="comm-empty-icon">⚠</div><div class="comm-empty-title">Could not load</div><div class="comm-empty-sub">${x(e.message)}</div></div>`;
+  }
+}
+
+function renderCommItem(item){
+  const tClr={presets:"var(--cyan)",songs:"var(--green)",characters:"var(--amber)",shows:"var(--purple)"}[item.type||_commTab]||"#666";
+  return `<div class="comm-card">
+    ${item.thumb
+      ? `<div class="comm-card-thumb"><img src="${x(item.thumb)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\"comm-card-ph\">📦</div>'"></div>`
+      : `<div class="comm-card-thumb comm-card-ph">📦</div>`}
+    <div class="comm-card-info">
+      <div class="comm-card-top">
+        <span class="comm-card-type" style="color:${tClr}">${x((item.type||_commTab).toUpperCase())}</span>
+        ${item.verified?`<span class="comm-card-badge">✓</span>`:""}
+      </div>
+      <div class="comm-card-name">${x(item.name||"Untitled")}</div>
+      ${item.author?`<div class="comm-card-author">by ${x(item.author)}</div>`:""}
+      ${item.desc?`<div class="comm-card-desc">${x(item.desc)}</div>`:""}
+      <div style="display:flex;gap:6px;margin-top:10px">
+        ${item.url?`<button class="cw-action-btn" style="flex:1" onclick="window.open('${x(item.url)}','_blank')">View ↗</button>`:""}
+        ${item.download?`<button class="cw-action-btn dl" style="flex:1" onclick="window.open('${x(item.download)}','_blank')">⬇ Get</button>`:""}
+      </div>
+    </div>
+  </div>`;
+}
+
+async function submitCommEntry(){
+  const inp=document.getElementById("comm-upload-in");
+  const val=(inp?inp.value:"").trim();
+  if(!val){ showToast("Enter a link or title first","var(--red)"); return; }
+  const token=localStorage.getItem("es_token");
+  if(!token){ showToast("Sign in first to contribute","var(--red)"); return; }
+  try{
+    const d=await fetch("/api/community",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tab:_commTab,value:val,token})}).then(r=>r.json());
+    if(d.ok){ showToast("✓ Submitted — thank you!"); if(inp)inp.value=""; renderCommTab(_commTab); }
+    else showToast(d.error||"Submit failed","var(--red)");
+  }catch(e){ showToast(e.message,"var(--red)"); }
+}
+
 
 // ── HEARTBEAT ─────────────────────────────────────────────────────────────────
 (function(){
@@ -1553,6 +2011,7 @@ async function browseOutputFolder(){
 // ── COLLECTIONS ───────────────────────────────────────────────────────────────
 let _collections = [];   // [{id, name, rarity, emoji, videos:[], creators:[]}]
 let _activeCollId = null;
+let _vidViewMode = "grid";
 let _collTab = "all";
 let _collRarity = "normal";
 
@@ -1570,33 +2029,49 @@ function updateHistoryBtn(){
 function goAccount(){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("pac").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  const btn=document.getElementById("sb-acct-btn");
-  if(btn) btn.classList.add("on");
   renderAcctPanel();
 }
 
 function renderAcctPanel(){
-  const token  = localStorage.getItem("es_token");
-  const email  = localStorage.getItem("es_email") || "";
-  const si  = document.getElementById("pac-signed-in");
-  const so  = document.getElementById("pac-signed-out");
-  const av  = document.getElementById("pac-avatar");
-  const em  = document.getElementById("pac-email");
-  const dot = document.getElementById("sb-acct-dot");
-  const lbl = document.getElementById("sb-acct-label");
+  const token = localStorage.getItem("es_token");
+  const email = localStorage.getItem("es_email") || "";
+  const si    = document.getElementById("pac-signed-in");
+  const so    = document.getElementById("pac-signed-out");
+  const av    = document.getElementById("pac-avatar");
+  const em    = document.getElementById("pac-email");
+  const dot   = document.getElementById("sb-acct-dot");
+
   if(token){
-    if(si)  si.style.display="block";
-    if(so)  so.style.display="none";
-    if(av)  av.textContent=(email||"?").slice(0,1).toUpperCase();
-    if(em)  em.textContent=email||"Signed in";
+    if(si) si.style.display="block";
+    if(so) so.style.display="none";
+    if(av) av.textContent=(email||"?").slice(0,1).toUpperCase();
+    if(em) em.textContent=email||"Signed in";
     if(dot) dot.style.display="inline-block";
-    if(lbl) lbl.textContent="My Account";
+    // Fill stats
+    const totalVids     = _collections.reduce((a,c)=>a+c.videos.length,0);
+    const totalCreators = _collections.reduce((a,c)=>a+c.creators.length,0);
+    const sv = document.getElementById("pac-stat-colls");
+    const vv = document.getElementById("pac-stat-vids");
+    const cv = document.getElementById("pac-stat-creators");
+    if(sv) sv.textContent=_collections.length;
+    if(vv) vv.textContent=totalVids;
+    if(cv) cv.textContent=totalCreators;
+    // Fill starred tools
+    const fl = document.getElementById("pac-favs-list");
+    if(fl){
+      if(_favTools.length){
+        fl.innerHTML=_favTools.map(tid=>{
+          const t=T[tid];
+          return t?`<span style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:5px 10px;font-family:var(--fm);font-size:.72rem;color:#888">${t.name}</span>`:"";
+        }).join("");
+      } else {
+        fl.innerHTML='<span style="font-family:var(--fm);font-size:.75rem;color:#444">No starred tools yet — click ☆ next to any tool</span>';
+      }
+    }
   } else {
-    if(si)  si.style.display="none";
-    if(so)  so.style.display="block";
+    if(si) si.style.display="none";
+    if(so) so.style.display="block";
     if(dot) dot.style.display="none";
-    if(lbl) lbl.textContent="My Account";
   }
 }
 
@@ -1684,24 +2159,55 @@ function renderFavs(){
 }
 
 function goCollections(){
+  _setTopbarActive("tb-coll");
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
   document.getElementById("pcoll").classList.add("on");
-  document.querySelectorAll(".sb-tool,.sb-home").forEach(b=>b.classList.remove("on"));
-  const btn=document.getElementById("sb-coll-btn");
-  if(btn) btn.classList.add("on");
-  _activeCollId=null;
-  renderCollections();
+  // Restore detail view if a collection was open before switching panels
+  if(_activeCollId) renderCollectionDetail(_activeCollId);
+  else renderCollections();
+}
+
+function goCommunity(){
+  _setTopbarActive("tb-community");
+  const _rstTpl=document.querySelector(".tpi-left"); if(_rstTpl) _rstTpl.style.display="";
+  const _rstPt=document.getElementById("pt2"); if(_rstPt) _rstPt.style.flexDirection="";
+  const _rstTr=document.getElementById("tr"); if(_rstTr){ _rstTr.style.overflow=""; _rstTr.style.padding=""; _rstTr.style.display=""; _rstTr.style.flexDirection=""; }
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  document.getElementById("pcomm").classList.add("on");
+  renderCommTab("presets");
 }
 
 function openCollDialog(){
-  document.getElementById("coll-dialog").classList.add("open");
+  document.getElementById("coll-dialog").style.display="flex";
   document.getElementById("coll-name-in").value="";
   document.getElementById("coll-name-in").focus();
   pickRarity(document.querySelector(".rarity-opt[data-r='normal']"),"normal");
+  // Reset thumb picker
+  const tf=document.getElementById("coll-thumb-file");
+  const pr=document.getElementById("coll-thumb-preview");
+  const ph=document.getElementById("coll-thumb-placeholder");
+  const er=document.getElementById("coll-thumb-err");
+  if(tf) tf.value="";
+  if(pr){ pr.src=""; pr.style.display="none"; }
+  if(ph) ph.style.display="flex";
+  if(er) er.style.display="none";
+}
+function pickCollThumb(){
+  const f=document.getElementById("coll-thumb-file"); if(f) f.click();
+}
+function previewCollThumb(inp){
+  if(!inp.files||!inp.files[0]) return;
+  const pr=document.getElementById("coll-thumb-preview");
+  const ph=document.getElementById("coll-thumb-placeholder");
+  const er=document.getElementById("coll-thumb-err");
+  const url=URL.createObjectURL(inp.files[0]);
+  if(pr){ pr.src=url; pr.style.display="block"; }
+  if(ph) ph.style.display="none";
+  if(er) er.style.display="none";
 }
 
 function closeCollDialog(){
-  document.getElementById("coll-dialog").classList.remove("open");
+  document.getElementById("coll-dialog").style.display="none";
 }
 
 function pickRarity(el, r){
@@ -1717,15 +2223,24 @@ function pickRarity(el, r){
 async function createCollection(){
   const name=document.getElementById("coll-name-in").value.trim();
   if(!name) return;
+  // Require a thumbnail
+  const thumbFile=document.getElementById("coll-thumb-file");
+  const errEl=document.getElementById("coll-thumb-err");
+  if(!thumbFile||!thumbFile.files||!thumbFile.files[0]){
+    if(errEl) errEl.style.display="block";
+    return;
+  }
+  if(errEl) errEl.style.display="none";
+  // Read thumb as data URL
+  const thumbDataUrl = await new Promise(res=>{
+    const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.readAsDataURL(thumbFile.files[0]);
+  });
   let emoji="📂";
   if(_collRarity==="legendary") emoji="🌟";
   else if(_collRarity==="epic")  emoji="⚡";
   else if(_collRarity==="rare")  emoji="🔷";
-  else if(_collRarity==="custom"){
-    const ei=document.getElementById("coll-emoji-in");
-    emoji=ei&&ei.value.trim()?ei.value.trim():"📂";
-  }
-  const coll={id:Date.now().toString(),name,rarity:_collRarity,emoji,videos:[],creators:[]};
+  const coll={id:Date.now().toString(),name,rarity:_collRarity,emoji,
+    thumb:thumbDataUrl,videos:[],creators:[]};
   _collections.push(coll);
   await saveColl();
   closeCollDialog();
@@ -1759,6 +2274,8 @@ function setCollTab(btn, tab){
   else renderCollections();
 }
 
+const _folderSVG = `<svg viewBox="0 0 48 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" style="width:52px;height:44px;color:#2a2a2a"><path d="M4 8h16l4 4h20a2 2 0 0 1 2 2v22a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/></svg>`;
+
 function renderCollections(){
   const body=document.getElementById("coll-body");
   if(!body) return;
@@ -1774,13 +2291,16 @@ function renderCollections(){
     return;
   }
 
-  const filter = _collTab==="creators" ? "creators" : _collTab==="videos" ? "videos" : "all";
   const cards = _collections.map(c=>{
-    const count = filter==="creators" ? c.creators.length : filter==="videos" ? c.videos.length
-      : c.videos.length + c.creators.length;
-    const thumb = c.videos[0]?.thumb
-      ? `<img src="${x(c.videos[0].thumb)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`
-      : `<span style="font-size:2.4rem">${x(c.emoji)}</span>`;
+    const count = c.videos.length + c.creators.length;
+    // Prefer the user-set thumbnail, then first video thumb, then folder icon
+    const thumbSrc = c.thumb || (c.videos[0]?.thumb
+      ? `/api/serve-thumb?path=${encodeURIComponent(c.videos[0].thumb)}`
+      : "");
+    const thumb = thumbSrc
+      ? `<img src="${x(thumbSrc)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`+
+        `<span class="coll-thumb-folder" style="display:none">${_folderSVG}</span>`
+      : `<span class="coll-thumb-folder">${_folderSVG}</span>`;
     return `<div class="coll-card rarity-${x(c.rarity)}" onclick="openCollection('${x(c.id)}')">
       <div class="coll-card-thumb">${thumb}</div>
       <div class="coll-card-info">
@@ -1815,26 +2335,88 @@ function renderCollectionDetail(id){
   if(!coll) return;
   const body=document.getElementById("coll-body");
   document.getElementById("coll-panel-title").textContent=`${coll.emoji} ${coll.name}`;
+  const totalVids = coll.videos.length;
+  const totalC    = coll.creators.length;
   document.getElementById("coll-panel-sub").textContent=
-    `${coll.videos.length} videos · ${coll.creators.length} creators`;
+    `${totalVids} video${totalVids!==1?"s":""}${totalC?" · "+totalC+" creator"+(totalC!==1?"s":""):""}`;
   document.getElementById("coll-new-btn").style.display="none";
 
-  const items = _collTab==="creators"
-    ? renderCollCreators(coll)
-    : renderCollVideos(coll);
+  // Unowned videos = videos not belonging to any tracked creator
+  const trackedHandles = new Set(coll.creators.map(c=>c.handle));
+  const unownedVids = coll.videos.filter(v=>!v.creator||!trackedHandles.has(v.creator));
+
+  const creatorHtml = renderCollCreators(coll);
+  const unownedHtml = unownedVids.length ? renderUnownedVideos(unownedVids, coll) : "";
 
   body.innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="coll-back-btn" onclick="_activeCollId=null;renderCollections()">← Back</button>
-      
     </div>
     <div class="coll-add-bar">
       <input class="coll-add-in" id="coll-add-in" type="text"
-        placeholder="${_collTab==="creators"?"@creator handle":"TikTok video URL"}">
+        placeholder="@creator handle or TikTok/YouTube URL">
       <button class="coll-add-btn" onclick="addToCollection('${x(id)}')">+ Add</button>
     </div>
-    ${items}`;
+    ${creatorHtml}
+    ${unownedHtml}`;
 }
+
+function renderUnownedVideos(vids, coll){
+  const cards = vids.map((v,i)=>{
+    const globalIdx = coll.videos.indexOf(v);
+    const src = v.thumb ? `/api/serve-thumb?path=${encodeURIComponent(v.thumb.replace(/\\/g,"/"))}` : "";
+    const isDownloading = !!v.downloading;
+    return `<div class="vid-card${isDownloading?" downloading":""}">
+      <div class="vid-card-thumb" onclick="${isDownloading?"void(0)":`openScrollFromCard('${x(coll.id)}','',${i})`}">
+        ${isDownloading
+          ? `<div class="vid-card-thumb-ph"><div class="acct-spinner" style="width:22px;height:22px;border-width:2.5px;border-top-color:var(--pink)"></div></div>`
+          : src
+            ? `<img src="${src}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+               <div class="vid-card-thumb-ph" style="display:none">🎬</div>`
+            : `<div class="vid-card-thumb-ph">${v.localPath?"🎬":"🔗"}</div>`}
+        ${!isDownloading?`<div class="vid-card-overlay">▶</div>`:""}
+      </div>
+      <div class="vid-card-info">
+        <div class="vid-card-desc">${x(v.desc||"Video")}</div>
+        <div class="vid-card-meta">${x(v.added||"")}</div>
+      </div>
+      <button class="vid-card-dots" onclick="toggleVidMenu(event,'${x(coll.id)}',${globalIdx})">⋮</button>
+    </div>`;
+  }).join("");
+  return `<div class="ha-section" style="margin-top:16px">
+    <div class="ha-section-title">Videos</div>
+    <div class="vid-cards-grid">${cards}</div>
+  </div>`;
+}
+
+function toggleVidMenu(e, collId, vidIdx){
+  e.stopPropagation();
+  document.querySelectorAll(".creator-ctx-menu").forEach(m=>m.remove());
+  const coll = _collections.find(c=>c.id===collId);
+  const v    = coll&&coll.videos[vidIdx];
+  const rect = e.currentTarget.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.className = "creator-ctx-menu";
+  menu.innerHTML = (v&&v.localPath
+    ? `<div class="ctx-item" onclick="_openPath('${x(collId)}',${vidIdx})">Show in Explorer</div>`
+    : "") +
+    `<div class="ctx-item danger" onclick="_removeVid('${x(collId)}',${vidIdx})">Remove</div>`;
+  menu.style.top  = (rect.bottom+4)+"px";
+  menu.style.left = Math.max(8, rect.right-190)+"px";
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),10);
+}
+function _openPath(collId, vidIdx){
+  const coll=_collections.find(c=>c.id===collId);
+  const v=coll&&coll.videos[vidIdx];
+  if(v&&v.localPath) fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:v.localPath})});
+  document.querySelectorAll(".creator-ctx-menu").forEach(m=>m.remove());
+}
+function _removeVid(collId, vidIdx){
+  document.querySelectorAll(".creator-ctx-menu").forEach(m=>m.remove());
+  removeFromCollection(collId,"video",vidIdx);
+}
+
 
 function renderCollVideos(coll){
   if(!coll.videos.length) return `<div style="padding:40px;text-align:center;font-family:var(--fm);font-size:.78rem;color:var(--text3)">
@@ -1882,25 +2464,152 @@ function renderCollVideos(coll){
   return `<div class="vid-grid">${cards}</div>`;
 }
 function renderCollCreators(coll){
-  if(!coll.creators.length) return `<div style="padding:40px;text-align:center;font-family:var(--fm);font-size:.78rem;color:var(--text3)">
-    No creators yet. Type a @handle above to add one.</div>`;
-  const items=coll.creators.map((c,i)=>`
-    <div class="notif-item" style="cursor:default">
-      <div class="notif-avatar">${(c.handle||"?").slice(0,1).toUpperCase()}</div>
-      <div class="notif-body">
-        <div class="notif-handle">@${x(c.handle)}</div>
-        <div class="notif-time">Added ${c.added||""}</div>
+  if(!coll.creators.length) return "";
+  const items = coll.creators.map((c,i)=>{
+    const handle = c.handle||"";
+    const pfpSrc = c.pfp ? `/api/serve-thumb?path=${encodeURIComponent(c.pfp)}` : "";
+    // Videos belonging to this creator
+    const creatorVids = coll.videos.filter(v=>v.creator===handle);
+    const dl = _activeDownloads[collId(coll)+":"+i];
+    const isDownloading = !!(dl && dl.active);
+
+    // Show first 4 videos, rest hidden
+    const SHOW = 4;
+    const visible = creatorVids.slice(0, SHOW);
+    const hidden  = creatorVids.slice(SHOW);
+
+    const vidCards = creatorVids.length ? `
+      <div class="creator-vids-row" id="cvids-${i}">
+        ${visible.map((v,vi)=>renderMiniVidCard(v, coll.videos.indexOf(v), coll.id, creatorVids.indexOf(v))).join("")}
+        ${hidden.length ? `
+          <div class="mini-vid-more" onclick="expandCreatorVids(${i},this,'${x(coll.id)}','${x(handle)}')">
+            +${hidden.length} more
+          </div>` : ""}
+      </div>` : "";
+
+    return `<div class="creator-row" id="creator-row-${i}">
+      <div class="creator-row-head">
+        <div class="creator-pfp" id="cpfp-${i}">
+          ${pfpSrc
+            ? `<img src="${pfpSrc}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : ""}
+          <span ${pfpSrc?"style='display:none'":""}>${handle.slice(0,1).toUpperCase()}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="notif-handle">@${x(handle)}</div>
+          <div class="notif-time">${creatorVids.length} video${creatorVids.length!==1?"s":""} · Added ${c.added||""}</div>
+        </div>
+        <div class="creator-dl-bar" style="flex-shrink:0">
+          <select class="creator-dl-select" id="dl-limit-${i}">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">All</option>
+          </select>
+          <button class="creator-dl-btn" id="dl-btn-${i}"
+            onclick="downloadCreatorVideos('${x(coll.id)}','${x(handle)}',${i})">
+            ${isDownloading?"⏳ Downloading…":"⬇ Download"}
+          </button>
+          <span class="creator-dl-counter" id="dl-count-${i}" style="display:none"></span>
+        </div>
+        <div class="three-dots-btn" onclick="toggleCreatorMenu(event,'${x(coll.id)}',${i},'${x(handle)}')">⋮</div>
       </div>
-      <button class="cw-action-btn" onclick="window.open('https://tiktok.com/@${x(c.handle)}','_blank')">View ↗</button>
-      <button onclick="removeFromCollection('${x(coll.id)}','creator',${i})"
-        style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 8px;font-size:.8rem"
-        onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </div>`).join("");
-  return `<div style="display:flex;flex-direction:column;gap:8px">${items}</div>`;
+      <div class="creator-dl-progress${isDownloading?" show":""}" id="dl-prog-${i}">${isDownloading?(dl.text||"Downloading…"):""}</div>
+      ${vidCards}
+    </div>`;
+  }).join("");
+  return `<div style="display:flex;flex-direction:column;gap:10px">${items}</div>`;
 }
 
-// Pending video add state
+function collId(coll){ return coll.id; }
+
+function renderMiniVidCard(v, globalIdx, collId, localIdx){
+  const thumbSrc = v.thumb
+    ? `/api/serve-thumb?path=${encodeURIComponent(v.thumb.replace(/\\/g,"/"))}`
+    : "";
+  const clickFn = (v.localPath || v.url)
+    ? `openScrollFromCard('${x(collId)}','${x(v.creator||"")}',${localIdx})`
+    : "void(0)";
+  // Get creator PFP from _collections
+  const coll = _collections.find(c=>c.id===collId);
+  const creator = v.creator ? coll?.creators.find(c=>c.handle===v.creator) : null;
+  const pfpSrc = creator?.pfp ? `/api/serve-thumb?path=${encodeURIComponent(creator.pfp)}` : "";
+  const creatorInitial = (v.creator||"?").slice(0,1).toUpperCase();
+  return `<div class="vid-card" onclick="${clickFn}">
+    <div class="vid-card-thumb">
+      ${thumbSrc
+        ? `<img src="${thumbSrc}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+           <div class="vid-card-thumb-ph" style="display:none">🎬</div>`
+        : `<div class="vid-card-thumb-ph">🎬</div>`}
+      <div class="vid-card-overlay">▶</div>
+      ${v.downloading ? `<div class="vid-card-dl-badge">⬇ Saving…</div>` : ""}
+    </div>
+    <div class="vid-card-info">
+      <div class="vid-card-creator">
+        ${pfpSrc
+          ? `<img class="vid-card-pfp" src="${pfpSrc}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="vid-card-pfp vid-card-pfp-init" style="display:none">${creatorInitial}</div>`
+          : `<div class="vid-card-pfp vid-card-pfp-init">${creatorInitial}</div>`}
+        <span class="vid-card-handle">${v.creator ? "@"+x(v.creator) : ""}</span>
+      </div>
+      <div class="vid-card-desc">${x(v.desc||"")}</div>
+    </div>
+  </div>`;
+}
+
+function openScrollFromCard(collId, handle, startLocalIdx){
+  const coll = _collections.find(c=>c.id===collId);
+  if(!coll) return;
+  const vids = handle
+    ? coll.videos.filter(v=>v.creator===handle)
+    : coll.videos;
+  openScrollPlayer(vids, startLocalIdx);
+}
+
+function expandCreatorVids(creatorIdx, btn, collId, handle){
+  const coll = _collections.find(c=>c.id===collId);
+  if(!coll) return;
+  const vids = coll.videos.filter(v=>v.creator===handle);
+  const row  = document.getElementById(`cvids-${creatorIdx}`);
+  if(!row) return;
+  row.innerHTML = vids.map((v,vi)=>renderMiniVidCard(v, coll.videos.indexOf(v), collId, vi)).join("");
+}
+
+function toggleCreatorMenu(e, collId, creatorIdx, handle){
+  e.stopPropagation();
+  document.querySelectorAll(".creator-ctx-menu").forEach(m=>m.remove());
+  const btn  = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.className = "creator-ctx-menu";
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="openCreatorFolder('${x(handle)}')">Show in Explorer</div>
+    <div class="ctx-item danger" onclick="deleteCreatorAndVideos('${x(collId)}',${creatorIdx},'${x(handle)}')">Delete creator + videos</div>`;
+  menu.style.top  = (rect.bottom+4)+"px";
+  menu.style.left = Math.max(8, rect.right-190)+"px";
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),10);
+}
+
+function openCreatorFolder(handle){
+  fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({path:"", folder:true, handle})}).catch(()=>{});
+}
+
+async function deleteCreatorAndVideos(collId, creatorIdx, handle){
+  const coll = _collections.find(c=>c.id===collId);
+  if(!coll) return;
+  if(!confirm(`Delete @${handle} and all their downloaded videos?`)) return;
+  // Remove creator
+  coll.creators.splice(creatorIdx, 1);
+  // Remove all videos from this creator
+  coll.videos = coll.videos.filter(v=>v.creator!==handle);
+  await saveColl();
+  renderCollectionDetail(collId);
+}
+
+
 let _pendingVid = null;
+const _activeDownloads = {}; // key: "collId:creatorIdx"
 
 async function addToCollection(collId){
   const inp=document.getElementById("coll-add-in");
@@ -1913,18 +2622,24 @@ async function addToCollection(collId){
   if(isCreator){
     const handle=val.replace(/^@/,"").toLowerCase();
     if(coll.creators.find(c=>c.handle===handle)){ inp.value=""; return; }
-    coll.creators.push({handle, added:new Date().toLocaleDateString()});
+    const newCreator = {handle, added:new Date().toLocaleDateString(), videoCount:0, pfp:""};
+    coll.creators.push(newCreator);
     inp.value="";
     await saveColl();
     renderCollectionDetail(collId);
+    // Fetch PFP in background
+    fetch("/api/creator-pfp",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({handle})}).then(r=>r.json()).then(d=>{
+        if(d.pfp){ newCreator.pfp=d.pfp; saveColl().catch(()=>{}); renderCollectionDetail(collId); }
+      }).catch(()=>{});
   } else {
+    // Video URL — ask for name then download
     if(coll.videos.find(v=>v.url===val)){ inp.value=""; return; }
     inp.value="";
-    // Show name picker dialog then download
     _pendingVid = {collId, url:val};
     const dialog = document.getElementById("vid-name-dialog");
     const nameIn  = document.getElementById("vid-name-in");
-    if(dialog){ dialog.classList.add("open"); }
+    if(dialog){ dialog.style.display="flex"; }
     if(nameIn){ nameIn.value=""; setTimeout(()=>nameIn.focus(),100); }
   }
 }
@@ -1932,7 +2647,7 @@ async function addToCollection(collId){
 function cancelVidName(){
   _pendingVid=null;
   const d=document.getElementById("vid-name-dialog");
-  if(d) d.classList.remove("open");
+  if(d) d.style.display="none";
 }
 
 async function confirmVidName(){
@@ -1944,9 +2659,8 @@ async function confirmVidName(){
   const coll = _collections.find(c=>c.id===collId);
   if(!coll) return;
 
-  // Close dialog immediately, add live placeholder card
   const dialog = document.getElementById("vid-name-dialog");
-  if(dialog) dialog.classList.remove("open");
+  if(dialog) dialog.style.display="none";
   if(btn){ btn.innerHTML="Add to Collection"; btn.disabled=false; }
   _pendingVid = null;
 
@@ -1970,55 +2684,334 @@ async function confirmVidName(){
       for(const line of lines){
         if(!line.startsWith("data: ")) continue;
         let ev; try{ev=JSON.parse(line.slice(6))}catch(e){continue}
-        if(ev.type==="done"){
-          vid.localPath=ev.path||"";
-        }
+        if(ev.type==="done"){ vid.localPath=ev.path||""; }
       }
     }
   }catch(e){ console.warn("Download failed:",e.message); }
 
   vid.downloading=false;
 
-  // Extract thumbnail via server
   if(vid.localPath){
     try{
-      const tr=await fetch("/api/extract-thumb",{
+      const td=await fetch("/api/extract-thumb",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({path:vid.localPath})
-      });
-      const td=await tr.json();
+      }).then(r=>r.json());
       if(td.thumb) vid.thumb=td.thumb;
     }catch(e){}
   }
+  // Also try to get creator + description from yt-dlp metadata
+  if(vid.localPath && (!vid.creator || !vid.desc || vid.desc==="TikTok Video")){
+    try{
+      const meta=await fetch("/api/video-meta",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({path:vid.localPath})
+      }).then(r=>r.json()).catch(()=>({}));
+      if(meta.creator && !vid.creator) vid.creator=meta.creator;
+      if(meta.desc && (vid.desc==="TikTok Video"||!vid.desc)) vid.desc=meta.desc;
+    }catch(e){}
+  }
 
+  const collAfter=_collections.find(c=>c.id===collId);
+  if(collAfter){
+    const vi=collAfter.videos.indexOf(vid);
+    if(vi>=0) collAfter.videos[vi]={...vid};
+  }
   await saveColl();
   renderCollectionDetail(collId);
 }
 
-function openVidPlayer(url, title, meta){
-  const ov    = document.getElementById("vid-overlay");
-  const video = document.getElementById("vid-player");
-  const titEl = document.getElementById("vid-player-title");
-  const metEl = document.getElementById("vid-player-meta");
-  if(!ov||!video) return;
-  // Local files served via /api/serve-video for smooth in-app playback
-  const src = url.startsWith("http")
-    ? url
-    : `/api/serve-video?path=${encodeURIComponent(url)}`;
-  video.src = src;
-  if(titEl) titEl.textContent = title||"";
-  if(metEl) metEl.textContent = meta||"";
+
+// ── CUSTOM VIDEO PLAYER ──────────────────────────────────────────────────────
+let _vpVideos = [];
+let _vpIdx    = 0;
+let _vpLoop   = false;
+let _vpAuto   = false;
+let _vpScrubbing = false;
+
+function openVidPlayer(filePath, title, videos, startIdx){
+  // Can be called with a single video or a playlist
+  if(Array.isArray(videos) && videos.length){
+    _vpVideos = videos;
+    _vpIdx    = startIdx || 0;
+  } else {
+    _vpVideos = [{localPath:filePath, desc:title||"", url:""}];
+    _vpIdx    = 0;
+  }
+  const ov = document.getElementById("vid-player-overlay");
+  if(!ov) return;
   ov.classList.add("open");
-  video.play().catch(()=>{});
+  vpLoad(_vpIdx);
+  document.addEventListener("keydown", _vpKeyHandler);
 }
 
 function closeVidPlayer(){
-  const ov    = document.getElementById("vid-overlay");
-  const video = document.getElementById("vid-player");
-  if(video){ video.pause(); video.src=""; }
+  const ov  = document.getElementById("vid-player-overlay");
+  const vid = document.getElementById("vp-video");
+  if(vid){ vid.pause(); vid.src=""; }
   if(ov) ov.classList.remove("open");
+  document.removeEventListener("keydown", _vpKeyHandler);
 }
+function vpClose(){ closeVidPlayer(); }
+
+function vpLoad(idx, dir){
+  const v   = _vpVideos[idx];
+  if(!v) return;
+  const vid = document.getElementById("vp-video");
+  const ttl = document.getElementById("vp-title");
+  const ctr = document.getElementById("vp-counter");
+  const noL = document.getElementById("vp-no-local");
+  const wb  = document.getElementById("vp-open-web");
+  const pp  = document.getElementById("vp-play-btn");
+  const pPrev = document.getElementById("vp-nav-prev");
+  const pNext = document.getElementById("vp-nav-next");
+
+  if(ttl) ttl.textContent = v.desc || "Video";
+  if(ctr) ctr.textContent = _vpVideos.length>1 ? `${idx+1} / ${_vpVideos.length}` : "";
+  if(pPrev) pPrev.disabled = idx === 0;
+  if(pNext) pNext.disabled = idx === _vpVideos.length-1;
+
+  if(v.localPath){
+    const cleanPath = (v.localPath||"").replace(/\\/g,"/");
+    const src = `/api/serve-video?path=${encodeURIComponent(cleanPath)}`;
+    if(vid){
+      vid.style.display="block";
+      if(vid.src !== window.location.origin+src){
+        vid.src = src;
+        vid.load();
+      }
+      vid.play().catch(()=>{});
+      // Swipe animation
+      if(dir){
+        vid.classList.remove('slide-up','slide-down');
+        void vid.offsetWidth; // reflow
+        vid.classList.add(dir > 0 ? 'slide-up' : 'slide-down');
+        setTimeout(()=>vid.classList.remove('slide-up','slide-down'), 350);
+      }
+    }
+    if(noL) noL.style.display="none";
+  } else {
+    if(vid){ vid.pause(); vid.src=""; vid.style.display="none"; }
+    if(noL) noL.style.display="flex";
+    if(noL) noL.style.alignItems="center";
+    if(noL) noL.style.justifyContent="center";
+    if(noL) noL.style.flexDirection="column";
+    if(wb && v.url) wb.onclick = ()=>window.open(v.url,"_blank");
+  }
+  if(pp) pp.textContent = "⏸";
+  vpUpdateProgress();
+}
+
+function vpNav(dir){
+  const next = _vpIdx + dir;
+  if(next < 0 || next >= _vpVideos.length) return;
+  _vpIdx = next;
+  vpLoad(_vpIdx, dir);
+}
+
+function vpTogglePlay(){
+  const vid = document.getElementById("vp-video");
+  const btn = document.getElementById("vp-play-btn");
+  if(!vid) return;
+  if(vid.paused){ vid.play(); if(btn) btn.textContent="⏸"; }
+  else { vid.pause(); if(btn) btn.textContent="▶"; }
+}
+
+function vpSkip(sec){
+  const vid = document.getElementById("vp-video");
+  if(vid) vid.currentTime = Math.max(0, Math.min(vid.duration||0, vid.currentTime+sec));
+}
+
+function vpToggleLoop(){
+  const vid = document.getElementById("vp-video");
+  const btn = document.getElementById("vp-loop-btn");
+  _vpLoop = !_vpLoop;
+  if(vid) vid.loop = _vpLoop;
+  if(btn) btn.classList.toggle("active", _vpLoop);
+}
+
+function vpToggleAuto(){
+  _vpAuto = !_vpAuto;
+  const btn = document.getElementById("vp-auto-btn");
+  if(btn) btn.classList.toggle("active", _vpAuto);
+  if(btn) btn.title = _vpAuto ? "Auto-advance ON" : "Auto-advance OFF";
+}
+
+function vpToggleMute(){
+  const vid = document.getElementById("vp-video");
+  const btn = document.getElementById("vp-mute-btn");
+  if(!vid) return;
+  vid.muted = !vid.muted;
+  if(btn) btn.style.opacity = vid.muted ? ".3" : "1";
+}
+
+function vpSetVol(v){
+  const vid = document.getElementById("vp-video");
+  if(vid) vid.volume = parseFloat(v);
+}
+
+function vpUpdateProgress(){
+  const vid  = document.getElementById("vp-video");
+  const bar  = document.getElementById("vp-progress-bar");
+  const thb  = document.getElementById("vp-progress-thumb");
+  const time = document.getElementById("vp-time");
+  if(!vid || !bar) return;
+  const pct = vid.duration ? (vid.currentTime/vid.duration)*100 : 0;
+  bar.style.width = pct+"%";
+  if(thb) thb.style.left = pct+"%";
+  const fmt = s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+  if(time) time.textContent = `${fmt(vid.currentTime||0)} / ${fmt(vid.duration||0)}`;
+}
+
+function vpScrubClick(e){
+  const vid  = document.getElementById("vp-video");
+  const wrap = document.getElementById("vp-progress-wrap");
+  if(!vid||!wrap) return;
+  const r = wrap.getBoundingClientRect();
+  const pct = Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  vid.currentTime = pct*(vid.duration||0);
+}
+
+function vpScrubStart(e){
+  _vpScrubbing=true;
+  vpScrubClick(e);
+  const up=()=>{_vpScrubbing=false;document.removeEventListener("mouseup",up);};
+  document.addEventListener("mouseup",up);
+}
+
+// Wire progress updates
+document.addEventListener("DOMContentLoaded",()=>{
+  const vid = document.getElementById("vp-video");
+  if(vid){
+    vid.addEventListener("timeupdate", vpUpdateProgress);
+    vid.addEventListener("ended",()=>{
+      if(_vpLoop){ /* video.loop handles it */ return; }
+      if(_vpAuto && _vpIdx < _vpVideos.length-1){ vpNav(1); return; }
+      const b=document.getElementById("vp-play-btn"); if(b) b.textContent="▶";
+    });
+    vid.addEventListener("play",()=>{ const b=document.getElementById("vp-play-btn"); if(b) b.textContent="⏸"; });
+    vid.addEventListener("pause",()=>{ const b=document.getElementById("vp-play-btn"); if(b) b.textContent="▶"; });
+  }
+});
+
+function _vpKeyHandler(e){
+  if(e.key==="Escape") closeVidPlayer();
+  else if(e.key===" "||e.key==="k"){ e.preventDefault(); vpTogglePlay(); }
+  else if(e.key==="ArrowRight") vpNav(1);
+  else if(e.key==="ArrowLeft")  vpNav(-1);
+  else if(e.key==="l") vpSkip(10);
+  else if(e.key==="j") vpSkip(-10);
+  else if(e.key==="m") vpToggleMute();
+}
+
+// openScrollPlayer now uses the new player
+function openScrollPlayer(videos, startIdx){
+  openVidPlayer("","",videos,startIdx);
+}
+function openScrollFromCard(collId, handle, startLocalIdx){
+  const coll = _collections.find(c=>c.id===collId);
+  if(!coll) return;
+  const vids = handle ? coll.videos.filter(v=>v.creator===handle) : coll.videos;
+  openVidPlayer("","",vids,startLocalIdx);
+}
+function closeScrollPlayer(){ closeVidPlayer(); }
+
+// ── GRID/SCROLL VIEW ────────────────────────────────────────────────────────
+function setVidView(mode){ _vidViewMode=mode; }
+
+
+async function downloadCreatorVideos(collId, handle, idx){
+  const limitSel = document.getElementById(`dl-limit-${idx}`);
+  const btn      = document.getElementById(`dl-btn-${idx}`);
+  const prog     = document.getElementById(`dl-prog-${idx}`);
+  const limit    = limitSel ? limitSel.value : "20";
+  const dlKey    = `${collId}:${idx}`;
+  let dlCount    = 0;
+
+  _activeDownloads[dlKey] = {active:true, text:"Starting…"};
+  if(btn){btn.disabled=true;btn.textContent="⏳ Downloading…";}
+  if(prog){prog.textContent="Starting download…";prog.classList.add("show");}
+
+  const coll = _collections.find(c=>c.id===collId);
+  if(!coll){ delete _activeDownloads[dlKey]; if(btn){btn.disabled=false;btn.textContent="⬇ Download";} return; }
+
+  const total = limit==="all" ? "?" : limit;
+  const updateProg = (text, count)=>{
+    _activeDownloads[dlKey] = {active:true, text};
+    const p = document.getElementById(`dl-prog-${idx}`);
+    if(p){p.textContent=text;p.classList.add("show");}
+    const b = document.getElementById(`dl-btn-${idx}`);
+    if(b){b.disabled=true;b.textContent="⏳ Downloading…";}
+    const ct = document.getElementById(`dl-count-${idx}`);
+    if(ct && count!=null){
+      ct.textContent=`${count} / ${total}`;
+      ct.style.display="inline";
+    }
+  };
+
+  try{
+    const r = await fetch("/api/creator-bulk-download",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({handle,limit})
+    });
+    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf="";
+    while(true){
+      const{value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split("\n"); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith("data: ")) continue;
+        let ev; try{ev=JSON.parse(line.slice(6))}catch(e){continue}
+        if(ev.type==="progress") updateProg(ev.text||"");
+        if(ev.type==="video_ready"){
+          dlCount = ev.count || (dlCount+1);
+          updateProg(`Downloaded ${dlCount} video${dlCount!==1?"s":""}…`, dlCount);
+          // Re-fetch coll in case reference changed
+          const liveColl = _collections.find(c=>c.id===collId);
+          if(liveColl){
+            liveColl.videos.push({
+              url:ev.url||"",
+              desc:ev.title||handle,
+              thumb:ev.thumb||"",
+              localPath:ev.path||"",
+              added:new Date().toLocaleDateString(),
+              downloading:false,
+              creator:handle
+            });
+            const ci=liveColl.creators.findIndex(c=>c.handle===handle);
+            if(ci>=0) liveColl.creators[ci].videoCount=(liveColl.creators[ci].videoCount||0)+1;
+          }
+          saveColl().catch(()=>{});
+          if(_activeCollId===collId) renderCollectionDetail(collId);
+        }
+        if(ev.type==="done"){
+          delete _activeDownloads[dlKey];
+          updateProg(`✓ ${dlCount} video${dlCount!==1?"s":""} downloaded`);
+          const ct=document.getElementById(`dl-count-${idx}`);
+          if(ct) ct.style.display="none";
+          await saveColl();
+          if(_activeCollId===collId) renderCollectionDetail(collId);
+          break;
+        }
+        if(ev.type==="error"){
+          delete _activeDownloads[dlKey];
+          updateProg(`✗ ${ev.text}`);
+        }
+      }
+    }
+  }catch(e){
+    delete _activeDownloads[dlKey];
+    const p=document.getElementById(`dl-prog-${idx}`);
+    if(p){p.textContent=`✗ ${e.message}`;p.classList.add("show");}
+  }finally{
+    delete _activeDownloads[dlKey];
+    const b=document.getElementById(`dl-btn-${idx}`);
+    if(b){b.disabled=false;b.textContent="⬇ Download";}
+  }
+}
+
 
 async function removeFromCollection(collId, type, idx){
   const coll=_collections.find(c=>c.id===collId);
@@ -2068,4 +3061,3 @@ async function checkFirstRun(){
   // (prevents old config from skipping login on fresh installs)
 }
 document.addEventListener("DOMContentLoaded",()=>checkFirstRun());
-

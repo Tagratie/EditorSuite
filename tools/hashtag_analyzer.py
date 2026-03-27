@@ -5,32 +5,22 @@ Tool 7  — Hashtag Frequency: count hashtags from captions in a niche
 """
 import asyncio
 import re
-import time
 from collections import Counter, defaultdict
 from datetime import datetime
 
 from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
 from utils.html_report import save_hashtag_report, _save_and_open
 from utils import dirs as _dirs
 from core.browser import new_browser
 
 
-def _is_recent(ts: int, recent_seconds: int | None) -> bool:
-    if recent_seconds is None:
-        return True
-    return bool(ts) and (time.time() - ts) <= recent_seconds
-
-
 # ── Shared scraper: raw captions from a hashtag page ─────────────────────────
 
-async def _scrape_captions(hashtag: str, target: int, progress_cb=None,
-                           recent_days: int | None = None) -> list[str]:
+async def _scrape_captions(hashtag: str, target: int, progress_cb=None) -> list[str]:
     from playwright.async_api import async_playwright
     captions: list[str] = []
     seen: set[str] = set()
-    count_seen = 0
-    recent_seconds = None if recent_days is None else int(recent_days) * 86400
 
     async with async_playwright() as pw:
         browser, ctx = await new_browser(pw, mute=True)
@@ -41,32 +31,26 @@ async def _scrape_captions(hashtag: str, target: int, progress_cb=None,
             try:
                 body  = await response.json()
                 items = body.get("itemList") or body.get("ItemList") or []
-                nonlocal count_seen
                 for item in items:
                     vid = str(item.get("id") or "")
                     if not vid or vid in seen:
                         continue
                     seen.add(vid)
-                    ts = int(item.get("createTime") or 0)
-                    if not _is_recent(ts, recent_seconds):
-                        continue
-                    count_seen += 1
                     desc = (item.get("desc") or "").strip()
                     if desc:
                         captions.append(desc)
             except Exception:
                 pass
 
-        pages = ctx.pages
-        page = pages[0] if pages else await ctx.new_page()
+        page = await ctx.new_page()
         page.on("response", on_resp)
         await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
                         wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
         stale = 0
-        while count_seen < target and stale < 8:
-            print(f"  {count_seen}/{target} captions scraped...", end="\r", flush=True)
-            if progress_cb: progress_cb(count_seen, target)
+        while len(seen) < target and stale < 8:
+            print(f"  {len(seen)}/{target} captions scraped...", end="\r", flush=True)
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2.0)
@@ -119,11 +103,14 @@ def tool_caption():
 
 # ── Tool 2: Hashtag Performance Analyzer ─────────────────────────────────────
 
-async def _scrape_one_tag(ctx, tag: str) -> tuple[str, dict]:
-    """Scrape one hashtag page using an existing browser context (new tab)."""
-    import random
-    result = {"views": 0, "videos": 0, "top_views": []}
+async def _scrape_one_tag(pw, tag: str) -> tuple[str, dict]:
+    from datetime import datetime, timedelta, timezone
+    SEVEN_DAYS_AGO = datetime.now(timezone.utc) - timedelta(days=7)
+
+    result = {"views": 0, "videos": 0, "top_views": [], "top_videos": [],
+              "avg_likes": 0, "total_likes": 0}
     seen: set[str] = set()
+    browser, ctx = await new_browser(pw, mute=True)
 
     async def on_resp(response):
         if "item_list" not in response.url:
@@ -132,52 +119,78 @@ async def _scrape_one_tag(ctx, tag: str) -> tuple[str, dict]:
             body  = await response.json()
             items = body.get("itemList") or body.get("ItemList") or []
             for item in items:
-                item = unwrap_item(item)
                 vid = str(item.get("id") or "")
                 if vid in seen:
                     continue
+                # Filter to last 7 days
+                create_time = item.get("createTime") or item.get("create_time") or 0
+                if create_time:
+                    dt = datetime.fromtimestamp(int(create_time), tz=timezone.utc)
+                    if dt < SEVEN_DAYS_AGO:
+                        continue
                 seen.add(vid)
-                v = get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views")
+                stats = item.get("stats") or item.get("statistics") or {}
+                v = int(stats.get("playCount") or stats.get("play_count") or 0)
+                likes = int(stats.get("diggCount") or stats.get("like_count") or 0)
+                # Hashtags from description
+                desc = item.get("desc") or ""
+                hashtags = [w for w in desc.split() if w.startswith("#")]
+                # Sound/music
+                music = item.get("music") or {}
+                sound_name   = music.get("title") or ""
+                sound_author = music.get("authorName") or music.get("nickName") or ""
+                # Thumbnail
+                video_obj  = item.get("video") or {}
+                thumb = (video_obj.get("originCover") or
+                         video_obj.get("cover") or
+                         video_obj.get("dynamicCover") or "")
+                # Video URL
+                author = item.get("author") or {}
+                author_id = author.get("uniqueId") or author.get("id") or ""
+                url = f"https://www.tiktok.com/@{author_id}/video/{vid}" if author_id else ""
+                date_str = datetime.fromtimestamp(int(create_time or 0), tz=timezone.utc).strftime("%b %d") if create_time else ""
+
                 result["videos"] += 1
                 result["views"]  += v
+                result["total_likes"] += likes
                 result["top_views"].append(v)
+                result["top_videos"].append({
+                    "id": vid, "url": url, "views": v, "likes": likes,
+                    "thumb": thumb, "sound": sound_name, "sound_author": sound_author,
+                    "hashtags": hashtags, "date": date_str
+                })
         except Exception:
             pass
 
     page = await ctx.new_page()
     page.on("response", on_resp)
-    try:
-        await page.goto(f"https://www.tiktok.com/tag/{tag}",
-                        wait_until="domcontentloaded", timeout=30000)
-        await asyncio.sleep(2)
-        stale = 0
-        for _ in range(12):
-            print(f"  [~] #{tag}  |  {result['videos']} videos", end="\r", flush=True)
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(1.5 + random.random() * 0.8)
-    except Exception:
-        pass
+    await page.goto(f"https://www.tiktok.com/tag/{tag}",
+                    wait_until="domcontentloaded", timeout=30000)
+    await asyncio.sleep(2)
+    for _ in range(8):
+        print(f"  [~] #{tag}  |  {result['videos']} videos (last 7d)", end="\r", flush=True)
+        await page.evaluate("window.scrollBy(0, 2000)")
+        await asyncio.sleep(1.0)
     clear_line()
-    await page.close()
+    await browser.close()
 
+    n = max(result["videos"], 1)
     tv = sorted(result["top_views"], reverse=True)
-    result["avg"]     = result["views"] // max(result["videos"], 1)
-    result["top3avg"] = sum(tv[:3]) // max(len(tv[:3]), 1)
+    result["avg"]      = result["views"] // n
+    result["avg_views"]= result["views"] // n
+    result["avg_likes"]= result["total_likes"] // n
+    result["top3avg"]  = sum(tv[:3]) // max(len(tv[:3]), 1)
+    # Sort top videos by views
+    result["top_videos"] = sorted(result["top_videos"],
+                                   key=lambda v: v["views"], reverse=True)[:8]
     return tag, result
 
 
 async def _analyze_hashtags(tags: list[str]) -> dict:
-    """Scrape all tags sequentially in a single browser — no parallel browsers."""
     from playwright.async_api import async_playwright
-    results = []
     async with async_playwright() as pw:
-        browser, ctx = await new_browser(pw, mute=True)
-        try:
-            for tag in tags:
-                result = await _scrape_one_tag(ctx, tag)
-                results.append(result)
-        finally:
-            await browser.close()
+        tasks   = [_scrape_one_tag(pw, tag) for tag in tags]
+        results = await asyncio.gather(*tasks)
     return dict(results)
 
 

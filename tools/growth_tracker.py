@@ -9,8 +9,12 @@ import json
 import os
 from datetime import datetime
 
-from ui import theme as _T
-from utils.helpers import ok, info, err, divider, prompt, back_to_menu, clear_line, get_stat
+try:
+    from ui import theme as _T
+except ModuleNotFoundError:
+    class _T:  # noqa
+        BOLD=DIM=R=GREEN=YELLOW=RED=CYAN=MAGENTA=WHITE=BLUE=""
+from utils.helpers import ok, info, err, divider, prompt, back_to_menu, clear_line
 from utils import dirs as _dirs
 from core.browser import new_browser
 
@@ -32,15 +36,14 @@ async def _scrape_profile_stats(username: str) -> dict:
                 u    = body.get("userInfo") or body.get("user") or {}
                 s    = u.get("stats") or u.get("userStats") or {}
                 if s:
-                    stats["followers"] = get_stat(s, "followerCount", "fans")
-                    stats["following"] = get_stat(s, "followingCount")
-                    stats["likes"]     = get_stat(s, "heartCount", "heart")
-                    stats["videos"]    = get_stat(s, "videoCount")
+                    stats["followers"] = int(s.get("followerCount") or s.get("fans") or 0)
+                    stats["following"] = int(s.get("followingCount") or 0)
+                    stats["likes"]     = int(s.get("heartCount") or s.get("heart") or 0)
+                    stats["videos"]    = int(s.get("videoCount") or 0)
             except Exception:
                 pass
 
-        pages = ctx.pages
-        page = pages[0] if pages else await ctx.new_page()
+        page = await ctx.new_page()
         page.on("response", on_resp)
         try:
             await page.goto(

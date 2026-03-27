@@ -1,5 +1,5 @@
 """
-gui/server.py — Flask backend for EditorSuite GUI
+server.py — Flask backend for EditorSuite
 """
 import os, sys, json, queue, threading, webbrowser, time, signal, subprocess
 from datetime import date, datetime
@@ -135,13 +135,33 @@ def api_run():
 
 @app.route("/api/open", methods=["POST"])
 def api_open():
-    path = (request.json or {}).get("path", "")
-    if path and os.path.exists(path):
-        if os.name == "nt":          os.startfile(path)
-        elif sys.platform == "darwin":
-            import subprocess; subprocess.Popen(["open", path])
+    data   = request.json or {}
+    path   = data.get("path","")
+    handle = data.get("handle","")
+    is_url = data.get("url", False)
+    from utils.dirs import DIR_DOWNLOADS
+    if handle and not path:
+        path = os.path.join(DIR_DOWNLOADS, handle)
+        os.makedirs(path, exist_ok=True)
+    if path:
+        if is_url or path.startswith("http"):
+            # Open URL in system default browser
+            target = path
+        elif os.path.isfile(path):
+            target = os.path.dirname(path)
+        elif os.path.isdir(path):
+            target = path
         else:
-            import subprocess; subprocess.Popen(["xdg-open", path])
+            target = path
+        try:
+            if os.name == "nt":
+                os.startfile(target)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", target])
+            else:
+                subprocess.run(["xdg-open", target])
+        except Exception:
+            pass
     return jsonify({"ok": True})
 
 @app.route("/api/tool", methods=["POST"])
@@ -1070,10 +1090,11 @@ def api_footage_search():
     if not q:
         return jsonify({"results":[],"source":"YouTube"})
 
+    count = min(int(request.args.get("count", "6")), 24)
     if mode == "cars":
-        search_query = f"ytsearch12:{q} cinematic footage 4K"
+        search_query = f"ytsearch{count}:{q} cinematic footage 4K"
     else:
-        search_query = f"ytsearch12:{q} stock footage free HD"
+        search_query = f"ytsearch{count}:{q} stock footage free HD"
 
     try:
         from gui.runner import _find_bin
@@ -1587,6 +1608,8 @@ def api_userdata_set():
     if not token or not key:
         return jsonify({"error": "Missing token or key"}), 400
     url_base, key_cfg = _get_auth_cfg()
+    if not url_base or not url_base.startswith("http"):
+        return jsonify({"ok": True, "skipped": "no auth configured"})
 
     # We need the user_id from the JWT to do the upsert
     # Decode it (no signature verification needed — Supabase validates on its side)
@@ -1680,29 +1703,262 @@ if(t){
 </script></body></html>"""
 
 
-@app.route("/api/extract-thumb", methods=["POST"])
-def api_extract_thumb():
-    """Use ffmpeg to extract a thumbnail from a local video file."""
+@app.route("/api/creator-pfp", methods=["POST"])
+def api_creator_pfp():
+    """Fetch TikTok creator profile picture by grabbing their avatar URL via yt-dlp --dump-json."""
+    import urllib.request as _ur, json as _js
+    data   = request.json or {}
+    handle = data.get("handle","").strip().lstrip("@")
+    if not handle:
+        return jsonify({"pfp":""})
+    from utils.dirs import DIR_DOWNLOADS
+    from gui.runner import _find_bin as _fb
+    cache_dir = os.path.join(DIR_DOWNLOADS, handle, ".pfp")
+    os.makedirs(cache_dir, exist_ok=True)
+    pfp_path = os.path.join(cache_dir, "pfp.jpg")
+    if not os.path.isfile(pfp_path):
+        try:
+            _cflags = {"creationflags":0x08000000} if os.name=="nt" else {}
+            # Dump JSON of first video — contains uploader_url / channel_url + thumbnail
+            # The uploader's avatar is in 'uploader_id' field's page; we use the
+            # channel thumbnail field which yt-dlp exposes as thumbnail on the uploader page
+            result = subprocess.run(
+                [_fb("yt-dlp"),
+                 f"https://www.tiktok.com/@{handle}",
+                 "--playlist-end","1",
+                 "--dump-json","--no-warnings","--quiet"],
+                capture_output=True, text=True, timeout=30, **_cflags
+            )
+            avatar_url = ""
+            for line in (result.stdout + result.stderr).splitlines():
+                line = line.strip()
+                if not line or not line.startswith("{"):
+                    continue
+                try:
+                    info = _js.loads(line)
+                    # Priority: channel/uploader avatar over video thumbnail
+                    for key in ("uploader_thumbnail","channel_thumbnail",
+                                "uploader_url","creator_thumbnail","thumbnail"):
+                        val = info.get(key,"")
+                        if val and isinstance(val, str) and val.startswith("http"):
+                            # Skip if it's clearly a video thumbnail (contains /video/)
+                            if key == "thumbnail" and "/video/" in val:
+                                continue
+                            avatar_url = val
+                            break
+                    if avatar_url:
+                        break
+                except Exception:
+                    continue
+            if avatar_url:
+                req = _ur.Request(avatar_url, headers={"User-Agent":"Mozilla/5.0"})
+                with _ur.urlopen(req, timeout=10) as resp:
+                    data_bytes = resp.read()
+                with open(pfp_path,"wb") as f:
+                    f.write(data_bytes)
+        except Exception:
+            pass
+    return jsonify({"pfp": pfp_path if os.path.isfile(pfp_path) else ""})
+
+
+@app.route("/api/creator-bulk-download", methods=["POST"])
+def api_creator_bulk_download():
+    """
+    Download N videos from a TikTok creator.
+    Runs yt-dlp to completion, sends heartbeats, then returns all files.
+    """
+    import threading, time, glob as _glob
+    from utils.dirs import DIR_DOWNLOADS
+    data   = request.json or {}
+    handle = data.get("handle","").strip().lstrip("@")
+    limit  = str(data.get("limit","20"))
+    if not handle:
+        return jsonify({"error":"No handle"}), 400
+
+    out_dir = os.path.join(DIR_DOWNLOADS, handle)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Snapshot files already in folder before download
+    existing = set(_glob.glob(os.path.join(out_dir,"*.mp4")))
+
+    result_q   = queue.Queue()
+    done_flag  = threading.Event()
+
+    def _worker():
+        try:
+            from gui.runner import _find_bin as _fb
+            _cflags = {"creationflags":0x08000000} if os.name=="nt" else {}
+            cmd = [
+                _fb("yt-dlp"),
+                f"https://www.tiktok.com/@{handle}",
+                "-o", os.path.join(out_dir,"%(upload_date)s_%(id)s.%(ext)s"),
+                "--format","bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                "--merge-output-format","mp4",
+                "--write-thumbnail","--convert-thumbnails","jpg",
+                "--ignore-errors",
+                "--newline",
+                "--retries","3",
+                "--fragment-retries","3",
+            ]
+            if limit != "all":
+                cmd += ["--playlist-end", limit]
+
+            # Capture both stdout and stderr — yt-dlp sends progress to stderr
+            # but some builds send to stdout
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # merge stderr into stdout
+                text=True, encoding="utf-8", errors="replace",
+                **_cflags
+            )
+            for line in proc.stdout:
+                line = line.strip()
+                if not line: continue
+                if "[download]" in line and "%" in line:
+                    result_q.put({"type":"progress","text":line[:80]})
+                elif "[Merger]" in line or "Destination:" in line or "[ffmpeg]" in line:
+                    result_q.put({"type":"progress","text":line[:80]})
+                elif "ERROR:" in line:
+                    result_q.put({"type":"progress","text":"⚠ "+line[:70]})
+            proc.wait()
+
+            # Collect all new mp4 files
+            all_mp4 = sorted(
+                [f for f in _glob.glob(os.path.join(out_dir,"*.mp4"))
+                 if f not in existing],
+                key=os.path.getmtime
+            )
+            count = 0
+            for mp4 in all_mp4:
+                base  = os.path.splitext(mp4)[0]
+                # Check exact match first, then glob for near-match
+                thumb = next((base+e for e in (".jpg",".jpeg",".webp",".png")
+                              if os.path.isfile(base+e)), "")
+                if not thumb:
+                    # yt-dlp sometimes writes thumb with slightly different name
+                    candidates = _glob.glob(base[:40]+"*.jpg") + _glob.glob(base[:40]+"*.webp")
+                    if candidates:
+                        thumb = sorted(candidates, key=os.path.getmtime, reverse=True)[0]
+                title = os.path.basename(base).replace("_"," ")
+                result_q.put({
+                    "type":"video_ready","path":mp4,"thumb":thumb,
+                    "title":title,"url":f"https://tiktok.com/@{handle}"
+                })
+                count += 1
+
+            result_q.put({"type":"done","text":f"{count} video{'s' if count!=1 else ''} saved"})
+        except Exception as e:
+            result_q.put({"type":"error","text":str(e)})
+        finally:
+            done_flag.set()
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+    def generate():
+        import time as _time
+        yield f"data: {json.dumps({'type':'progress','text':'Starting download…'})}\n\n"
+        last_heartbeat = _time.time()
+        while True:
+            try:
+                ev = result_q.get(timeout=3)
+                yield f"data: {json.dumps(ev)}\n\n"
+                if ev.get("type") in ("done","error"):
+                    return
+            except Exception:
+                # Queue empty after 3s timeout
+                if done_flag.is_set():
+                    # Worker finished but queue might have items we missed — drain it
+                    drained = 0
+                    while not result_q.empty():
+                        try:
+                            ev = result_q.get_nowait()
+                            yield f"data: {json.dumps(ev)}\n\n"
+                            drained += 1
+                            if ev.get("type") in ("done","error"):
+                                return
+                        except Exception:
+                            break
+                    # Worker done and queue drained — send done if not already sent
+                    yield f"data: {json.dumps({'type':'done','text':'Download complete'})}\n\n"
+                    return
+                # Still running — heartbeat every 8s
+                now = _time.time()
+                if now - last_heartbeat > 8:
+                    yield f"data: {json.dumps({'type':'progress','text':'Downloading… (yt-dlp running)'})}\n\n"
+                    last_heartbeat = now
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
+
+
+@app.route("/api/video-meta", methods=["POST"])
+def api_video_meta():
+    """Extract uploader/description from a local video via yt-dlp --dump-json."""
     data = request.json or {}
     path = data.get("path","").strip()
     if not path or not os.path.isfile(path):
+        return jsonify({})
+    try:
+        from gui.runner import _find_bin
+        r = subprocess.run(
+            [_find_bin("yt-dlp"), "--dump-json", "--no-warnings", "--quiet", path],
+            capture_output=True, text=True, timeout=10
+        )
+        import json as _j
+        info = _j.loads(r.stdout.strip().splitlines()[0]) if r.stdout.strip() else {}
+        creator = info.get("uploader") or info.get("channel") or info.get("uploader_id","")
+        desc    = info.get("description") or info.get("title","")
+        return jsonify({"creator": creator, "desc": desc[:120] if desc else ""})
+    except Exception:
+        return jsonify({})
+
+@app.route("/api/extract-thumb", methods=["POST"])
+def api_extract_thumb():
+    """Return thumbnail for a local video — checks yt-dlp output first, then ffmpeg."""
+    import glob as _g
+    data = request.json or {}
+    path = data.get("path","").strip()
+    if not path:
         return jsonify({"thumb":""})
-    # Save thumb next to video file
-    thumb_path = os.path.splitext(path)[0] + "_thumb.jpg"
-    if not os.path.exists(thumb_path):
-        import subprocess as _sp
+
+    base = os.path.splitext(path)[0]
+
+    # 1. yt-dlp writes thumbnail as <base>.jpg alongside the video — check first
+    for ext in (".jpg", ".jpeg", ".webp", ".png"):
+        candidate = base + ext
+        if os.path.isfile(candidate):
+            # Convert webp → jpg if needed
+            if candidate.endswith(".webp"):
+                jpg = base + ".jpg"
+                try:
+                    import subprocess as _sp
+                    _sp.run([_find_bin("ffmpeg"), "-y", "-i", candidate, jpg],
+                            capture_output=True, timeout=10)
+                    if os.path.isfile(jpg):
+                        return jsonify({"thumb": jpg})
+                except Exception:
+                    pass
+            return jsonify({"thumb": candidate})
+
+    # 2. Fallback: extract first frame with ffmpeg
+    if not os.path.isfile(path):
+        return jsonify({"thumb": ""})
+    thumb_path = base + "_thumb.jpg"
+    if not os.path.isfile(thumb_path):
         try:
+            import subprocess as _sp
             _sp.run([
                 _find_bin("ffmpeg"), "-y", "-i", path,
-                "-ss","00:00:01", "-vframes","1",
-                "-vf","scale=320:-1",
+                "-ss", "00:00:00.5", "-vframes", "1",
+                "-vf", "scale=320:-1",
                 thumb_path
-            ], capture_output=True, timeout=15)
+            ], capture_output=True, timeout=20)
         except Exception:
-            return jsonify({"thumb":""})
-    if os.path.exists(thumb_path):
+            return jsonify({"thumb": ""})
+    if os.path.isfile(thumb_path):
         return jsonify({"thumb": thumb_path})
-    return jsonify({"thumb":""})
+    return jsonify({"thumb": ""})
 
 
 @app.route("/api/serve-thumb")
@@ -1713,9 +1969,14 @@ def api_serve_thumb():
     if not path: abort(400)
     path = os.path.abspath(path)
     home = os.path.expanduser("~")
-    if not path.startswith(home): abort(403)
+    from utils.dirs import DIR_DOWNLOADS
+    dl_base = os.path.abspath(DIR_DOWNLOADS)
+    if not (path.startswith(home) or path.startswith(dl_base)):
+        abort(403)
     if not os.path.isfile(path): abort(404)
-    return send_file(path, mimetype="image/jpeg")
+    import mimetypes as _mt
+    mime, _ = _mt.guess_type(path)
+    return send_file(path, mimetype=mime or "image/jpeg")
 
 
 @app.route("/api/serve-video")
@@ -1727,9 +1988,10 @@ def api_serve_video():
     if not path:
         abort(400)
     path = os.path.abspath(path)
-    # Security: must be under the user's home dir or Videos folder
     home = os.path.expanduser("~")
-    if not path.startswith(home):
+    from utils.dirs import DIR_DOWNLOADS
+    dl_base = os.path.abspath(DIR_DOWNLOADS)
+    if not (path.startswith(home) or path.startswith(dl_base)):
         abort(403)
     if not os.path.isfile(path):
         # path might be a folder — find first video file in it
@@ -2003,3 +2265,156 @@ def start(port: int = 7331, open_browser: bool = True):
     print(f"\n  EditorSuite GUI  →  http://127.0.0.1:{port}")
     print(f"  Press Ctrl+C to stop.\n")
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True, use_reloader=False)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# TIKTOK SYNC
+# ────────────────────────────────────────────────────────────────────────────
+@app.route("/api/tiktok-sync", methods=["POST"])
+def api_tiktok_sync():
+    """Fetch TikTok Favorites and Reposts using a session cookie."""
+    import urllib.request as _ur, json as _j
+    data    = request.json or {}
+    session = data.get("session","").strip()
+    if not session:
+        return jsonify({"error":"No session cookie provided"}), 400
+
+    hdrs = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Cookie": f"sessionid={session};",
+        "Referer": "https://www.tiktok.com/",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    def _fetch(endpoint):
+        try:
+            req  = _ur.Request(endpoint, headers=hdrs)
+            body = _j.loads(_ur.urlopen(req, timeout=15).read())
+            out  = []
+            for item in (body.get("itemList") or body.get("item_list") or [])[:30]:
+                video  = item.get("video") or {}
+                author = item.get("author") or {}
+                uid    = item.get("id","")
+                handle = author.get("uniqueId","")
+                thumb  = video.get("cover") or video.get("originCover") or ""
+                desc   = (item.get("desc") or "")[:120]
+                url    = f"https://www.tiktok.com/@{handle}/video/{uid}" if handle else ""
+                if url:
+                    out.append({"url":url,"desc":desc,"thumb":thumb,"creator":handle})
+            return out
+        except Exception:
+            return []
+
+    favorites = _fetch("https://www.tiktok.com/api/user/favorited_video/?count=30&cursor=0")
+    reposts   = _fetch("https://www.tiktok.com/api/user/repost/?count=30&cursor=0")
+    return jsonify({"favorites":favorites,"reposts":reposts})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# SCENE PACK SEARCH
+# ────────────────────────────────────────────────────────────────────────────
+@app.route("/api/scene-search")
+def api_scene_search():
+    import urllib.request as _ur, urllib.parse as _up, json as _j, re as _re
+    q   = request.args.get("q","").strip()
+    cat = request.args.get("cat","all").strip()
+    search_terms = " ".join(filter(None,[q,"" if cat=="all" else cat,"scene pack"]))
+    results = []
+
+    # 1. Try vlscenepacks.com
+    try:
+        qs   = _up.quote_plus(search_terms)
+        req  = _ur.Request("https://vlscenepacks.com/?s=" + qs,
+                           headers={"User-Agent":"Mozilla/5.0","Accept":"text/html"})
+        html = _ur.urlopen(req, timeout=12).read().decode("utf-8","replace")
+        link_pat = _re.compile(r'href=["\']([^"\']*/20[^"\']+)["\'](?:[^>]*)>')
+        name_pat = _re.compile(r'<h[^>]+>([^<]{4,80})</h')
+        img_pat  = _re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
+        link_matches = link_pat.findall(html)
+        name_matches = name_pat.findall(html)
+        img_matches  = img_pat.findall(html)
+        for i, link in enumerate(link_matches[:12]):
+            name  = name_matches[i].strip() if i < len(name_matches) else link.rstrip("/").split("/")[-1].replace("-"," ").title()
+            thumb = img_matches[min(i+1, len(img_matches)-1)] if img_matches else ""
+            tags  = [t for t in [q, cat] if t and t != "all"]
+            results.append({"name": _re.sub(r"<[^>]+>","",name).strip(),
+                             "url": link, "thumb": thumb, "download": link, "tags": tags})
+    except Exception:
+        pass
+    # 2. Fallback: YouTube
+    if len(results) < 4:
+        try:
+            from gui.runner import _find_bin
+            _nw = {"creationflags":0x08000000} if os.name=="nt" else {}
+            r = subprocess.run(
+                [_find_bin("yt-dlp"), f"ytsearch8:{search_terms}",
+                 "--dump-json","--flat-playlist","--no-warnings","--quiet"],
+                capture_output=True, text=True, timeout=18, **_nw
+            )
+            for line in r.stdout.splitlines():
+                if not line.strip(): continue
+                try:
+                    info  = _j.loads(line)
+                    thumb = info.get("thumbnail","") or ""
+                    url   = info.get("webpage_url","") or f"https://youtube.com/watch?v={info.get('id','')}"
+                    results.append({"name":info.get("title","Scene Pack"),
+                                     "url":url,"thumb":thumb,"download":url,
+                                     "tags":[t for t in [q,cat] if t and t!="all"],
+                                     "source":"YouTube"})
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    return jsonify({"results":results[:12]})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# COMMUNITY COLLECTIONS
+# ────────────────────────────────────────────────────────────────────────────
+@app.route("/api/community", methods=["GET","POST"])
+def api_community():
+    import urllib.request as _ur, urllib.parse as _up, json as _j
+    cfg      = load_config()
+    base_url = (cfg.get("auth_url","") or "").rstrip("/")
+    anon_key = cfg.get("supabase_anon_key","")
+
+    DEMO = {
+        "presets":    [{"name":"Smooth LUT Pack","type":"presets","author":"EditorSuite","desc":"10 cinematic LUTs for TikTok edits","verified":True,"url":"https://vlscenepacks.com","download":"https://vlscenepacks.com","thumb":""}],
+        "songs":      [{"name":"Phonk Essentials Vol.1","type":"songs","author":"community","desc":"Top trending phonk sounds for edits","verified":False,"url":"","download":"","thumb":""}],
+        "characters": [{"name":"Anime Character Pack","type":"characters","author":"community","desc":"30 PNG anime characters with transparent backgrounds","verified":False,"url":"","download":"","thumb":""}],
+        "shows":      [{"name":"Breaking Bad Scenes","type":"shows","author":"community","desc":"High-quality scene pack — 50 clips","verified":False,"url":"","download":"","thumb":""}],
+    }
+
+    if request.method == "GET":
+        tab = request.args.get("tab","presets")
+        if not base_url:
+            return jsonify({"items":DEMO.get(tab,[])})
+        try:
+            req_url = f"{base_url}/rest/v1/community?tab=eq.{_up.quote(tab)}&order=created_at.desc&limit=50"
+            req  = _ur.Request(req_url, headers={"apikey":anon_key,"Accept":"application/json"})
+            rows = _j.loads(_ur.urlopen(req,timeout=10).read())
+            return jsonify({"items":rows or DEMO.get(tab,[])})
+        except Exception as e:
+            return jsonify({"items":DEMO.get(tab,[]),"note":str(e)})
+
+    # POST
+    data  = request.json or {}
+    token = data.get("token","")
+    tab   = data.get("tab","presets")
+    value = data.get("value","").strip()
+    if not value:
+        return jsonify({"ok":False,"error":"No content"}), 400
+    if not base_url:
+        return jsonify({"ok":True,"note":"No cloud backend — stored locally"})
+    try:
+        payload = _j.dumps({"tab":tab,"name":value,"url":value,"download":value,
+                             "desc":"","author":"user","verified":False}).encode()
+        req = _ur.Request(f"{base_url}/rest/v1/community", data=payload, method="POST",
+            headers={"apikey":anon_key,"Authorization":f"Bearer {token}",
+                     "Content-Type":"application/json","Prefer":"return=minimal"})
+        _ur.urlopen(req, timeout=10)
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"ok":False,"error":str(e)}), 500
+

@@ -5,11 +5,14 @@ Scrapes TikTok hashtag + search pages for trending sounds.
 """
 import asyncio
 import os
-import time
 from datetime import datetime
 
-from ui import theme as _T
-from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line, get_stat, unwrap_item
+try:
+    from ui import theme as _T
+except ModuleNotFoundError:
+    class _T:  # noqa
+        BOLD=DIM=R=GREEN=YELLOW=RED=CYAN=MAGENTA=WHITE=BLUE=""
+from utils.helpers import ok, info, err, warn, divider, prompt, save, saved_in, back_to_menu, clear_line
 from utils.validator import validate_sounds
 from utils.html_report import save_sounds_report, _save_and_open
 from utils import dirs as _dirs
@@ -17,16 +20,9 @@ from core.browser import new_browser
 from core.filters import check_garbage, is_funk
 
 
-def _is_recent(ts: int, recent_seconds: int | None) -> bool:
-    if recent_seconds is None:
-        return True
-    return bool(ts) and (time.time() - ts) <= recent_seconds
-
-
 # ── Core scraper ──────────────────────────────────────────────────────────────
 
-async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
-                        recent_days: int | None = None) -> tuple[int, dict]:
+async def scrape_sounds(hashtag: str, target: int, progress_cb=None) -> tuple[int, dict]:
     """
     Dual-source scrape: hashtag page + search page.
     Returns (videos_seen_count, sounds_dict).
@@ -35,10 +31,8 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
 
     sounds     = {}
     seen       = set()
-    count_seen = 0
     new_sounds = []
     printed    = 0
-    recent_seconds = None if recent_days is None else int(recent_days) * 86400
 
     def _parse_desc_sound(desc: str) -> tuple[str, str]:
         """
@@ -96,29 +90,17 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
         return "", ""
 
     def _ingest(items):
-        nonlocal count_seen
         for item in items:
-            item = unwrap_item(item)
+            if isinstance(item, dict) and "item" in item:
+                item = item["item"]
             vid = str(item.get("id") or "")
             if not vid or vid in seen:
                 return
             seen.add(vid)
-            ts = int(item.get("createTime") or 0)
-            if not _is_recent(ts, recent_seconds):
-                continue
-            count_seen += 1
             m   = item.get("music") or {}
             t   = (m.get("title") or "").strip()
             a   = (m.get("authorName") or m.get("author") or "").strip()
             mid = str(m.get("id") or t or "unknown")
-            aobj = item.get("author") or {}
-            author_user = ""
-            if isinstance(aobj, dict):
-                author_user = (aobj.get("uniqueId") or aobj.get("unique_id") or
-                               aobj.get("id") or aobj.get("nickname") or "")
-            if not author_user:
-                author_user = str(item.get("authorName") or "")
-            post_url = f"https://www.tiktok.com/@{author_user}/video/{vid}" if author_user and vid else ""
 
             # If the music metadata is generic, try scraping the description
             _generic = {"original sound", "оригинальный звук", "son original",
@@ -135,18 +117,9 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
             if is_new:
                 sounds[mid] = {
                     "title": t, "author": a, "count": 0,
-                    "views_sum": 0, "views_n": 0,
-                    "views": 0, "avg_views": 0,
-                    "post_url": post_url,
                     "reason": check_garbage(t, a), "funk": is_funk(t),
                 }
             sounds[mid]["count"] += 1
-            if post_url and not sounds[mid].get("post_url"):
-                sounds[mid]["post_url"] = post_url
-            v = get_stat(item, "playCount", "play_count", "viewCount", "view_count", "views")
-            if v >= 0:
-                sounds[mid]["views_sum"] += int(v)
-                sounds[mid]["views_n"] += 1
             if is_new and not sounds[mid]["reason"]:
                 new_sounds.append(sounds[mid])
 
@@ -163,21 +136,18 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
             printed += 1
 
     def _status(phase: str):
-        print(f"  {count_seen}/{target} videos  |  {_T.GREEN}{len(new_sounds)}{_T.R} songs  "
+        print(f"  {len(seen)}/{target} videos  |  {_T.GREEN}{len(new_sounds)}{_T.R} songs  "
               f"{_T.DIM}[{phase}]{_T.R}", end="\r", flush=True)
 
-    async def _scroll_until_stale(page, label: str, max_stale: int = 5):
-        import random
+    async def _scroll_until_stale(page, label: str, max_stale: int = 8):
         stale = 0
-        while count_seen < target and stale < max_stale:
+        while len(seen) < target and stale < max_stale:
             _flush_print()
             _status(label)
-            if progress_cb: progress_cb(count_seen, target)
+            if progress_cb: progress_cb(len(seen), target)
             prev_h = await page.evaluate("document.body.scrollHeight")
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
-            await asyncio.sleep(0.3 + random.random() * 0.2)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(1.6 + random.random() * 0.8)
+            await asyncio.sleep(2.0)
             new_h = await page.evaluate("document.body.scrollHeight")
             stale = stale + 1 if new_h == prev_h else 0
 
@@ -187,55 +157,66 @@ async def scrape_sounds(hashtag: str, target: int, progress_cb=None,
     info(f"Scanning #{hashtag}...")
 
     async with async_playwright() as pw:
-        # Single persistent browser for both phases — reusing the same context
-        # means TikTok sees a returning user with cookies, not a fresh bot.
+        # Phase 1: hashtag page (~280 video cap)
         browser, ctx = await new_browser(pw, mute=True)
 
-        def _make_tag_handler():
-            async def on_resp(response):
-                if "item_list" not in response.url:
+        async def on_resp_tag(response):
+            if "item_list" not in response.url:
+                return
+            try:
+                body  = await response.json()
+                items = body.get("itemList") or body.get("ItemList") or []
+                _ingest(items)
+            except Exception:
+                pass
+
+        page = await ctx.new_page()
+        page.on("response", on_resp_tag)
+        try:
+            await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
+                            wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(2)
+            await _scroll_until_stale(page, "hashtag page")
+        except Exception:
+            pass
+        await browser.close()
+        _flush_print()
+
+        # Phase 2: search page — different API, no 280-cap
+        if len(seen) < target:
+            browser, ctx = await new_browser(pw, mute=True)
+
+            async def on_resp_search(response):
+                if "/api/search/" not in response.url:
                     return
                 try:
                     body  = await response.json()
-                    items = body.get("itemList") or body.get("ItemList") or []
+                    items = (body.get("data") or body.get("itemList") or
+                             body.get("ItemList") or [])
                     _ingest(items)
                 except Exception:
                     pass
-            return on_resp
 
-        try:
-            # Single page, scroll hard — phase 2 dropped entirely.
-            # Opening a second tab for the same hashtag returns heavily overlapping
-            # videos (same API, same ranking), so it just burns time re-scanning
-            # videos the seen-set will immediately discard anyway.
-            pages = ctx.pages
-            page = pages[0] if pages else await ctx.new_page()
-            page.on("response", _make_tag_handler())
+            page2 = await ctx.new_page()
+            page2.on("response", on_resp_search)
             try:
-                await page.goto(f"https://www.tiktok.com/tag/{hashtag}",
-                                wait_until="domcontentloaded", timeout=30000)
+                import urllib.parse as _up
+                q = _up.quote(f"#{hashtag}")
+                await page2.goto(f"https://www.tiktok.com/search/video?q={q}",
+                                 wait_until="domcontentloaded", timeout=30000)
                 await asyncio.sleep(2)
-                await _scroll_until_stale(page, "scrolling")
+                await _scroll_until_stale(page2, "search page", max_stale=12)
             except Exception:
                 pass
-            _flush_print()
-            await page.close()
-
-        finally:
             await browser.close()
+            _flush_print()
 
-    # Finalize view metrics for GUI/HTML consumers
-    for s in sounds.values():
-        if s.get("views_n"):
-            s["views"] = int(s.get("views_sum", 0))
-            s["avg_views"] = int(s["views_sum"] / s["views_n"])
     clear_line()
-    return count_seen, sounds
+    return len(seen), sounds
 
 
-async def scrape_for_spotify(hashtag: str, videos: int, progress_cb=None,
-                             recent_days: int | None = None) -> tuple[int, dict]:
-    return await scrape_sounds(hashtag, videos, progress_cb=progress_cb, recent_days=recent_days)
+async def scrape_for_spotify(hashtag: str, videos: int, progress_cb=None) -> tuple[int, dict]:
+    return await scrape_sounds(hashtag, videos, progress_cb=progress_cb)
 
 
 # ── Download helper ───────────────────────────────────────────────────────────
@@ -332,7 +313,7 @@ def tool_scraper():
     except: top_n  = 50
 
     print()
-    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos, recent_days=30))
+    scanned, sounds = asyncio.run(scrape_sounds(hashtag, videos))
     all_s   = sorted(sounds.values(), key=lambda x: x["count"], reverse=True)
     kept    = [s for s in all_s if not s["reason"]]
     removed = [s for s in all_s if s["reason"]]
